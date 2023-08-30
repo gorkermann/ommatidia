@@ -1,0 +1,1 @@
+cp /home/graham/Dropbox/eigenbloom/juego/*.ts lib/juego/

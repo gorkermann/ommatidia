@@ -1,0 +1,5 @@
+/build
+/node_modules
+/lib
+/lib/juego
+/package-lock.json
