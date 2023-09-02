@@ -15,7 +15,7 @@ import { Vec2 } from './lib/juego/Vec2.js'
 import { Bullet } from './Bullet.js'
 import { Coin } from './Coin.js'
 import { Player } from './Player.js'
-import { renderFromEye } from './render.js'
+import { renderFromEye, renderRays } from './render.js'
 
 import { RollBoss } from './RollBoss.js' 
 
@@ -361,7 +361,8 @@ export class Level extends Scene {
 			}
 
 			if ( Keyboard.keyHit( KeyCode.X ) ) {
-				let bullet = new Bullet( this.player.pos.copy(), new Vec2( 0, -2 ) );
+				let bullet = new Bullet( this.player.pos.copy(), new Vec2( 0, -10 ) );
+				bullet.material.hue = 90;
 
 				this.em.insert( [bullet] );
 			}
@@ -503,56 +504,55 @@ export class Level extends Scene {
 	}
 
 	draw( context: CanvasRenderingContext2D ) {
+		let origin = this.player.pos.plus(
+				new Vec2( this.player.width / 2, this.player.height / 4 ) );
+
+		let ir = 100;
+		let or = 120;
+
+		let count = this.sliceCount;
+		let slices: Array<number> = [];
+		let cursorDir = this.cursorPos.minus( new Vec2( 200, 200 ) ).normalize();
+		let defaultSlice = Math.PI * 2 / count;
+
+		for ( let i = 0; i < count; i++ ) {
+			let angle = defaultSlice * i;
+
+			let dir = new Vec2( Math.cos( angle ), Math.sin( angle ) );
+
+			if ( true || dir.dot( cursorDir ) > 0.7 ) {
+				slices.push( defaultSlice / 4 );
+				slices.push( defaultSlice / 4 );
+				slices.push( defaultSlice / 4 );
+				slices.push( defaultSlice / 4 );				
+			} else if ( dir.dot( cursorDir ) > 0 ) {
+				slices.push( defaultSlice / 2 );
+				slices.push( defaultSlice / 2 );
+			} else {
+				slices.push( defaultSlice );
+			}
+		}
+
+		let angle = 0;
+
+		let shapes = this.grid.shapes.concat();
+		for ( let entity of this.em.entities ) {
+			if ( entity != this.player ) {
+				shapes.push( ...entity.getShapes() );
+			}
+		}
+
+		// draw 2D
 		if ( Debug.flags.DRAW_NORMAL ) {
 			context.save();
 				this.grid.draw( context );	
 				this.em.draw( context );
+			
+				renderRays( context, shapes, origin, slices );
 			context.restore();
+
+		// draw from eye
 		} else {
-			context.lineWidth = 1;
-			context.strokeStyle = 'black';
-
-			context.fillStyle = 'black';
-			//context.fillRect( this.cursorPos.x, this.cursorPos.y, 2, 2 );
-
-			let origin = this.player.pos.plus(
-					new Vec2( this.player.width / 2, this.player.height / 4 ) );
-
-			let ir = 100;
-			let or = 120;
-
-			let count = this.sliceCount;
-			let slices: Array<number> = [];
-			let cursorDir = this.cursorPos.minus( new Vec2( 200, 200 ) ).normalize();
-			let defaultSlice = Math.PI * 2 / count;
-
-			for ( let i = 0; i < count; i++ ) {
-				let angle = defaultSlice * i;
-
-				let dir = new Vec2( Math.cos( angle ), Math.sin( angle ) );
-
-				if ( true || dir.dot( cursorDir ) > 0.7 ) {
-					slices.push( defaultSlice / 4 );
-					slices.push( defaultSlice / 4 );
-					slices.push( defaultSlice / 4 );
-					slices.push( defaultSlice / 4 );				
-				} else if ( dir.dot( cursorDir ) > 0 ) {
-					slices.push( defaultSlice / 2 );
-					slices.push( defaultSlice / 2 );
-				} else {
-					slices.push( defaultSlice );
-				}
-			}
-
-			let angle = 0;
-
-			let shapes = this.grid.shapes.concat();
-			for ( let entity of this.em.entities ) {
-				if ( entity != this.player ) {
-					shapes.push( ...entity.getShapes() );
-				}
-			}
-
 			context.save();
 				context.translate( 200, 200 );
 				renderFromEye( context, shapes, origin, slices, or, ir );

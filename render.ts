@@ -35,19 +35,31 @@ function shapecast( line: Line, shapes: Array<Shape> ): RayHit | null {
 	} else {
 		return null;
 	}	
-} 
+}
 
-export function renderFromEye( context: CanvasRenderingContext2D, 
-							   shapes: Array<Shape>,
-							   origin: Vec2,
-							   slices: Array<number>,
-							   or: number, ir: number ) {
+class SliceInfo {
+	angle: number;
+	slice: number;
+	hit: RayHit;
+	hitDist: number;
+
+	constructor( angle: number, slice: number, hit: RayHit, hitDist: number ) {
+		this.angle = angle;
+		this.slice = slice;
+		this.hit = hit;
+		this.hitDist = hitDist;
+	}
+}
+
+function getHits( shapes: Array<Shape>,
+				  origin: Vec2,
+				  slices: Array<number> ): Array<SliceInfo> {
+	let output: Array<SliceInfo> = [];
+
 	let angle = 0;
 
 	for ( let slice of slices ) {
 		angle += slice / 2;
-
-		let dir = new Vec2( Math.cos( angle ), Math.sin( angle ) );
 
 		let hit = shapecast( new Line( origin.x, origin.y,
 									   origin.x + Math.cos( angle ) * 1000, 
@@ -55,7 +67,137 @@ export function renderFromEye( context: CanvasRenderingContext2D,
 		let hitDist = -1;
 		if ( hit !== null ) {
 			hitDist = hit.point.minus( origin ).length();
+		
+			output.push( new SliceInfo( angle, slice, hit, hitDist ) );
+
+		} else {
+			output.push( null );
 		}
+
+		angle += slice / 2;
+	}
+
+	return output;
+}
+
+export function renderRays( context: CanvasRenderingContext2D, 
+						    shapes: Array<Shape>,
+						    origin: Vec2,
+						    slices: Array<number> ) {
+	
+	let sliceInfos = getHits( shapes, origin, slices );
+
+	for ( let sliceInfo of sliceInfos ) {
+		if ( !sliceInfo ) continue;
+
+		context.strokeStyle = 'black';
+		context.lineWidth = 1;
+		context.beginPath();
+		context.moveTo( origin.x, origin.y );
+		context.lineTo( sliceInfo.hit.point.x, sliceInfo.hit.point.y );
+		context.stroke();
+
+		let n = sliceInfo.hit.point.plus( sliceInfo.hit.normal.times( 10 ) );
+
+		context.strokeStyle = 'blue';
+		context.lineWidth = 1;
+		context.beginPath();
+		context.moveTo( sliceInfo.hit.point.x, sliceInfo.hit.point.y );
+		context.lineTo( n.x, n.y );
+		context.stroke();
+	}
+}
+
+let warnCos = -Math.cos( Math.PI * 15 / 180 );
+let warnRadius = 200; // pixels
+let binSize = 40;
+let minPeriod = 400; // milliseconds
+
+export function renderFromEye( context: CanvasRenderingContext2D, 
+							   shapes: Array<Shape>,
+							   origin: Vec2,
+							   slices: Array<number>,
+							   or: number, ir: number ) {
+	
+	let sliceInfos = getHits( shapes, origin, slices );
+
+	for ( let i = 0; i < sliceInfos.length; i++ ) {
+		if ( !sliceInfos[i] ) continue;
+
+		let angle = sliceInfos[i].angle;
+		let slice = sliceInfos[i].slice;
+		let hit = sliceInfos[i].hit;
+		let hitDist = sliceInfos[i].hitDist;
+
+		context.globalAlpha = 1 / ( Math.sqrt( hitDist ) / 3 );
+		//context.globalAlpha = 1 / ( hitDist / 20 );
+
+		let dir = new Vec2( Math.cos( angle ), Math.sin( angle ) );
+
+		let prevHit = sliceInfos[(i + sliceInfos.length - 1) % sliceInfos.length];
+		let nextHit = sliceInfos[(i + 1) % sliceInfos.length];
+
+		if ( prevHit === null || nextHit === null || 
+			 prevHit.hit.normal.dot( hit.normal ) < 0.866 ||
+			 nextHit.hit.normal.dot( hit.normal ) < 0.866 ) {
+
+			//hit.material.lum *= 0.8;
+		}
+
+		if ( hit.vel && hit.vel.unit().dot( dir ) < warnCos && hitDist < warnRadius ) {
+			let period = ( Math.floor( hitDist / binSize ) + 1 ) * minPeriod;
+
+			let warn = ( ( new Date().getTime() % period ) / period ) * Math.PI * 2;
+
+			hit.material.hue += Math.sin( warn ) * 16 - 8;
+			hit.material.lum += Math.sin( warn ) / 10;
+		}
+
+		context.fillStyle = hit.material.getFillStyle();
+
+		context.beginPath();
+		context.moveTo( Math.cos( angle - slice / 2 ) * ir, Math.sin( angle - slice / 2 ) * ir );
+		context.lineTo( Math.cos( angle - slice / 2 ) * or, Math.sin( angle - slice / 2 ) * or );
+		context.lineTo( Math.cos( angle + slice / 2 ) * or, Math.sin( angle + slice / 2 ) * or );
+		context.lineTo( Math.cos( angle + slice / 2 ) * ir, Math.sin( angle + slice / 2 ) * ir );
+		context.fill();
+		
+		context.globalAlpha = 1.0;
+	}
+
+	/*context.strokeStyle = 'black';
+	context.lineWidth = 1;
+	context.globalAlpha = 0.2;
+
+	for ( let i = 0; i < sliceInfos.length; i++ ) {
+		if ( !sliceInfos[i] ) continue;
+
+		let angle = sliceInfos[i].angle;
+		let slice = sliceInfos[i].slice;
+		let hit = sliceInfos[i].hit;
+		let hitDist = sliceInfos[i].hitDist;
+		let prevHit = sliceInfos[(i + sliceInfos.length - 1) % sliceInfos.length];
+		let nextHit = sliceInfos[(i + 1) % sliceInfos.length];
+
+		if ( prevHit === null || 
+			 prevHit.hit.normal.dot( hit.normal ) < 0.866 ) {
+
+			context.beginPath();
+			context.moveTo( Math.cos( angle - slice / 2 ) * ir, Math.sin( angle - slice / 2 ) * ir );
+			context.lineTo( Math.cos( angle - slice / 2 ) * or, Math.sin( angle - slice / 2 ) * or );
+			context.stroke();
+		}
+
+		if ( nextHit === null || 
+			 nextHit.hit.normal.dot( hit.normal ) < 0.866 ) {
+
+			context.beginPath();
+			context.moveTo( Math.cos( angle + slice / 2 ) * ir, Math.sin( angle + slice / 2 ) * ir );
+			context.lineTo( Math.cos( angle + slice / 2 ) * or, Math.sin( angle + slice / 2 ) * or );
+			context.stroke();
+		}
+	}
+	context.globalAlpha = 1.0;*/
 
 		/*let redness = 0;
 
@@ -79,54 +221,6 @@ export function renderFromEye( context: CanvasRenderingContext2D,
 			}
 		}
 		if ( redness > 1.0 ) redness = 1.0;*/
-
-		if ( hit !== null ) {
-			/*context.beginPath();
-			context.moveTo( origin.x, origin.y );
-			context.lineTo( hit.point.x, hit.point.y );
-			context.stroke();
-			*/
-
-			context.globalAlpha = 1 / ( Math.sqrt( hitDist ) / 3 );
-			//context.globalAlpha = 1 / ( hitDist / 20 );
-
-			if ( hit.vel && hit.vel.unit().dot( dir ) < -0.966 && hitDist < 200 ) {
-				let bin = Math.floor( hitDist / 20 ) + 1;
-
-				let warn = new Date().getTime() % ( bin * 200 ) / ( bin * 200 ) * Math.PI * 2;
-
-				hit.material.hue += Math.sin( warn ) * 16 - 8;
-				hit.material.lum += Math.sin( warn ) / 10;
-				//hit.material.lum %= 1;
-			}
-
-			context.fillStyle = hit.material.getFillStyle();
-
-			context.beginPath();
-			context.moveTo( Math.cos( angle - slice / 2 ) * ir, Math.sin( angle - slice / 2 ) * ir );
-			context.lineTo( Math.cos( angle - slice / 2 ) * or, Math.sin( angle - slice / 2 ) * or );
-			context.lineTo( Math.cos( angle + slice / 2 ) * or, Math.sin( angle + slice / 2 ) * or );
-			context.lineTo( Math.cos( angle + slice / 2 ) * ir, Math.sin( angle + slice / 2 ) * ir );
-			context.fill();
-			
-			context.globalAlpha = 1.0;
-
-			/*context.fillStyle = 'rgb(' + 255 + ', 0, 0)';
-			context.globalAlpha = redness;
-			context.save();
-				context.translate( 200, 200 );
-				context.beginPath();
-				context.moveTo( Math.cos( angle - slice / 2 ) * ir, Math.sin( angle - slice / 2 ) * ir );
-				context.lineTo( Math.cos( angle - slice / 2 ) * or, Math.sin( angle - slice / 2 ) * or );
-				context.lineTo( Math.cos( angle + slice / 2 ) * or, Math.sin( angle + slice / 2 ) * or );
-				context.lineTo( Math.cos( angle + slice / 2 ) * ir, Math.sin( angle + slice / 2 ) * ir );
-				context.fill();
-			context.restore();
-			context.globalAlpha = 1.0;*/
-		}
-
-		angle += slice / 2;
-	}
 }
 
 export function getDownsampled( canvas: HTMLCanvasElement, 
