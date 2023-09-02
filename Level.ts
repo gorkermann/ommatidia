@@ -166,6 +166,7 @@ export class Level extends Scene {
 
 				if ( index == 2 ) {
 					this.player = new Player( pos.copy() );
+					this.player.collisionGroup = 1;
 					this.em.insert( [this.player] );
 
 				} else if ( index == 3 ) {
@@ -174,6 +175,7 @@ export class Level extends Scene {
 
 				} else if ( index == 4 ) {
 					let boss = new RollBoss( pos.copy() );
+					boss.collisionGroup = 2;
 					this.em.insert( [boss] );
 				}
 			}
@@ -361,21 +363,49 @@ export class Level extends Scene {
 			}
 
 			if ( Keyboard.keyHit( KeyCode.X ) ) {
-				let bullet = new Bullet( this.player.pos.copy(), new Vec2( 0, -10 ) );
+				let bullet = new Bullet( 
+						this.player.pos.copy().plus( new Vec2( 0, -this.player.height ) ),
+						new Vec2( 0, -10 ) );
+				
 				bullet.material.hue = 90;
 
-				this.em.insert( [bullet] );
+				this.player.spawnEntity( bullet );
 			}
 		}
 
 		this.em.collide( this.grid );
-
 		this.em.update();
 
 		for ( let entity of this.em.entities ) {
 			if ( entity instanceof Coin ) {
 				if ( entity.overlaps( this.player ) ) {
 					entity.removeThis = true;
+				}
+			}
+
+			if ( entity != this.player ) {
+				entity.drawWireframe = false;
+
+				if ( entity.overlaps( this.player ) ) {
+					entity.drawWireframe = true;
+				}
+			}
+		}
+
+		for ( let entity of this.em.entities ) {
+			for ( let otherEntity of this.em.entities ) {
+				if ( !otherEntity.canOverlap( entity ) ) continue;
+
+				if ( entity.overlaps( otherEntity ) ) {
+					if ( entity instanceof Bullet && entity.collisionGroup == 1 ) {
+						console.log( 'a hit!' );
+
+						otherEntity.hitWith( entity );
+						entity.removeThis = true;
+					}
+					if ( entity == this.player ) {
+						console.log( 'ow!' );
+					}
 				}
 			}
 		}
@@ -409,11 +439,20 @@ export class Level extends Scene {
 
 		let boundary = 400;
 
-		if ( this.player.pos.x < -boundary ||
-			 this.player.pos.x > this.grid.hTiles * this.grid.tileWidth + boundary ||
-			 this.player.pos.y < -boundary ||
-			 this.player.pos.y > this.grid.vTiles * this.grid.tileWidth + boundary ) {
-			document.dispatchEvent( new CustomEvent( "death", {} ) );
+		for ( let entity of this.em.entities ) {
+			if ( entity == this.player || entity instanceof Bullet ) {
+				if ( entity.pos.x < -boundary ||
+					 entity.pos.x > this.grid.hTiles * this.grid.tileWidth + boundary ||
+					 entity.pos.y < -boundary ||
+					 entity.pos.y > this.grid.vTiles * this.grid.tileWidth + boundary ) {
+
+					if ( entity == this.player ) {
+						document.dispatchEvent( new CustomEvent( "death", {} ) );	
+					} else if ( entity instanceof Bullet ) {
+						entity.removeThis = true;
+					}
+				}
+			}
 		}
 
 		let t: string = this.player.pos.x + " " + this.player.vel.x + " " + this.player.collideLeft + " " + this.player.collideRight;
