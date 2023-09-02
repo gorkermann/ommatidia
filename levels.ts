@@ -4,7 +4,7 @@ export let levelDataList = [
 		height: 10,
 		tilewidth: 30,
 		tileheight: 30,
-		hue: Math.random() * 300 + 30,
+		hue: 30,
 
 		layers: [
 			{
@@ -31,7 +31,7 @@ export let levelDataList = [
 		height: 10,
 		tilewidth: 30,
 		tileheight: 30,
-		hue: Math.random() * 300 + 30,
+		hue: 60,
 
 		layers: [
 			{
@@ -58,7 +58,7 @@ export let levelDataList = [
 		height: 10,
 		tilewidth: 30,
 		tileheight: 30,
-		hue: Math.random() * 300 + 30,
+		hue: 90,
 
 		layers: [
 			{
@@ -67,7 +67,8 @@ export let levelDataList = [
 					[0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 					 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 					 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-					 1, 1, 1, 1, 0, 0, 1, 1, 1, 1]
+					 1, 1, 1, 1, 0, 0, 1, 1, 1, 1,
+					 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 			},
 			{
 				name: "spawn",
@@ -75,7 +76,8 @@ export let levelDataList = [
 					[0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 					 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 					 0, 2, 0, 0, 0, 0, 0, 0, 3, 0,
-					 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+					 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+					 0, 0, 0, 0,-1, 0, 0, 0, 0, 0]
 			}
 		],
 		drawNormal: true,
@@ -85,7 +87,33 @@ export let levelDataList = [
 		height: 10,
 		tilewidth: 30,
 		tileheight: 30,
-		hue: Math.random() * 300 + 30,
+		hue: 120,
+
+		layers: [
+			{
+				name: "collision",
+				data:  
+					[1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+					 1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+					 1, 0, 0, 0, 0, 1, 0, 0, 0, 0,
+					 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+			},
+			{
+				name: "spawn",
+				data:  
+					[0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+					 0, 0, 0, 0, 0, 0, 0, 0, 0, 3,
+					 0, 2, 0, 0, 0, 0, 0, 0, 0, 0,
+					 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+			}
+		]
+	},
+	{
+		width: 10,
+		height: 10,
+		tilewidth: 30,
+		tileheight: 30,
+		hue: 150,
 
 		layers: [
 			{
@@ -111,7 +139,7 @@ export let levelDataList = [
 		height: 10,
 		tilewidth: 30,
 		tileheight: 30,
-		hue: Math.random() * 300 + 30,
+		hue: 180,
 
 		layers: [
 			{
@@ -141,11 +169,63 @@ export let levelDataList = [
 		]
 	},
 	{
+		width: 10,
+		height: 10,
+		tilewidth: 30,
+		tileheight: 30,
+		hue: 210,
+
+		layers: [
+			{
+				name: "collision",
+				data:  
+					[0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+					 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+					 1, 0, 1, 0, 0, 1, 0, 0, 0, 1,
+					 0, 1, 0, 1, 1, 0, 0, 0, 0, 0]
+			},
+			{
+				name: "spawn",
+				data:  
+					[0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+					 2, 0, 0, 0, 0, 0, 0, 0, 0, 3,
+					 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+					 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+			}
+		]
+	},
+	{
+		width: 10,
+		height: 10,
+		tilewidth: 30,
+		tileheight: 30,
+		hue: 240,
+
+		layers: [
+			{
+				name: "collision",
+				data:  
+					[0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
+					 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+					 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+					 1, 0, 0, 0, 0, 0, 0, 0, 0, 1]
+			},
+			{
+				name: "spawn",
+				data:  
+					[0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+					 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+					 2, 0, 0, 0, 0, 0, 0, 0, 0, 3,
+					 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+			}
+		]
+	},
+	{
 		width: 5,
 		height: 16,
 		tilewidth: 30,
 		tileheight: 30,
-		hue: Math.random() * 300 + 30,
+		hue: 270,
 
 		layers: [
 			{
@@ -187,32 +267,6 @@ export let levelDataList = [
 					 0, 0, 0, 0, 0,
 					 0, 0, 3, 0, 0,
 					 0, 0, 0, 0, 0]
-			}
-		]
-	},
-	{
-		width: 10,
-		height: 10,
-		tilewidth: 30,
-		tileheight: 30,
-		hue: Math.random() * 300 + 30,
-
-		layers: [
-			{
-				name: "collision",
-				data:  
-					[0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-					 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-					 1, 0, 1, 0, 0, 1, 0, 1, 0, 1,
-					 0, 1, 0, 1, 1, 0, 0, 0, 1, 0]
-			},
-			{
-				name: "spawn",
-				data:  
-					[0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-					 2, 0, 0, 0, 0, 0, 0, 0, 0, 3,
-					 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-					 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 			}
 		]
 	},

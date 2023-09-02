@@ -1,12 +1,15 @@
-import { SessionManager } from "./lib/juego/SessionManager.js"
-import { Keyboard, KeyCode } from "./lib/juego/keyboard.js"
 import * as JuegoDebug from './lib/juego/Debug.js'
+import { Entity } from './lib/juego/Entity.js'
+import { Keyboard, KeyCode } from './lib/juego/keyboard.js'
+import { Material } from './lib/juego/Material.js'
+import { SessionManager } from './lib/juego/SessionManager.js'
+import { Vec2 } from './lib/juego/Vec2.js'
 
-import { TitleScene } from "./TitleScene.js"
-import { DeathScene } from "./DeathScene.js"
-
+import { DeathScene } from './DeathScene.js'
 import { Level } from './Level.js'
 import { levelDataList } from './levels.js'
+import { getDownsampled } from './render.js'
+import { TitleScene } from './TitleScene.js'
 
 import * as Debug from './Debug.js'
 
@@ -20,6 +23,12 @@ let context: CanvasRenderingContext2D = null;
 let levels: Array<Level> = [];
 let levelIndex = 0;
 
+let floaters: Array<Entity> = [];
+let startTime: number = 0;
+let hue: number = Math.random() * 360;
+
+title.floaters = floaters;
+
 for ( let i = 0; i < levelDataList.length; i++ ) {
 	levels.push( new Level( 'level' + i, levelDataList[i] ) );
 }
@@ -29,6 +38,8 @@ window.onload = function() {
 
 	canvas = document.getElementById( "canvas" ) as HTMLCanvasElement;
 	context = canvas.getContext( "2d" );
+
+	title.canvas = canvas;
 
 	manager.useCanvas( canvas );
 
@@ -157,8 +168,56 @@ let update = function() {
 
 	manager.update();
 
+	if ( new Date().getTime() - startTime > 1000 ) {
+		startTime = new Date().getTime();
+
+		let angle = Math.random() * Math.PI * 2;
+		let speed = Math.random() * 5 + 1;
+
+		let floater = new Entity( 200 + Math.cos( angle ) * 400, 200 + Math.sin( angle ) * 400,
+								  Math.random() * 80 + 10, Math.random() * 80 + 10 );
+
+		if ( floaters.length > 0 ) {
+			let deg = Math.PI / 180;
+			angle += Math.random() * deg*40  - deg*20;
+		}
+
+		floater.vel = new Vec2( -Math.cos( angle ) * speed, -Math.sin( angle ) * speed );
+		floater.material = new Material( hue, 1.0, 0.5 );
+
+		hue += Math.random() * 3 + 3;
+
+		floaters.push( floater );
+	}
+
+	for ( let floater of floaters ) {
+		floater.posX += floater.vel.x;
+		floater.posY += floater.vel.y;
+	}
+
+	for ( let i = floaters.length - 1; i >= 0; i-- ) {
+		if ( new Vec2( floaters[i].posX - 200, floaters[i].posY - 200 ).length() > 500 ) {
+			floaters.splice( i, 1 );
+		} 
+	}
+
 	context.clearRect( 0, 0, canvas.width, canvas.height );
 
+	// background
+	context.globalAlpha = 0.1;
+
+	for ( let floater of floaters ) {
+		floater.draw( context );
+	}
+
+	if ( canvas !== null ) {
+		let data = getDownsampled( canvas, context, 16 );
+		context.putImageData( data, 0, 0 );
+	}
+
+	context.globalAlpha = 1.0;
+
+	// scene
 	if ( manager.currentScene !== null ) {
 		// current level
 		manager.draw( context );

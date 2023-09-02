@@ -4,6 +4,8 @@ import { Keyboard, KeyCode } from "./lib/juego/keyboard.js"
 import { Text } from "./lib/juego/Menu.js"
 import { Color } from "./lib/juego/Colors.js"
 
+import { whiteText } from './render.js'
+
 export class DeathScene extends Scene {
 	name: string = "";
 	deaths: number = 0;
@@ -38,10 +40,7 @@ export class DeathScene extends Scene {
 	}
 
 	draw( context: CanvasRenderingContext2D ) {
-		context.fillStyle = 'black';
-		context.font = "10px Arial";
-
-		context.fillText( "Deaths: " + this.deaths, 100, 150 );
+		whiteText( context, "Deaths: " + this.deaths, 200, 200 );
 	}
 }
 

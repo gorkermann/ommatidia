@@ -1,19 +1,20 @@
-import { GridArea } from "./lib/juego/GridArea.js"
-import { AnimatedImage } from "./lib/juego/image.js"
-import { Entity } from "./lib/juego/Entity.js"
-import { EntityManager } from "./lib/juego/EntityManager.js"
-import { Keyboard, KeyCode } from "./lib/juego/keyboard.js"
-import { Line } from "./lib/juego/Line.js"
-import { Region } from "./lib/juego/Region.js"
-import { RayHit } from "./lib/juego/RayHit.js"
-import { Scene } from "./lib/juego/Scene.js"
-import { ScrollBox } from "./lib/juego/ScrollBox.js"
-import { Shape } from "./lib/juego/Shape.js"
-import { TileArray } from "./lib/juego/TileArray.js"
-import { Vec2 } from "./lib/juego/Vec2.js"
+import { Entity } from './lib/juego/Entity.js'
+import { EntityManager } from './lib/juego/EntityManager.js'
+import { GridArea } from './lib/juego/GridArea.js'
+import { Keyboard, KeyCode } from './lib/juego/keyboard.js'
+import { Line } from './lib/juego/Line.js'
+import { Material } from './lib/juego/Material.js'
+import { Region } from './lib/juego/Region.js'
+import { RayHit } from './lib/juego/RayHit.js'
+import { Scene } from './lib/juego/Scene.js'
+import { ScrollBox } from './lib/juego/ScrollBox.js'
+import { Shape } from './lib/juego/Shape.js'
+import { TileArray } from './lib/juego/TileArray.js'
+import { Vec2 } from './lib/juego/Vec2.js'
 
-import { Player } from "./Player.js"
-import { Coin } from "./Coin.js"
+import { Player } from './Player.js'
+import { Coin } from './Coin.js'
+import { renderFromEye } from './render.js'
 
 import * as Debug from './Debug.js'
 
@@ -62,6 +63,24 @@ class Quant {
 	}
 }
 
+type QueueFuncOptions = {
+	runOnClear?: boolean;
+}
+
+class QueueFunc {
+	func: () => boolean;
+	runOnClear: boolean = false;
+
+	constructor( func: () => boolean, options: QueueFuncOptions={} ) {
+		if ( options.runOnClear !== undefined ) this.runOnClear = options.runOnClear;
+
+		this.func = func;
+	}
+}
+
+let MODE_GRAVITY = 0;
+let MODE_SQUARE = 1;
+
 ///////////
 // LEVEL //
 ///////////
@@ -83,6 +102,8 @@ export class Level extends Scene {
 	cursorPos: Vec2 = new Vec2( 0, 0 );
 	data: any;
 
+	controlMode: number = MODE_GRAVITY;
+
 	// text box
 	textBox: Entity = new Entity( 0, 300, 400, 0 );
 	textBoxHeight: number = 50;//Quant = new Quant( 0, 0, 50, 2 );
@@ -91,7 +112,11 @@ export class Level extends Scene {
 	textIndex: number = 0;
 	speaker: Entity = null;
 
-	updateQueue: Array<() => boolean> = [];
+	tryCount: number = 0;
+	updateQueue: Array<QueueFunc> = [];
+
+	// eye
+	sliceCount: number = 45;
 
 	constructor( name: string, data: any ) {
 		super( name );
@@ -102,7 +127,7 @@ export class Level extends Scene {
 
 		this.data = data;
 
-		this.textBox.fillStyle = 'rgb(230, 230, 230)';
+		this.textBox.material = new Material( 0, 0, 0.92 );
 	}
 
 	load(): Promise<any> {
@@ -120,6 +145,8 @@ export class Level extends Scene {
 	}
 	
 	begin() {
+		this.tryCount += 1;
+
 		if ( this.data.drawNormal ) {
 			Debug.flags.DRAW_NORMAL = true;
 		} else {
@@ -143,7 +170,32 @@ export class Level extends Scene {
 
 		let coins = this.em.entities.filter( x => x instanceof Coin );
 
-		if ( this.name == 'level2' ) {
+		for (let c = 0; c <= this.grid.hTiles; c++ ) {
+			for (let r = 0; r <= this.grid.vTiles; r++ ) {
+				let index = this.grid.spawnLayer.get( r, c );
+
+				if ( index == -1 ) {
+					let player = this.player;
+					let coin = coins[0];
+
+					let region = new Region( c * this.grid.tileWidth, r * this.grid.tileHeight,
+											 this.grid.tileWidth * 2, this.grid.tileHeight );
+					if ( this.name == 'level2' ) {
+						region.update = function( this: Level) {
+							if ( region.overlaps( player ) ) {
+								this.queueText( coin, 'You found the pit! Go ahead, try again.' );
+							
+								region.removeThis = true;
+							}
+						}.bind( this );
+
+						this.em.insert( [region] );
+					}
+				}
+			}
+		}
+
+		if ( this.name == 'level2' && this.tryCount == 1 ) {
 			this.queueText( coins[0], 'Check it out!' );
 			this.queueText( this.player, 'Check what out?' );
 			this.queueText( coins[0], 'It\'s a bottomless pit!' );
@@ -151,23 +203,47 @@ export class Level extends Scene {
 			this.queueText( coins[0], 'Fine. You want something you\'ve never seen before?' );
 			this.queueText( this.player, 'Please.' );
 			this.queueText( coins[0], 'Okay, here goes.' );
-			this.updateQueue.push( function(): boolean {
+			this.queueSliceCount( 0 );
+			this.updateQueue.push( new QueueFunc( function(): boolean {
 				Debug.flags.DRAW_NORMAL = false;
 
 				return true;
-			} )
+			}, { runOnClear: true } ) );
 			this.queueText( this.player, 'Agh!' );
+			this.queueText( this.player, 'I\'m blind! And invisible!' );
 			this.queueText( this.player, 'What happened? Where am I?' );
+			this.queueSliceCount( 1 );
 			this.queueText( coins[0], 'You haven\'t moved. The pit\'s still there, too.' );
-			this.queueText( this.player, 'I can\'t see the pit either.' );
+			this.queueText( this.player, 'I can\'t see the pit either. All I see is a big V.' );
 			this.queueText( coins[0], 'I\'m sure you\'ll find it.' );
-			this.queueText( this.player, 'But where am I?' );
+			this.queueText( this.player, 'At the bottom of the V?' );
+			this.queueText( coins[0], 'No, you\'re at the bottom of the V.' );
+			this.queueText( this.player, 'That doesn\'t make any sense.' );
 			this.queueText( coins[0], 'Now, don\'t go having a crisis just because you can\'t see your own body.' );
+			this.queueText( coins[0], 'Perhaps I can clarify.' );
+			this.queueSliceCount( 2 );
+			this.queueText( coins[0], 'How\'s that?' );
+			this.queueText( this.player, 'The V is now a U. Great. I remain disembodied.' );
+			this.queueSliceCount( 3 );
 			this.queueText( coins[0], 'All you\'ve done is changed perspective.' );
+			this.queueSliceCount( 4 );
 			this.queueText( this.player, 'Yeah, from a bird\'s-eye view to a rat\'s-eye view...' );
+			this.queueSliceCount( 5 );
 			this.queueText( this.player, 'How do I get back to how it looked before?' );
-			this.queueText( coins[0], 'Wouldn\'t that be, ah, boring? Ha ha ha.' )
-			this.queueText( coins[0], 'If you must, you\'ll have to find all the other coins, I suppose. Have at it!' );
+			this.queueSliceCount( 6 );
+			this.queueText( coins[0], 'Wouldn\'t that be...boring? Ha ha ha.' )
+			this.queueSliceCount( 7 );
+			this.queueText( coins[0], 'If you must, you could start with finding all the other coins.' );
+			this.queueSliceCount( 45 );
+			this.queueText( coins[0], 'There\'s one now. Have at it!' );
+			this.queueText( coins[0], '...and don\'t forget about the pit!' );
+
+		} else if ( this.name == 'level2' && this.tryCount > 1 ) {
+			Debug.flags.DRAW_NORMAL = false;
+		}
+
+		if ( this.name == 'level3' && this.tryCount == 1 ) {
+			this.queueText( coins[0], 'You\'re on your own now. Good luck!' );
 		}
 	}
 
@@ -188,10 +264,21 @@ export class Level extends Scene {
 	update() {
 		// some animation is playing
 		if ( this.updateQueue.length > 0 ) {
-			let finished = this.updateQueue[0]();
+			let finished = this.updateQueue[0].func();
 
 			if ( finished ) {
 				this.updateQueue.shift();
+			}
+
+			if ( Keyboard.keyHit( KeyCode.Z ) ) {
+				for ( let entry of this.updateQueue ) {
+					if ( entry.runOnClear ) {
+						while( !entry.func() ) {
+
+						}
+					}
+				}
+				this.updateQueue = [];
 			}
 
 		// regular gameplay
@@ -201,42 +288,56 @@ export class Level extends Scene {
 	}
 
 	defaultUpdate() {
-		if ( Keyboard.keyHit( KeyCode.X ) ) {
-			this.grav.scale( -1 );
-		}
+		if ( this.controlMode == MODE_GRAVITY ) {
 
-		if ( !this.player.collideDown ) {
-			this.player.vel.y += this.grav.y;
-		}
+			// left/right
+			if ( Keyboard.keyHeld( KeyCode.LEFT ) && !this.player.collideLeft ) {
+				this.player.vel.x = -5;
+			}
 
-		//this.player.vel.setValues( 0, 0 );
+			if ( Keyboard.keyHeld( KeyCode.RIGHT ) && !this.player.collideRight ) {
+				this.player.vel.x = 5;
+			}
 
-		if ( Keyboard.keyHeld( KeyCode.LEFT ) && !this.player.collideLeft ) {
-			this.player.vel.x = -5;
-		}
+			// up/down
+			if ( this.player.collideDown ) {
+				this.player.jumpFrames = this.player.maxJumpFrames;
+			} else {
+				this.player.vel.y += this.grav.y;
+			}
 
-		if ( Keyboard.keyHeld( KeyCode.RIGHT ) && !this.player.collideRight ) {
-			this.player.vel.x = 5;
-		}
+			if ( Keyboard.keyHit( KeyCode.UP ) && !this.player.collideUp && this.player.collideDown ) {
+				this.player.jumping = true;
+			}
 
-		if ( this.player.collideDown ) {
-			this.player.jumpFrames = this.player.maxJumpFrames;
-		}
+			if ( Keyboard.keyHeld( KeyCode.UP ) && this.player.jumping && this.player.jumpFrames > 0 ) {
+				this.player.vel.y = -5;
+				this.player.jumpFrames -= 1;
 
-		if ( Keyboard.keyHit( KeyCode.UP ) && !this.player.collideUp && this.player.collideDown ) {
-			this.player.jumping = true;
-		}
+			} else {
+				this.player.jumping = false;
+			}
 
-		if ( Keyboard.keyHeld( KeyCode.UP ) && this.player.jumping && this.player.jumpFrames > 0 ) {
-			this.player.vel.y = -5;
-			this.player.jumpFrames -= 1;
+		} else if ( this.controlMode == MODE_SQUARE ) {
+			this.player.vel.setValues( 0, 0 );
 
-		} else {
-			this.player.jumping = false;
-		}
+			// left/right
+			if ( Keyboard.keyHeld( KeyCode.LEFT ) && !this.player.collideLeft ) {
+				this.player.vel.x = -5;
+			}
 
-		if ( Keyboard.keyHeld( KeyCode.DOWN ) && !this.player.collideDown ) {
-			//this.player.vel.y = 5;
+			if ( Keyboard.keyHeld( KeyCode.RIGHT ) && !this.player.collideRight ) {
+				this.player.vel.x = 5;
+			}
+			
+			// up/down
+			if ( Keyboard.keyHeld( KeyCode.UP ) && !this.player.collideUp ) {
+				this.player.vel.y = -5;
+			}
+
+			if ( Keyboard.keyHeld( KeyCode.DOWN ) && !this.player.collideDown ) {
+				this.player.vel.y = 5;
+			}
 		}
 
 		this.em.collide( this.grid );
@@ -262,7 +363,16 @@ export class Level extends Scene {
 			this.queueText( this.player, 'Is this all there is to it?' );
 			this.queueText( coins[0], 'This is just the first level. Are you bored already?' );
 			this.queueText( this.player, 'Whoa! Someone else is here. And yeah, I am kind of bored. Who are you?' );
-			this.queueText( coins[0], 'I\'m the last coin. Touch me and I\'ll show you something really cool.' );
+			this.queueText( coins[0], 'I\'m the last coin in this level. Touch me and I\'ll show you something really cool.' );
+		}
+
+		if ( coins.length == 1 && oldCoinCount > coins.length && this.name == 'level8' ) {
+			this.queueText( coins[0], 'Wow, you\'re almost there! I\'m so proud of you. To turn yourself back, press the D key.' );
+			this.updateQueue.push( new QueueFunc( function(): boolean {
+				Debug.flags.DRAW_NORMAL = false;
+
+				return true;
+			}, { runOnClear: true } ) );
 		}
 
 		if ( coins.length == 0 ) {
@@ -296,7 +406,8 @@ export class Level extends Scene {
 	openTextBoxAnim(): boolean {
 		this.textBox.height += 10;
 
-		if ( this.textBox.height >= this.textBoxHeight ) {
+		if ( this.textBox.height >= this.textBoxHeight ||
+			 Keyboard.keyHeld( KeyCode.RIGHT ) ) {
 			this.textBox.height = this.textBoxHeight;
 
 			return true;
@@ -317,7 +428,7 @@ export class Level extends Scene {
 				return false;
 			}
 		} else {
-			if ( Keyboard.keyHit( KeyCode.RIGHT ) ) {
+			if ( Keyboard.keyHeld( KeyCode.RIGHT ) ) {
 				this.textIndex = this.text.length;
 			}
 
@@ -328,7 +439,8 @@ export class Level extends Scene {
 	closeTextBoxAnim(): boolean {
 		this.textBox.height -= 10;
 
-		if ( this.textBox.height <= 0 ) {
+		if ( this.textBox.height <= 0 ||
+			 Keyboard.keyHeld( KeyCode.RIGHT ) ) {
 			this.textBox.height = 0;
 
 			return true;
@@ -338,7 +450,7 @@ export class Level extends Scene {
 	}
 
 	queueText( speaker: Entity, text: string ) {
-		this.updateQueue.push( function( this: Level ): boolean {
+		this.updateQueue.push( new QueueFunc( function( this: Level ): boolean {
 			this.textBox.height = 0;
 
 			this.speaker = speaker;
@@ -347,16 +459,26 @@ export class Level extends Scene {
 			this.textIndex = 0;
 
 			return true;
-		}.bind( this ) );
-		this.updateQueue.push( this.openTextBoxAnim.bind( this ) );
-		this.updateQueue.push( this.displayTextUpdate.bind( this ) );
-		this.updateQueue.push( function( this: Level ): boolean {
+		}.bind( this ) ) );
+		this.updateQueue.push( new QueueFunc( this.openTextBoxAnim.bind( this ) ) );
+		this.updateQueue.push( new QueueFunc( this.displayTextUpdate.bind( this ) ) );
+		this.updateQueue.push( new QueueFunc( function( this: Level ): boolean {
 			this.speaker = null;
 			this.text = '';
 
 			return true;
-		}.bind( this ) );
-		this.updateQueue.push( this.closeTextBoxAnim.bind( this ) );
+		}.bind( this ), { runOnClear: true } ) );
+		this.updateQueue.push( new QueueFunc( 
+			this.closeTextBoxAnim.bind( this ),
+			{ runOnClear: true } ) );
+	}
+
+	queueSliceCount( count: number ) {
+		this.updateQueue.push( new QueueFunc( function( this: Level ): boolean {
+			this.sliceCount = count;
+
+			return true;
+		}.bind( this ) ) );
 	}
 
 	draw( context: CanvasRenderingContext2D ) {
@@ -370,7 +492,7 @@ export class Level extends Scene {
 			context.strokeStyle = 'black';
 
 			context.fillStyle = 'black';
-			context.fillRect( this.cursorPos.x, this.cursorPos.y, 2, 2 );
+			//context.fillRect( this.cursorPos.x, this.cursorPos.y, 2, 2 );
 
 			let origin = new Vec2( this.player.posX + this.player.width / 2,
 								   this.player.posY + this.player.height / 4 );
@@ -378,7 +500,7 @@ export class Level extends Scene {
 			let ir = 100;
 			let or = 120;
 
-			let count = 45;
+			let count = this.sliceCount;
 			let slices: Array<number> = [];
 			let cursorDir = this.cursorPos.minus( new Vec2( 200, 200 ) ).normalize();
 			let defaultSlice = Math.PI * 2 / count;
@@ -405,94 +527,22 @@ export class Level extends Scene {
 
 			let shapes = this.grid.shapes.concat();
 			for ( let entity of this.em.entities ) {
-				if ( entity instanceof Coin ) {
-					let shape = Shape.makeRectangle( entity.posX, entity.posY, entity.width, entity.height );
-					shape.material = entity.fillStyle;
-
-					shapes.push( shape );
+				if ( entity != this.player ) {
+					shapes.push( entity.getShape() );
 				}
 			}
 
-			for ( let slice of slices ) {
-				angle += slice / 2;
-
-				let dir = new Vec2( Math.cos( angle ), Math.sin( angle ) );
-				let dot = dir.dot( cursorDir );
-
-				let hit = this.grid.shapecast( new Line( origin.x, origin.y,
-														 origin.x + Math.cos( angle ) * 1000, 
-														 origin.y + Math.sin( angle ) * 1000 ), shapes );
-				let hitDist = -1;
-				if ( hit !== null ) {
-					hitDist = hit.point.minus( origin ).length();
-				}
-
-				/*let redness = 0;
-
-				for ( let entity of this.em.entities ) {
-					if ( entity instanceof Coin ) {
-						let floaterPos = new Vec2( entity.posX, entity.posY );
-						let floaterDir = floaterPos.minus( origin ).normalize();
-						let floaterDist = floaterPos.minus( origin ).length();
-
-						if ( hit !== null && floaterDist > hitDist ) {
-							continue;
-						}
-
-						let floatDot = dir.dot( floaterDir );
-						if ( floatDot > 0.995 ) {
-							let intensity = ( floatDot - 0.995 ) / 0.1;
-							intensity *= 1 / ( floaterPos.minus( origin ).length() / 200 );
-
-							redness += intensity; 
-						}
-					}
-				}
-				if ( redness > 1.0 ) redness = 1.0;*/
-
-				if ( hit !== null ) {
-					/*context.beginPath();
-					context.moveTo( origin.x, origin.y );
-					context.lineTo( hit.point.x, hit.point.y );
-					context.stroke();
-					*/
-
-					context.fillStyle = hit.material;
-					context.globalAlpha = 1 / ( Math.sqrt( hitDist ) / 3 );
-					context.save();
-						context.translate( 200, 200 );
-						context.beginPath();
-						context.moveTo( Math.cos( angle - slice / 2 ) * ir, Math.sin( angle - slice / 2 ) * ir );
-						context.lineTo( Math.cos( angle - slice / 2 ) * or, Math.sin( angle - slice / 2 ) * or );
-						context.lineTo( Math.cos( angle + slice / 2 ) * or, Math.sin( angle + slice / 2 ) * or );
-						context.lineTo( Math.cos( angle + slice / 2 ) * ir, Math.sin( angle + slice / 2 ) * ir );
-						context.fill();
-					context.restore();
-					context.globalAlpha = 1.0;
-
-					/*context.fillStyle = 'rgb(' + 255 + ', 0, 0)';
-					context.globalAlpha = redness;
-					context.save();
-						context.translate( 200, 200 );
-						context.beginPath();
-						context.moveTo( Math.cos( angle - slice / 2 ) * ir, Math.sin( angle - slice / 2 ) * ir );
-						context.lineTo( Math.cos( angle - slice / 2 ) * or, Math.sin( angle - slice / 2 ) * or );
-						context.lineTo( Math.cos( angle + slice / 2 ) * or, Math.sin( angle + slice / 2 ) * or );
-						context.lineTo( Math.cos( angle + slice / 2 ) * ir, Math.sin( angle + slice / 2 ) * ir );
-						context.fill();
-					context.restore();
-					context.globalAlpha = 1.0;*/
-				}
-
-				angle += slice / 2;
-			}
+			context.save();
+				context.translate( 200, 200 );
+				renderFromEye( context, shapes, origin, slices, or, ir );
+			context.restore();
 		}
 
 		this.textBox.draw( context );
 
 		if ( this.text != '' ) {
 			if ( this.speaker !== null && this.textBox.height > 10 ) {
-				context.fillStyle = this.speaker.fillStyle;
+				context.fillStyle = this.speaker.material.getFillStyle();
 				context.fillRect( this.textBox.posX + 5,
 								  this.textBox.posY + 5,
 								  40,
@@ -532,6 +582,16 @@ export class Level extends Scene {
 					y += 15;
 				}
 			}
+		}
+
+		if ( this.updateQueue.length > 0 ) {
+			context.fillStyle = 'black';
+			context.fillRect( 400 - 36,
+				   			  400 - 16,
+				   			  32, 13 );
+			context.fillStyle = 'white';
+			context.fillText( 'Z: skip', 400 - 35,
+				   			  400 - 6 );
 		}
 	}
 }
