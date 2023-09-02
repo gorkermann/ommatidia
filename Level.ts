@@ -12,9 +12,12 @@ import { Shape } from './lib/juego/Shape.js'
 import { TileArray } from './lib/juego/TileArray.js'
 import { Vec2 } from './lib/juego/Vec2.js'
 
-import { Player } from './Player.js'
+import { Bullet } from './Bullet.js'
 import { Coin } from './Coin.js'
+import { Player } from './Player.js'
 import { renderFromEye } from './render.js'
+
+import { RollBoss } from './RollBoss.js' 
 
 import * as Debug from './Debug.js'
 
@@ -105,7 +108,7 @@ export class Level extends Scene {
 	controlMode: number = MODE_GRAVITY;
 
 	// text box
-	textBox: Entity = new Entity( 0, 300, 400, 0 );
+	textBox: Entity = new Entity( new Vec2( 0, 300 ), 400, 0 );
 	textBoxHeight: number = 50;//Quant = new Quant( 0, 0, 50, 2 );
 
 	text: string = '';
@@ -153,17 +156,25 @@ export class Level extends Scene {
 			Debug.flags.DRAW_NORMAL = false;
 		}
 
+		let pos: Vec2 = new Vec2();
+
 		for (let c = 0; c <= this.grid.hTiles; c++ ) {
 			for (let r = 0; r <= this.grid.vTiles; r++ ) {
 				let index = this.grid.spawnLayer.get( r, c );
 
+				pos.setValues( c * this.grid.tileWidth, r * this.grid.tileHeight );
+
 				if ( index == 2 ) {
-					this.player = new Player( c * this.grid.tileWidth, r * this.grid.tileHeight );
+					this.player = new Player( pos.copy() );
 					this.em.insert( [this.player] );
 
 				} else if ( index == 3 ) {
-					let coin = new Coin( c * this.grid.tileWidth, r * this.grid.tileHeight );
+					let coin = new Coin( pos.copy() );
 					this.em.insert( [coin] );
+
+				} else if ( index == 4 ) {
+					let boss = new RollBoss( pos.copy() );
+					this.em.insert( [boss] );
 				}
 			}
 		}
@@ -174,11 +185,13 @@ export class Level extends Scene {
 			for (let r = 0; r <= this.grid.vTiles; r++ ) {
 				let index = this.grid.spawnLayer.get( r, c );
 
+				pos.setValues( c * this.grid.tileWidth, r * this.grid.tileHeight );
+
 				if ( index == -1 ) {
 					let player = this.player;
 					let coin = coins[0];
 
-					let region = new Region( c * this.grid.tileWidth, r * this.grid.tileHeight,
+					let region = new Region( pos.copy(),
 											 this.grid.tileWidth * 2, this.grid.tileHeight );
 					if ( this.name == 'level2' ) {
 						region.update = function( this: Level) {
@@ -288,6 +301,14 @@ export class Level extends Scene {
 	}
 
 	defaultUpdate() {
+		if ( Keyboard.keyHit( KeyCode.A ) ) {
+			if ( this.controlMode == MODE_GRAVITY ) {
+				this.controlMode = MODE_SQUARE;
+			} else {
+				this.controlMode = MODE_GRAVITY;
+			}
+		}
+
 		if ( this.controlMode == MODE_GRAVITY ) {
 
 			// left/right
@@ -338,6 +359,12 @@ export class Level extends Scene {
 			if ( Keyboard.keyHeld( KeyCode.DOWN ) && !this.player.collideDown ) {
 				this.player.vel.y = 5;
 			}
+
+			if ( Keyboard.keyHit( KeyCode.X ) ) {
+				let bullet = new Bullet( this.player.pos.copy(), new Vec2( 0, -2 ) );
+
+				this.em.insert( [bullet] );
+			}
 		}
 
 		this.em.collide( this.grid );
@@ -381,22 +408,16 @@ export class Level extends Scene {
 
 		let boundary = 400;
 
-		if ( this.player.posX < -boundary ||
-			 this.player.posX > this.grid.hTiles * this.grid.tileWidth + boundary ||
-			 this.player.posY < -boundary ||
-			 this.player.posY > this.grid.vTiles * this.grid.tileWidth + boundary ) {
+		if ( this.player.pos.x < -boundary ||
+			 this.player.pos.x > this.grid.hTiles * this.grid.tileWidth + boundary ||
+			 this.player.pos.y < -boundary ||
+			 this.player.pos.y > this.grid.vTiles * this.grid.tileWidth + boundary ) {
 			document.dispatchEvent( new CustomEvent( "death", {} ) );
 		}
 
-		let t: string = this.player.posX + " " + this.player.vel.x + " " + this.player.collideLeft + " " + this.player.collideRight;
+		let t: string = this.player.pos.x + " " + this.player.vel.x + " " + this.player.collideLeft + " " + this.player.collideRight;
 
 		document.dispatchEvent( new CustomEvent( "debug", { detail: t } ) );
-
-		t = "";
-		for ( let entity of this.em.entities ) {
-			t += entity.posX + " " + entity.posY + " " + entity.width + " " + entity.height + "<br />";
-		}
-		document.dispatchEvent( new CustomEvent( "entities", { detail: t } ) );
 	}
 
 	updateCursor( pos: Vec2 ) {
@@ -494,8 +515,8 @@ export class Level extends Scene {
 			context.fillStyle = 'black';
 			//context.fillRect( this.cursorPos.x, this.cursorPos.y, 2, 2 );
 
-			let origin = new Vec2( this.player.posX + this.player.width / 2,
-								   this.player.posY + this.player.height / 4 );
+			let origin = this.player.pos.plus(
+					new Vec2( this.player.width / 2, this.player.height / 4 ) );
 
 			let ir = 100;
 			let or = 120;
@@ -528,7 +549,7 @@ export class Level extends Scene {
 			let shapes = this.grid.shapes.concat();
 			for ( let entity of this.em.entities ) {
 				if ( entity != this.player ) {
-					shapes.push( entity.getShape() );
+					shapes.push( ...entity.getShapes() );
 				}
 			}
 
@@ -543,8 +564,8 @@ export class Level extends Scene {
 		if ( this.text != '' ) {
 			if ( this.speaker !== null && this.textBox.height > 10 ) {
 				context.fillStyle = this.speaker.material.getFillStyle();
-				context.fillRect( this.textBox.posX + 5,
-								  this.textBox.posY + 5,
+				context.fillRect( this.textBox.pos.x + 5,
+								  this.textBox.pos.y + 5,
 								  40,
 								  this.textBox.height - 10 );
 			}
@@ -572,12 +593,12 @@ export class Level extends Scene {
 				let crossed = index > lineStart + lineWidth;
 
 				if ( i == this.textIndex - 1 ) {
-					context.fillText( line + word, 100, this.textBox.posY + y );
+					context.fillText( line + word, 100, this.textBox.pos.y + y );
 
 				} else if ( crossed ) {
 					lineStart += line.length;
 
-					context.fillText( line, 100, this.textBox.posY + y );
+					context.fillText( line, 100, this.textBox.pos.y + y );
 					line = '';
 					y += 15;
 				}

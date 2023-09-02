@@ -76,6 +76,12 @@ document.addEventListener( "start", function( e: any ) {
 	manager.loadScene( levels[0] );
 } );
 
+document.addEventListener( "startBoss", function( e: any ) { 
+	levelIndex = 9;
+
+	manager.loadScene( levels[9] );
+} );
+
 document.addEventListener( "restart", function( e: any ) {
 	manager.loadScene( levels[levelIndex] );
 } );
@@ -168,13 +174,14 @@ let update = function() {
 
 	manager.update();
 
-	if ( new Date().getTime() - startTime > 1000 ) {
+	if ( new Date().getTime() - startTime > 1000 && floaters.length < 10 ) {
 		startTime = new Date().getTime();
 
 		let angle = Math.random() * Math.PI * 2;
 		let speed = Math.random() * 5 + 1;
+		let origin = new Vec2( 200, 200 );
 
-		let floater = new Entity( 200 + Math.cos( angle ) * 400, 200 + Math.sin( angle ) * 400,
+		let floater = new Entity( origin.plus( Vec2.fromPolar( angle, 400 ) ),
 								  Math.random() * 80 + 10, Math.random() * 80 + 10 );
 
 		if ( floaters.length > 0 ) {
@@ -191,12 +198,11 @@ let update = function() {
 	}
 
 	for ( let floater of floaters ) {
-		floater.posX += floater.vel.x;
-		floater.posY += floater.vel.y;
+		floater.pos.add( floater.vel );
 	}
 
 	for ( let i = floaters.length - 1; i >= 0; i-- ) {
-		if ( new Vec2( floaters[i].posX - 200, floaters[i].posY - 200 ).length() > 500 ) {
+		if ( new Vec2( floaters[i].pos.x - 200, floaters[i].pos.y - 200 ).length() > 500 ) {
 			floaters.splice( i, 1 );
 		} 
 	}
@@ -206,8 +212,10 @@ let update = function() {
 	// background
 	context.globalAlpha = 0.1;
 
-	for ( let floater of floaters ) {
-		floater.draw( context );
+	if ( manager.currentScene == title || manager.currentScene == deathScene ) {
+		for ( let floater of floaters ) {
+			floater.draw( context );
+		}
 	}
 
 	if ( canvas !== null ) {

@@ -11,7 +11,21 @@ function shapecast( line: Line, shapes: Array<Shape> ): RayHit | null {
 
 		let rayHits: Array<RayHit> = shape.rayIntersect( line );
 
-		if ( rayHits.length > 0 ) closestRayHits.push( rayHits[0] );
+		if ( rayHits.length > 0 ) {
+			if ( shape.parent ) {
+				let p = rayHits[0].point.minus( shape.parent.pos );
+				if ( shape.parent.relPos ) {
+					p.add( shape.parent.relPos.turned( shape.parent.angle ) );
+				}
+
+				let p2 = p.turned( shape.parent.angleVel );
+
+				rayHits[0].vel = shape.parent.vel.plus( p2.minus( p ) );
+			}
+
+			closestRayHits.push( rayHits[0] );
+
+		}
 	}
 
 	if ( closestRayHits.length > 0 ) {
@@ -47,7 +61,7 @@ export function renderFromEye( context: CanvasRenderingContext2D,
 
 		for ( let entity of this.em.entities ) {
 			if ( entity instanceof Coin ) {
-				let floaterPos = new Vec2( entity.posX, entity.posY );
+				let floaterPos = entity.pos.copy();
 				let floaterDir = floaterPos.minus( origin ).normalize();
 				let floaterDist = floaterPos.minus( origin ).length();
 
@@ -73,10 +87,20 @@ export function renderFromEye( context: CanvasRenderingContext2D,
 			context.stroke();
 			*/
 
-			context.fillStyle = hit.material.getFillStyle();
+			context.globalAlpha = 1 / ( Math.sqrt( hitDist ) / 3 );
+			//context.globalAlpha = 1 / ( hitDist / 20 );
 
-			//context.globalAlpha = 1 / ( Math.sqrt( hitDist ) / 3 );
-			context.globalAlpha = 1 / ( hitDist / 20 );
+			if ( hit.vel && hit.vel.unit().dot( dir ) < -0.966 && hitDist < 200 ) {
+				let bin = Math.floor( hitDist / 20 ) + 1;
+
+				let warn = new Date().getTime() % ( bin * 200 ) / ( bin * 200 ) * Math.PI * 2;
+
+				hit.material.hue += Math.sin( warn ) * 16 - 8;
+				hit.material.lum += Math.sin( warn ) / 10;
+				//hit.material.lum %= 1;
+			}
+
+			context.fillStyle = hit.material.getFillStyle();
 
 			context.beginPath();
 			context.moveTo( Math.cos( angle - slice / 2 ) * ir, Math.sin( angle - slice / 2 ) * ir );

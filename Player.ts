@@ -8,13 +8,12 @@ export class Player extends Entity {
 	maxJumpFrames: number = 20;
 	jumpFrames: number = 0;
 
-	constructor( posX: number, posY: number ) {
-		super( posX, posY, 16, 16 );
+	constructor( pos: Vec2 ) {
+		super( pos, 16, 16 );
 	}
 
 	update() {
-		this.posX += this.vel.x;
-		this.posY += this.vel.y;
+		this.pos.add( this.vel );
 
 		this.vel.x = 0;
 	}

@@ -2,7 +2,6 @@ import { Scene } from "./lib/juego/Scene.js"
 import { Entity } from "./lib/juego/Entity.js"
 import { Keyboard, KeyCode } from "./lib/juego/keyboard.js"
 import { Text } from "./lib/juego/Menu.js"
-import { Color } from "./lib/juego/Colors.js"
 import { Shape } from './lib/juego/Shape.js'
 import { Vec2 } from './lib/juego/Vec2.js'
  
@@ -39,6 +38,10 @@ export class TitleScene extends Scene {
 		if ( e.keyCode == KeyCode.Z ) {
 			document.dispatchEvent( new CustomEvent( "start" ) );
 		}
+
+		if ( e.keyCode == KeyCode.X ) {
+			document.dispatchEvent( new CustomEvent( "startBoss" ) );
+		}
 	}
 
 	update() {
@@ -60,8 +63,7 @@ export class TitleScene extends Scene {
 
 			let shapes = [];
 			for ( let floater of this.floaters ) {
-				let shape = Shape.makeRectangle( floater.posX,
-												 floater.posY,
+				let shape = Shape.makeRectangle( floater.pos,
 												 floater.width,
 												 floater.height );
 				shape.material = floater.material;

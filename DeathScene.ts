@@ -2,7 +2,6 @@ import { Scene } from "./lib/juego/Scene.js"
 import { Entity } from "./lib/juego/Entity.js"
 import { Keyboard, KeyCode } from "./lib/juego/keyboard.js"
 import { Text } from "./lib/juego/Menu.js"
-import { Color } from "./lib/juego/Colors.js"
 
 import { whiteText } from './render.js'
 
