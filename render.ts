@@ -12,19 +12,9 @@ function shapecast( line: Line, shapes: Array<Shape> ): RayHit | null {
 		let rayHits: Array<RayHit> = shape.rayIntersect( line );
 
 		if ( rayHits.length > 0 ) {
-			if ( shape.parent ) {
-				let p = rayHits[0].point.minus( shape.parent.pos );
-				if ( shape.parent.relPos ) {
-					p.add( shape.parent.relPos.turned( shape.parent.angle ) );
-				}
-
-				let p2 = p.turned( shape.parent.angleVel );
-
-				rayHits[0].vel = shape.parent.vel.plus( p2.minus( p ) );
-			}
+			rayHits[0].vel = shape.getVel( rayHits[0].point );
 
 			closestRayHits.push( rayHits[0] );
-
 		}
 	}
 
@@ -132,27 +122,44 @@ export function renderFromEye( context: CanvasRenderingContext2D,
 		context.globalAlpha = 1 / ( Math.sqrt( hitDist ) / 3 );
 		//context.globalAlpha = 1 / ( hitDist / 20 );
 
-		let dir = new Vec2( Math.cos( angle ), Math.sin( angle ) );
-
+		// highlight corners and edges of shapes
 		let prevHit = sliceInfos[(i + sliceInfos.length - 1) % sliceInfos.length];
 		let nextHit = sliceInfos[(i + 1) % sliceInfos.length];
 
-		if ( prevHit === null || nextHit === null || 
-			 prevHit.hit.normal.dot( hit.normal ) < 0.866 ||
-			 nextHit.hit.normal.dot( hit.normal ) < 0.866 ) {
+		let score = 0.0;
 
-			//hit.material.lum *= 0.8;
+		if ( prevHit === null || nextHit === null ) {
+			score = 1.0;
+		} else {
+			let dot = prevHit.hit.normal.dot( hit.normal );
+			let nextDot = nextHit.hit.normal.dot( hit.normal );
+			if ( nextDot < dot ) dot = nextDot;
+
+			if ( dot <= 0 ) {
+				score = 1.0;
+			} else if ( dot < 0.866 ) {
+				score = ( 0.866 - dot ) / 0.866;
+			}
 		}
 
-		if ( hit.vel && hit.vel.unit().dot( dir ) < warnCos && hitDist < warnRadius ) {
-			let period = ( Math.floor( hitDist / binSize ) + 1 ) * minPeriod;
+		hit.material.hue += score * 10;
+		//hit.material.lum *= ( 1 - score * 0.6 );
 
+		// flash if the shapes appears to be approaching
+		let dir = new Vec2( Math.cos( angle ), Math.sin( angle ) );
+
+ 		if ( hit.vel && // shape is moving 
+ 			 hit.vel.unit().dot( dir ) < warnCos && // shape is moving toward viewer
+ 			 hitDist < warnRadius ) { // shape is close
+
+			let period = ( Math.floor( hitDist / binSize ) + 1 ) * minPeriod;
 			let warn = ( ( new Date().getTime() % period ) / period ) * Math.PI * 2;
 
 			hit.material.hue += Math.sin( warn ) * 16 - 8;
 			hit.material.lum += Math.sin( warn ) / 10;
 		}
 
+		// draw the segment
 		context.fillStyle = hit.material.getFillStyle();
 
 		context.beginPath();

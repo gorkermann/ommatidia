@@ -219,8 +219,8 @@ let update = function() {
 	}
 
 	if ( canvas !== null ) {
-		let data = getDownsampled( canvas, context, 16 );
-		context.putImageData( data, 0, 0 );
+		//let data = getDownsampled( canvas, context, 16 );
+		//context.putImageData( data, 0, 0 );
 	}
 
 	context.globalAlpha = 1.0;

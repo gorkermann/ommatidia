@@ -7,6 +7,8 @@ import { Explosion } from './Explosion.js'
 import { Bullet } from './Bullet.js'
 
 class CenteredEntity extends Entity {
+	altMaterial: Material = null;
+
 	constructor( pos: Vec2, width: number, height: number ) {
 		super( pos, width, height );
 	}
@@ -25,6 +27,12 @@ class CenteredEntity extends Entity {
 
 		shape.material = this.material;
 		shape.parent = this;
+
+		if ( this.altMaterial ) {
+			for ( let i = 1; i < shape.edges.length; i += 2 ) {
+				shape.edges[i].material = this.altMaterial;
+			}	
+		}
 
 		return [shape];
 	}
@@ -57,6 +65,58 @@ class CenteredEntity extends Entity {
 	}
 }
 
+export class Barrier extends CenteredEntity {
+	altMaterial = new Material( 0, 0.0, 0.3 );
+	altMaterial2 = new Material( 0, 1.0, 0 );
+
+	// overrides
+	material = new Material( 0, 0.0, 0.5 );
+
+	constructor( pos: Vec2, diameter: number ) {
+		super( pos, diameter, diameter );
+	}
+
+	getShapes(): Array<Shape> {
+		let shape = Shape.makeCircle( this.pos, this.width, 16, -0.5 );
+
+		shape.material = this.material;
+		shape.parent = this;
+
+		let quarterLen = Math.floor( shape.edges.length / 4 );
+
+		for ( let i = 0; i < shape.edges.length; i++ ) {
+			if ( this.altMaterial && i % 2 == 0 ) {
+				shape.edges[i].material = this.altMaterial;
+			}
+
+			if ( this.altMaterial2 && i % quarterLen == 0 ) {
+			//	shape.edges[i].material = this.altMaterial2;	
+			} 
+		
+			shape.normals[i].flip();
+		}
+
+		return [shape];
+	}
+
+	draw( context: CanvasRenderingContext2D ) {
+		//context.fillStyle = this.material.getFillStyle();
+		/*context.strokeStyle = 'black';
+		context.lineWidth = 1;
+
+		context.save();
+			context.translate( this.pos.x, this.pos.y );
+			context.rotate( this.angle );
+
+				context.strokeRect( -this.width / 2, -this.height / 2, this.width, this.height );	
+			} else {
+				context.fillRect( -this.width / 2, -this.height / 2, this.width, this.height );	
+			}
+
+		context.restore();*/
+	}
+}
+
 class Gun extends CenteredEntity {
 	dir: Vec2;
 	flashMaterial = new Material( 0, 0, 0.2 );
@@ -75,7 +135,7 @@ class Gun extends CenteredEntity {
 
 	fire(): Entity {
 		return new Bullet( 
-				this.pos, 
+				this.pos.copy(), 
 				this.dir.turned( this.angle + Math.random() - 0.5 ).scale( 5 ) );
 	}
 
@@ -123,6 +183,7 @@ export class RollBoss extends CenteredEntity {
 			top.relPos = top.pos.copy();
 			top.relAngle = -Math.PI / 4;
 			top.material = new Material( 0, 1.0, 0.5 );
+			top.altMaterial = new Material( 0, 1.0, 0.3 );
 			this.tops.push( top );
 
 			let bottom = new CenteredEntity( 
@@ -130,12 +191,15 @@ export class RollBoss extends CenteredEntity {
 			bottom.relPos = bottom.pos.copy();
 			bottom.relAngle = -Math.PI / 4;
 			bottom.material = new Material( 0, 1.0, 0.5 );
+			bottom.altMaterial = new Material( 0, 1.0, 0.3 );
 			this.bottoms.push( bottom );
-
-			this.material = this.baseMaterial.copy();
 		}
 
+		this.material = this.baseMaterial.copy();
+
 		this.angleVel = 0.02;
+
+		this.spawnEntity( new Barrier( this.pos.copy(), 600 ) );
 	}
 
 	getSubs(): Array<Entity> {
@@ -219,26 +283,26 @@ export class RollBoss extends CenteredEntity {
 		}
 
 		// sub-entities
+		let now = new Date().getTime();
+
 		for ( let sub of this.getSubs() ) {
 			sub.angle = this.angle + sub.relAngle;
 			sub.pos = sub.relPos.turned( this.angle + sub.relAngle);
 			sub.pos.add( this.pos );
 
 			sub.angleVel = this.angleVel;
-		}
 
-		let now = new Date().getTime();
+			if ( sub instanceof Gun ) {
+				sub.flashMaterial.lum = ( now - this.startTime ) / 1000;
+				if ( sub.flashMaterial.lum > 1.0 ) sub.flashMaterial.lum = 1.0;
 
-		for ( let gun of this.guns ) {
-			gun.flashMaterial.lum = ( now - this.startTime ) / 1000;
-			if ( gun.flashMaterial.lum > 1.0 ) gun.flashMaterial.lum = 1.0;
+				if ( now - this.startTime > 1000 ) {
+					this.spawnEntity( sub.fire() );
+				}
+			}
 		}
 
 		if ( now - this.startTime > 1000 ) {
-			for ( let gun of this.guns ) {
-				this.spawnEntity( gun.fire() );
-			}
-
 			this.startTime = new Date().getTime();
 		}
 

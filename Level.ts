@@ -17,7 +17,7 @@ import { Coin } from './Coin.js'
 import { Player } from './Player.js'
 import { renderFromEye, renderRays } from './render.js'
 
-import { RollBoss } from './RollBoss.js' 
+import { RollBoss, Barrier } from './RollBoss.js' 
 
 import * as Debug from './Debug.js'
 
@@ -373,6 +373,49 @@ export class Level extends Scene {
 			}
 		}
 
+		this.player.blockedDir = null;
+		for ( let entity of this.em.entities ) {
+			for ( let otherEntity of this.em.entities ) {
+				if ( !otherEntity.canOverlap( entity ) ) continue;
+
+				if ( entity.overlaps( otherEntity ) ) {
+					if ( entity instanceof Bullet && entity.collisionGroup == 1 ) {
+						console.log( 'a hit!' );
+
+						otherEntity.hitWith( entity );
+						entity.removeThis = true;
+					}
+					if ( entity == this.player ) {
+						console.log( 'ow!' );
+					}
+				}
+			}
+
+			if ( entity instanceof Barrier ) {
+				let contact = this.player.overlaps( entity );
+
+				if ( contact ) {
+					this.player.blockedDir = contact.normal.copy();
+				}
+			}
+
+			if ( entity instanceof RollBoss ) {
+				let contact = this.player.overlaps( entity );
+
+				if ( contact ) {
+					let v1 = this.player.vel.unit();
+					let v2 = contact.vel.unit();
+					let dot = v1.dot( v2 );
+					if ( dot < 0 ) dot = 0;
+
+					let v = contact.vel.copy();
+					v.sub( v2.times( dot ) )
+
+					this.player.vel.add( v );
+				}
+			}
+		}
+
 		this.em.collide( this.grid );
 		this.em.update();
 
@@ -388,24 +431,6 @@ export class Level extends Scene {
 
 				if ( entity.overlaps( this.player ) ) {
 					entity.drawWireframe = true;
-				}
-			}
-		}
-
-		for ( let entity of this.em.entities ) {
-			for ( let otherEntity of this.em.entities ) {
-				if ( !otherEntity.canOverlap( entity ) ) continue;
-
-				if ( entity.overlaps( otherEntity ) ) {
-					if ( entity instanceof Bullet && entity.collisionGroup == 1 ) {
-						console.log( 'a hit!' );
-
-						otherEntity.hitWith( entity );
-						entity.removeThis = true;
-					}
-					if ( entity == this.player ) {
-						console.log( 'ow!' );
-					}
 				}
 			}
 		}
@@ -587,7 +612,7 @@ export class Level extends Scene {
 				this.grid.draw( context );	
 				this.em.draw( context );
 			
-				renderRays( context, shapes, origin, slices );
+				//renderRays( context, shapes, origin, slices );
 			context.restore();
 
 		// draw from eye
