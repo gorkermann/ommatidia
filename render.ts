@@ -230,22 +230,26 @@ export function renderFromEye( context: CanvasRenderingContext2D,
 		if ( redness > 1.0 ) redness = 1.0;*/
 }
 
+let canvasData: ImageData;
+let downsampled: ImageData;
+
 export function getDownsampled( canvas: HTMLCanvasElement, 
 								context: CanvasRenderingContext2D,
-								w: number ): ImageData {
+								w: number,
+								upsampled: ImageData ) {
 	let wSq = w ** 2;
 	let subW = Math.floor( canvas.width / w );
 	let subH = Math.floor( canvas.height / w );
-
-	let data = context.createImageData( subW, subH );
 
 	//let data: Array<number> = [];
 	//data[subW * subH * 4] = 0;
 	//data.fill( 0 );
 
 	// downsample
-	let imageData = context.getImageData( 0, 0, canvas.width, canvas.height );
-	for ( let i = 0; i < data.data.length; i += 4 ) {
+	if ( !downsampled ) downsampled = context.createImageData( subW, subH );
+
+	canvasData = context.getImageData( 0, 0, canvas.width, canvas.height );
+	for ( let i = 0; i < downsampled.data.length; i += 4 ) {
 		let pix = Math.floor( i / 4 );
 
 		let x = ( pix % subW ) * w;
@@ -256,45 +260,25 @@ export function getDownsampled( canvas: HTMLCanvasElement,
 		for ( let j = 0; j < 4; j++ ) {
 			for ( let ix = 0; ix < w; ix++ ) {
 				for ( let iy = 0; iy < w; iy++ ) {
-					bucket[j] += imageData.data[((y + iy) * canvas.width + x + ix) * 4 + j] / wSq;	
+					bucket[j] += canvasData.data[((y + iy) * canvas.width + x + ix) * 4 + j] / wSq;	
 				}
 			}
 		
-			data.data[i + j] = bucket[j];
+			downsampled.data[i + j] = bucket[j];
 		}
 	}
 
 	// upsample
-	let data2 = context.createImageData( canvas.width, canvas.height );
-	for ( let i = 0; i < data2.data.length; i += 4 ) {
+	for ( let i = 0; i < upsampled.data.length; i += 4 ) {
 		let pix = Math.floor( i / 4 );
 
 		let sx = Math.floor( ( pix % canvas.width ) / w );
 		let sy = Math.floor( pix / canvas.width / w );
 
 		for ( let j = 0; j < 4; j++ ) {
-			data2.data[i + j] = data.data[(sy * subW + sx) * 4 + j];
+			upsampled.data[i + j] = downsampled.data[(sy * subW + sx) * 4 + j];
 		}
 	}
-
-	return data2;
-
-	//function imagedata_to_image(imagedata) {
-	    var canvas = document.createElement('canvas');
-	    var ctx = canvas.getContext('2d');
-	    canvas.width = data.width;
-	    canvas.height = data.height;
-	    ctx.putImageData(data, 0, 0);
-
-	    var image = new Image();
-	    image.src = canvas.toDataURL();
-	    //return image;
-	//}
-
-	context.save();
-		//context.scale( w/2, w/2 );
-		//context.putImageData( data2, 0, 0 );
-	context.restore();
 }
 
 export function whiteText( context: CanvasRenderingContext2D, text: string, posX: number, posY: number ) {
@@ -307,3 +291,19 @@ export function whiteText( context: CanvasRenderingContext2D, text: string, posX
 	context.fillStyle = 'white';
 	context.fillText( text, posX + 1, posY + 13 - 3 );
 }
+
+/*
+	render imagedata to image
+
+	//function imagedata_to_image(imagedata) {
+	    var canvas = document.createElement('canvas');
+	    var ctx = canvas.getContext('2d');
+	    canvas.width = data.width;
+	    canvas.height = data.height;
+	    ctx.putImageData(data, 0, 0);
+
+	    var image = new Image();
+	    image.src = canvas.toDataURL();
+	    //return image;
+	//}
+ */

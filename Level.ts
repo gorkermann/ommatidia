@@ -12,11 +12,13 @@ import { Shape } from './lib/juego/Shape.js'
 import { TileArray } from './lib/juego/TileArray.js'
 import { Vec2 } from './lib/juego/Vec2.js'
 
+import * as tp from './lib/toastpoint.js'
+
 import { Bullet } from './Bullet.js'
 import { Coin } from './Coin.js'
 import { Player } from './Player.js'
+import { constructors, nameMap } from './objDef.js'
 import { renderFromEye, renderRays } from './render.js'
-
 import { RollBoss, Barrier } from './RollBoss.js' 
 
 import * as Debug from './Debug.js'
@@ -93,20 +95,15 @@ let MODE_SQUARE = 1;
 */
 
 export class Level extends Scene {
+	em: EntityManager = new EntityManager();
+	grid: GridArea = new GridArea();
 
-	boundKeyHandler = this.keyHandler.bind(this);
-
-	em: EntityManager = null;
-	grid: GridArea = null;
-
+	// level info
 	player: Player = null;
-	grav: Vec2 = new Vec2( 0, 1 );
-
-	cursorPos: Vec2 = new Vec2( 0, 0 );
-	data: any;
-
 	controlMode: number = MODE_GRAVITY;
-
+	grav: Vec2 = new Vec2( 0, 1 );
+	data: any;
+	
 	// text box
 	textBox: Entity = new Entity( new Vec2( 0, 300 ), 400, 0 );
 	textBoxHeight: number = 50;//Quant = new Quant( 0, 0, 50, 2 );
@@ -115,22 +112,34 @@ export class Level extends Scene {
 	textIndex: number = 0;
 	speaker: Entity = null;
 
+	//
 	tryCount: number = 0;
 	updateQueue: Array<QueueFunc> = [];
-
-	// eye
+	boundKeyHandler = this.keyHandler.bind(this);
+	
+	cursorPos: Vec2 = new Vec2( 0, 0 );
+	
 	sliceCount: number = 45;
+
+	saveFields = ['grid', 'player', 'controlMode', 'grav', 'data'];
 
 	constructor( name: string, data: any ) {
 		super( name );
 
-		this.grid = new GridArea();
-
-		this.em = new EntityManager();
-
 		this.data = data;
 
 		this.textBox.material = new Material( 0, 0, 0.92 );
+	}
+
+	protected toJSON( toaster: tp.Toaster ): any {
+		let fields = this.saveFields;
+
+		let flat: any = {};
+
+		tp.setMultiJSON( flat, fields, this, toaster );
+		tp.setJSON( flat, 'entities', this.em.entities, toaster );
+
+		return flat;
 	}
 
 	load(): Promise<any> {
@@ -167,16 +176,16 @@ export class Level extends Scene {
 				if ( index == 2 ) {
 					this.player = new Player( pos.copy() );
 					this.player.collisionGroup = 1;
-					this.em.insert( [this.player] );
+					this.em.insert( this.player );
 
 				} else if ( index == 3 ) {
 					let coin = new Coin( pos.copy() );
-					this.em.insert( [coin] );
+					this.em.insert( coin );
 
 				} else if ( index == 4 ) {
-					let boss = new RollBoss( pos.copy() );
+					let boss = new RollBoss( pos.copy(), true );
 					boss.collisionGroup = 2;
-					this.em.insert( [boss] );
+					this.em.insert( boss );
 				}
 			}
 		}
@@ -204,7 +213,7 @@ export class Level extends Scene {
 							}
 						}.bind( this );
 
-						this.em.insert( [region] );
+						this.em.insert( region );
 					}
 				}
 			}
@@ -312,6 +321,7 @@ export class Level extends Scene {
 		}
 
 		if ( this.controlMode == MODE_GRAVITY ) {
+			this.player.vel.x = 0;
 
 			// left/right
 			if ( Keyboard.keyHeld( KeyCode.LEFT ) && !this.player.collideLeft ) {
@@ -438,7 +448,7 @@ export class Level extends Scene {
 		let oldCoinCount = this.em.entities.filter( x => x instanceof Coin ).length;
 
 		this.em.cull();
-		this.em.grab();
+		this.em.insertSpawned();
 
 		let coins = this.em.entities.filter( x => x instanceof Coin );
 
@@ -479,10 +489,6 @@ export class Level extends Scene {
 				}
 			}
 		}
-
-		let t: string = this.player.pos.x + " " + this.player.vel.x + " " + this.player.collideLeft + " " + this.player.collideRight;
-
-		document.dispatchEvent( new CustomEvent( "debug", { detail: t } ) );
 	}
 
 	updateCursor( pos: Vec2 ) {

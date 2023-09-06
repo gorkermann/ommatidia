@@ -3,74 +3,15 @@ import { Material } from './lib/juego/Material.js'
 import { Shape } from './lib/juego/Shape.js'
 import { Vec2 } from './lib/juego/Vec2.js'
 
+import { CenteredEntity } from './CenteredEntity.js' 
 import { Explosion } from './Explosion.js'
 import { Bullet } from './Bullet.js'
 
-class CenteredEntity extends Entity {
-	altMaterial: Material = null;
-
-	constructor( pos: Vec2, width: number, height: number ) {
-		super( pos, width, height );
-	}
-
-	getShapes(): Array<Shape> {
-		let shape = Shape.makeRectangle( 
-				new Vec2( -this.width / 2, -this.height / 2), this.width, this.height );
-
-		//shape.edges[0].material = new Material( 0, 1.0, 0.5 );
-		//shape.edges[2].material = new Material( 0, 1.0, 0.5 );
-
-		for ( let p of shape.points ) {
-			p.rotate( this.angle );
-			p.add( this.pos );
-		}
-
-		shape.material = this.material;
-		shape.parent = this;
-
-		if ( this.altMaterial ) {
-			for ( let i = 1; i < shape.edges.length; i += 2 ) {
-				shape.edges[i].material = this.altMaterial;
-			}	
-		}
-
-		return [shape];
-	}
-
-	getRandomPoint(): Vec2 {
-		let x = -this.width / 2 + Math.random() * this.width;
-		let y = -this.height / 2 + Math.random() * this.height;
-
-		let output = new Vec2( x, y ).rotate( this.angle );
-
-		return this.pos.plus( output );
-	}
-
-	draw( context: CanvasRenderingContext2D ) {
-		context.fillStyle = this.material.getFillStyle();
-		context.strokeStyle = 'black';
-		context.lineWidth = 1;
-
-		context.save();
-			context.translate( this.pos.x, this.pos.y );
-			context.rotate( this.angle );
-
-			if ( this.drawWireframe ) {
-				context.strokeRect( -this.width / 2, -this.height / 2, this.width, this.height );	
-			} else {
-				context.fillRect( -this.width / 2, -this.height / 2, this.width, this.height );	
-			}
-
-		context.restore();
-	}
-}
-
 export class Barrier extends CenteredEntity {
-	altMaterial = new Material( 0, 0.0, 0.3 );
-	altMaterial2 = new Material( 0, 1.0, 0 );
+	altMaterial = new Material( 210, 1.0, 0.9 );
 
 	// overrides
-	material = new Material( 0, 0.0, 0.5 );
+	material = new Material( 210, 1.0, 0.7 );
 
 	constructor( pos: Vec2, diameter: number ) {
 		super( pos, diameter, diameter );
@@ -88,10 +29,6 @@ export class Barrier extends CenteredEntity {
 			if ( this.altMaterial && i % 2 == 0 ) {
 				shape.edges[i].material = this.altMaterial;
 			}
-
-			if ( this.altMaterial2 && i % quarterLen == 0 ) {
-			//	shape.edges[i].material = this.altMaterial2;	
-			} 
 		
 			shape.normals[i].flip();
 		}
@@ -117,7 +54,7 @@ export class Barrier extends CenteredEntity {
 	}
 }
 
-class Gun extends CenteredEntity {
+export class Gun extends CenteredEntity {
 	dir: Vec2;
 	flashMaterial = new Material( 0, 0, 0.2 );
 	health = 2;
@@ -150,26 +87,25 @@ class Gun extends CenteredEntity {
 }
 
 export class RollBoss extends CenteredEntity {
-	tops: Array<CenteredEntity> = []; // 225deg
-	bottoms: Array<CenteredEntity> = []; // 45deg
-
-	shifted: boolean = false;
-
-	rollerLength: number = 60;
-
-	startTime: number = 0;
-
-	guns: Array<Gun> = [];
-
 	baseMaterial: Material = new Material( 60, 1.0, 0.5 );
-	flash: number = 0;
-
 	health: number = 4;
-
-	updateFunc = this.defaultUpdate;
 	alpha: number = 1.0;
 
-	constructor( pos: Vec2 ) {
+	tops: Array<CenteredEntity> = []; // 225deg
+	bottoms: Array<CenteredEntity> = []; // 45deg
+	shifted: boolean = false;
+	rollerLength: number = 60;
+
+	guns: Array<Gun> = [];
+	startTime: number = 0;
+	flash: number = 0;
+	
+	updateFunc = this.defaultUpdate;
+
+	saveFields: Array<string> = this.saveFields.concat(
+		['health', 'alpha', 'tops', 'bottoms', 'shifted', 'startTime', 'flash'] );
+
+	constructor( pos: Vec2=new Vec2( 0, 0 ), createBarrier: boolean=false ) {
 		super( pos, 40, 40 );
 
 		this.angle = Math.PI / 4;
@@ -199,21 +135,13 @@ export class RollBoss extends CenteredEntity {
 
 		this.angleVel = 0.02;
 
-		this.spawnEntity( new Barrier( this.pos.copy(), 600 ) );
+		if ( createBarrier ) {
+			this.spawnEntity( new Barrier( this.pos.copy(), 600 ) );
+		}
 	}
 
 	getSubs(): Array<Entity> {
 		return this.tops.concat( this.bottoms ).concat( this.guns.filter( x => x.health > 0 ) );
-	}
-
-	getShapes(): Array<Shape> {
-		let shapes = super.getShapes();
-
-		for ( let sub of this.getSubs() ) {
-			shapes.push( sub.getShapes()[0] );	
-		}
-
-		return shapes;
 	}
 
 	hitWith( otherEntity: Entity ): void {
@@ -250,7 +178,7 @@ export class RollBoss extends CenteredEntity {
 		}
 
 		if ( this.health <= 0 ) {
-			this.updateFunc = this.explode;
+			this.updateFunc = this.explodeUpdate;
 		}
 
 		console.log( 'RollBoss status: ' + this.health + ' ' + this.guns[0].health + ' ' + this.guns[1].health );
@@ -319,7 +247,7 @@ export class RollBoss extends CenteredEntity {
 		}
 	}
 
-	explode() {
+	explodeUpdate() {
 		let now = new Date().getTime();
 
 		if ( now - this.startTime > 500 ) {

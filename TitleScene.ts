@@ -1,7 +1,7 @@
-import { Scene } from "./lib/juego/Scene.js"
-import { Entity } from "./lib/juego/Entity.js"
-import { Keyboard, KeyCode } from "./lib/juego/keyboard.js"
-import { Text } from "./lib/juego/Menu.js"
+import { Scene } from './lib/juego/Scene.js'
+import { Entity } from './lib/juego/Entity.js'
+import { Keyboard, KeyCode } from './lib/juego/keyboard.js'
+import { Text } from './lib/juego/Menu.js'
 import { Shape } from './lib/juego/Shape.js'
 import { Vec2 } from './lib/juego/Vec2.js'
  
@@ -14,9 +14,6 @@ export class TitleScene extends Scene {
 
 	floaters: Array<Entity> = [];
 	titleDrift: number = 0;
-	//startTime: number = 0;
-	canvas: HTMLCanvasElement = null;
-	//hue: number = Math.random() * 360;
 
 	boundKeyHandler = this.keyHandler.bind(this);
 
@@ -33,8 +30,6 @@ export class TitleScene extends Scene {
 	}
 
 	keyHandler( e: any) {
-		console.log( this.name );
-
 		if ( e.keyCode == KeyCode.Z ) {
 			document.dispatchEvent( new CustomEvent( "start" ) );
 		}
@@ -44,9 +39,7 @@ export class TitleScene extends Scene {
 		}
 	}
 
-	update() {
-
-	}
+	update() {}
 
 	draw( context: CanvasRenderingContext2D ) {
 		let rStep = 20;
@@ -75,9 +68,9 @@ export class TitleScene extends Scene {
 
 			context.globalAlpha = 1.0;
 			context.fillStyle = 'black';
-			let angle = Math.PI * 2 * (5/8) + this.titleDrift;
+			let angle = Math.PI * 2 * (9/16) + this.titleDrift;
 
-			this.titleDrift -= 0.0002;
+			this.titleDrift -= 0.0000;
 
 			for ( let i = 0; i < titleData[0].length; i++ ) {
 				angle += slice / 2;
