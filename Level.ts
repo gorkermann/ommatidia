@@ -401,6 +401,22 @@ export class Level extends Scene {
 		let lastTotal = 0.0;
 		this.player.blockedDirs = [];
 		let advanced = false;
+		let contacted: Entity = null;
+
+		let canvas = ( window as any ).canvas;
+		let context = ( window as any ).context;
+
+		context.clearRect( 0, 0, canvas.width, canvas.height );
+
+		let shapes = this.player.getShapes( 0.0 );
+		if ( contacted ) shapes.push( ...contacted.getShapes( 0.0 ) );
+		for ( let shape of shapes ) {
+			shape.material = new Material( 0, 0, 0.5 );
+		}
+
+		for ( let shape of shapes ) {
+			shape.stroke( context );
+		}
 
 		while ( stepTotal < 1.0 ) {
 			let step = 1.0 - stepTotal;
@@ -408,6 +424,7 @@ export class Level extends Scene {
 
 			while ( step > 0.05 ) {
 				contact = null;
+				contacted = null;
 
 				// TODO: rank contacts
 				for ( let otherEntity of this.em.entities ) {
@@ -418,6 +435,7 @@ export class Level extends Scene {
 
 					if ( otherEntity.collisionGroup == COL.ENEMY_BODY ) {
 						contact = overlap;
+						contacted = otherEntity;
 					}
 				}
 
@@ -426,6 +444,16 @@ export class Level extends Scene {
 				} else {
 					break;
 				}
+			}
+
+			// debug draw
+			//context.clearRect( 0, 0, canvas.width, canvas.height );
+			
+			shapes.push( ...this.player.getShapes( stepTotal + step ) );
+			if ( contacted ) shapes.push( ...contacted.getShapes( stepTotal + step ) );
+			
+			for ( let shape of shapes ) {
+				shape.stroke( context );
 			}
 
 			if ( contact ) {

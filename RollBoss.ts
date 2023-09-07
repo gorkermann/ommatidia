@@ -46,10 +46,12 @@ export class Barrier extends CenteredEntity {
 	}
 }
 
+let gunHealth = 20;
+
 export class Gun extends CenteredEntity {
 	dir: Vec2;
 	flashMaterial = new Material( 0, 0, 0.2 );
-	health = 2;
+	health = gunHealth;
 
 	constructor( relPos: Vec2 ) {
 		super( new Vec2(), 40, 10 );
@@ -78,23 +80,77 @@ export class Gun extends CenteredEntity {
 	}
 }
 
+class Trigger {
+	set: boolean = false;
+	condition: () => boolean;
+	action: () => void;
+	desc: string;
+
+	constructor( condition: () => boolean, action: () => void, desc: string='trigger set' ) {
+		this.condition = condition;
+		this.action = action;
+		this.desc = desc;
+	}
+
+	update() {
+		if ( !this.set && this.condition() ) {
+			this.action();
+			this.set = true;
+
+			console.log( this.desc );
+		}
+	}
+}
+
+class Target {
+	target: number;
+	rate: number;
+
+	constructor( target: number, rate: number ) {
+		this.target = target;
+		this.rate = Math.abs( rate );
+	}
+
+	update( step: number, value: number ): number {
+		if ( Math.abs( value - this.target ) <= this.rate * step ) {
+			value = this.target;
+
+		} else if ( value < this.target ) {
+			value += this.rate * step;
+
+		} else { // value > this.target
+			value -= this.rate * step;
+		}
+
+		return value;
+	}
+}
+
 export class RollBoss extends CenteredEntity {
-	baseMaterial: Material = new Material( 60, 1.0, 0.5 );
-	health: number = 4;
+	health: number = 20;
 	alpha: number = 1.0;
 
 	tops: Array<CenteredEntity> = []; // 225deg
 	bottoms: Array<CenteredEntity> = []; // 45deg
-	shifted: boolean = false;
 	rollerLength: number = 60;
+	shiftRollers: boolean = false;
+	shifted: boolean = false;
 
 	guns: Array<Gun> = [];
 	startTime: number = 0;
 	flash: number = 0;
+
+	angleVelTarget = new Target( 0.04, 0.001 );
 	
+	triggers: Array<Trigger> = [];
+
 	updateFunc = this.defaultUpdate;
 
 	/* property overrides */
+
+	angleVel = 0.02;
+
+	material = new Material( 60, 1.0, 0.5 );
 
 	collisionGroup = COL.ENEMY_BODY;
 	collisionMask = COL.PLAYER_BULLET;
@@ -110,9 +166,23 @@ export class RollBoss extends CenteredEntity {
 		this.guns.push( new Gun( new Vec2( -this.width / 1.41, 0 ) ) );
 		this.guns.push( new Gun( new Vec2( this.width / 1.41, 0 ) ) );
 
+		for ( let gun of this.guns ) {
+			this.triggers.push( new Trigger( 
+				() => gun.health <= gunHealth / 2,
+				() => this.angleVelTarget.target *= -1.2,
+				'RollBoss: gun health reduced to half'
+			) );
+
+			this.triggers.push( new Trigger( 
+				() => gun.health <= 0,
+				() => this.angleVelTarget.target *= -1.2,
+				'RollBoss: gun health reduced to 0'
+			) );
+		}
+
 		for ( let i = 0; i < 3; i++ ) {
 			let top = new CenteredEntity( 
-					new Vec2( 0, -this.height / 2 - this.rollerLength * ( i + 0.5 ) ), 20, this.rollerLength );
+					new Vec2( 0, -this.height / 2 - this.rollerLength * ( i*2 + 0.5 ) ), 20, this.rollerLength );
 			top.relPos = top.pos.copy();
 			top.relAngle = -Math.PI / 4;
 			top.material = new Material( 0, 1.0, 0.5 );
@@ -120,7 +190,7 @@ export class RollBoss extends CenteredEntity {
 			this.tops.push( top );
 
 			let bottom = new CenteredEntity( 
-					new Vec2( 0, this.height / 2 + this.rollerLength * ( i + 0.5 ) ), 20, this.rollerLength );
+					new Vec2( 0, this.height / 2 + this.rollerLength * ( i*2 + 0.5 + ( i>0 ? -0 : 0 ) ) ), 20, this.rollerLength );
 			bottom.relPos = bottom.pos.copy();
 			bottom.relAngle = -Math.PI / 4;
 			bottom.material = new Material( 0, 1.0, 0.5 );
@@ -128,57 +198,59 @@ export class RollBoss extends CenteredEntity {
 			this.bottoms.push( bottom );
 		}
 
-		this.material = this.baseMaterial.copy();
-
-		this.angleVel = 0.02;
-
 		if ( createBarrier ) {
 			this.spawnEntity( new Barrier( this.pos.copy(), 600 ) );
 		}
 	}
 
-	getSubs(): Array<Entity> {
+	getSubs(): Array<CenteredEntity> {
 		return this.tops.concat( this.bottoms ).concat( this.guns.filter( x => x.health > 0 ) );
 	}
 
 	hitWith( otherEntity: Entity, contact: Contact ): void {
 		if ( otherEntity instanceof Bullet ) {
-			this.flash = 10;
 			otherEntity.removeThis = true;
 
-			// check which side the bullet hit on
-			let vec = new Vec2( -1, 1 ).rotate( this.angle ); // direction of gun 1
+			let hit = true;
 
-			let dir = otherEntity.pos.minus( this.pos );
-
-			if ( vec.dot( dir ) > 0 ) {
-				if ( this.guns[0].health > 0 ) {
-					this.guns[0].health -= 1;	
-					
-					if ( this.guns[0].health <= 0 ) {
-						this.angleVel *= -1.2;
-					}
-				} else {
-					this.health -= 1;
-				}
-
-			} else {
-				if ( this.guns[1].health > 0 ) {
-					this.guns[1].health -= 1;	
-					
-					if ( this.guns[1].health <= 0 ) {
-						this.angleVel *= -1.2;
-					}
-				} else {
-					this.health -= 1;
+			if ( contact.entity && contact.entity instanceof CenteredEntity ) {
+				if ( this.tops.includes( contact.entity ) || 
+					 this.bottoms.includes( contact.entity ) ) {
+					hit = false;
 				}
 			}
 
-			if ( this.health <= 0 ) {
-				this.updateFunc = this.explodeUpdate;
-			}
+			if ( hit ) {
+				this.flash = 5;
 
-			console.log( 'RollBoss status: ' + this.health + ' ' + this.guns[0].health + ' ' + this.guns[1].health );
+				// check which side the bullet hit on
+				let vec = new Vec2( -1, 1 ).rotate( this.angle ); // direction of gun 1
+
+				let dir = otherEntity.pos.minus( this.pos );
+
+				let oldHealth = this.guns.map( x => x.health );
+
+				if ( vec.dot( dir ) > 0 ) {
+					if ( this.guns[0].health > 0 ) {
+						this.guns[0].health -= 1;
+					} else {
+						this.health -= 1;
+					}
+
+				} else {
+					if ( this.guns[1].health > 0 ) {
+						this.guns[1].health -= 1;
+					} else {
+						this.health -= 1;
+					}
+				}
+
+				if ( this.health <= 0 ) {
+					this.updateFunc = this.explodeUpdate;
+				}
+
+				console.log( 'RollBoss status: ' + this.health + ' ' + this.guns[0].health + ' ' + this.guns[1].health );
+			}
 		}
 	}
 
@@ -190,21 +262,27 @@ export class RollBoss extends CenteredEntity {
 		this.pos.add( this.vel.times( step ) );
 		this.angle += this.angleVel * step;
 
-		if ( Math.cos( this.angle ) > 0.9999  && !this.shifted ) {
-			this.shifted = true;
+		this.angleVel = this.angleVelTarget.update( step, this.angleVel );
 
-			for ( let i = 1; i < this.tops.length; i++ ) {
-				this.tops[i].relPos.y = this.tops[i-1].relPos.y - this.rollerLength - 
-						Math.floor( Math.random() * 3 ) * 40;
+		if ( this.shiftRollers ) {
+			// top rollers are pointing up
+			if ( Math.cos( this.angle ) > 0.9999  && !this.shifted ) {
+				this.shifted = true;
+
+				for ( let i = 1; i < this.tops.length; i++ ) {
+					this.tops[i].relPos.y = this.tops[i-1].relPos.y - this.rollerLength - 
+							Math.floor( Math.random() * 3 ) * 40;
+				}
 			}
-		}
 
-		if ( Math.cos( this.angle ) < -0.9999  && this.shifted ) {
-			this.shifted = false;
+			// bottom rollers are pointing up
+			if ( Math.cos( this.angle ) < -0.9999  && this.shifted ) {
+				this.shifted = false;
 
-			for ( let i = 1; i < this.bottoms.length; i++ ) {
-				this.bottoms[i].relPos.y = this.bottoms[i-1].relPos.y + this.rollerLength + 
-						Math.floor( Math.random() * 3 ) * 40;
+				for ( let i = 1; i < this.bottoms.length; i++ ) {
+					this.bottoms[i].relPos.y = this.bottoms[i-1].relPos.y + this.rollerLength + 
+							Math.floor( Math.random() * 3 ) * 40;
+				}
 			}
 		}
 
@@ -238,15 +316,22 @@ export class RollBoss extends CenteredEntity {
 		}
 
 		// material
-		this.material.lum = this.baseMaterial.lum;
+		let skew = 0;
 
 		if ( this.flash > 0 ) {
-			this.material.lum = Math.abs( Math.sin( this.flash ) );
+			skew = Math.sin( this.flash / 20 * Math.PI ) / 2;
 
 			this.flash -= 1 * step;
+		}
 
-		} else {
-			this.flash = 0;
+		this.material.skewL = skew;
+		for ( let sub of this.getSubs() ) {
+			sub.material.skewL = skew;
+			if ( sub.altMaterial ) sub.altMaterial.skewL = skew;
+		}
+
+		for ( let trigger of this.triggers ) {
+			trigger.update();
 		}
 	}
 

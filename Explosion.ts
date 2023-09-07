@@ -2,9 +2,11 @@ import { Entity } from "./lib/juego/Entity.js"
 import { Material } from './lib/juego/Material.js'
 import { Vec2 } from "./lib/juego/Vec2.js"
 
-export class Explosion extends Entity {
+import { CenteredEntity } from './CenteredEntity.js'
+
+export class Explosion extends CenteredEntity {
 	speed: number = 2;
-	maxWidth = 40;
+	maxWidth = 40 + Math.random() * 40;
 	alpha: number = 1.0;
 
 	constructor( pos: Vec2 ) {
