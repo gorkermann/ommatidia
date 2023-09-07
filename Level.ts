@@ -394,69 +394,74 @@ export class Level extends Scene {
 
 				entity.hitWith( otherEntity, contact );
 			}
-		}
 
+			if ( entity instanceof RollBoss ) {
+				entity.watch( this.player.pos );
+			}
+		}
 
 		let stepTotal = 0.0;
 		let lastTotal = 0.0;
 		this.player.blockedDirs = [];
-		let advanced = false;
 		let contacted: Entity = null;
 
-		let canvas = ( window as any ).canvas;
-		let context = ( window as any ).context;
+		// debug {
+			let canvas = ( window as any ).canvas;
+			let context = ( window as any ).context;
 
-		context.clearRect( 0, 0, canvas.width, canvas.height );
+			context.clearRect( 0, 0, canvas.width, canvas.height );
 
-		let shapes = this.player.getShapes( 0.0 );
-		if ( contacted ) shapes.push( ...contacted.getShapes( 0.0 ) );
-		for ( let shape of shapes ) {
-			shape.material = new Material( 0, 0, 0.5 );
-		}
+			let shapes = this.player.getShapes( 0.0 );
+			if ( contacted ) shapes.push( ...contacted.getShapes( 0.0 ) );
+			for ( let shape of shapes ) {
+				shape.material = new Material( 0, 0, 0.5 );
+			}
 
-		for ( let shape of shapes ) {
-			shape.stroke( context );
-		}
+			for ( let shape of shapes ) {
+				shape.stroke( context );
+			}
+		// }
 
 		while ( stepTotal < 1.0 ) {
 			let step = 1.0 - stepTotal;
-			let contact = null;
+			let contacts = [];
 
 			while ( step > 0.05 ) {
-				contact = null;
+				contacts = [];
 				contacted = null;
 
 				// TODO: rank contacts
 				for ( let otherEntity of this.em.entities ) {
 					if ( !this.player.canOverlap( otherEntity ) ) continue;
 
-					let overlap = this.player.overlaps( otherEntity, stepTotal + step );
-					if ( !overlap ) continue;
+					let contact = this.player.overlaps( otherEntity, stepTotal + step );
+					if ( !contact ) continue;
 
 					if ( otherEntity.collisionGroup == COL.ENEMY_BODY ) {
-						contact = overlap;
+						contacts.push( contact );
 						contacted = otherEntity;
 					}
 				}
 
-				if ( contact ) {
+				if ( contacts.length > 0) {
 					step /= 2;
 				} else {
 					break;
 				}
 			}
 
-			// debug draw
-			//context.clearRect( 0, 0, canvas.width, canvas.height );
-			
-			shapes.push( ...this.player.getShapes( stepTotal + step ) );
-			if ( contacted ) shapes.push( ...contacted.getShapes( stepTotal + step ) );
-			
-			for ( let shape of shapes ) {
-				shape.stroke( context );
-			}
+			// debug draw {
+				//context.clearRect( 0, 0, canvas.width, canvas.height );
 
-			if ( contact ) {
+				shapes.push( ...this.player.getShapes( stepTotal + step ) );
+				if ( contacted ) shapes.push( ...contacted.getShapes( stepTotal + step ) );
+				
+				for ( let shape of shapes ) {
+					shape.stroke( context );
+				}
+			// }
+
+			for ( let contact of contacts ) {
 				this.player.blockedDirs.push( contact.normal.copy() );
 				
 				// player hits something, cancel player velocity in object direction
@@ -465,14 +470,12 @@ export class Level extends Scene {
 
 				if ( ndot < 0 ) {
 					let advance = stepTotal;// - lastTotal;
-					if ( advance < 0.05 ) advance = 0; // at wall, running into a wall 
+					if ( advance < 0.05 ) advance = 0; // at wall, running into wall, don't move at all
 
 					this.player.pos.add( this.player.vel.times( advance ) );
 					this.player.vel.sub( contact.normal.times( ndot )).scale( 1 - advance );
 
 					lastTotal = stepTotal; // not sure if this is necessary
-
-					advanced = true;
 				}
 
 				// object pushes player
@@ -485,7 +488,6 @@ export class Level extends Scene {
 				push.sub( v2.times( vdot ) );
 
 				let ahead = this.player.center.minus( contact.point ).dot( push ) > 0;
-
 				if ( ahead ) {
 					this.player.vel.add( push.times( 1.0 - stepTotal ) );
 				}
@@ -536,7 +538,7 @@ export class Level extends Scene {
 			}, { runOnClear: true } ) );
 		}
 
-		if ( coins.length == 0 ) {
+		if ( coins.length == 0 && oldCoinCount > coins.length ) {
 			document.dispatchEvent( new CustomEvent( "complete", {} ) );
 		}
 

@@ -22,15 +22,6 @@ export class CenteredEntity extends Entity {
 		let shape = Shape.makeRectangle( 
 				new Vec2( -this.width / 2, -this.height / 2), this.width, this.height );
 
-		for ( let p of shape.points ) {
-			p.rotate( this.angle );
-			p.add( this.pos );
-		}
-
-		for ( let n of shape.normals ) {
-			n.rotate( this.angle );
-		}
-
 		shape.material = this.material;
 		shape.parent = this;
 
@@ -46,8 +37,28 @@ export class CenteredEntity extends Entity {
 	getShapes( step: number ): Array<Shape> {
 		let shapes = this.getOwnShapes();
 
+		for ( let shape of shapes ) {
+			for ( let p of shape.points ) {
+				if ( this.relPos ) p.add( this.relPos );
+				p.rotate( this.angle + this.angleVel * step );
+			}
+
+			for ( let n of shape.normals ) {
+				n.rotate( this.angle + this.angleVel * step );
+			}	
+		}
+		
 		for ( let sub of this.getSubs() ) {
 			shapes.push( ...sub.getShapes( step ) );	
+		}
+
+		if ( !this.relPos ) {
+			for ( let shape of shapes ) {
+				for ( let p of shape.points ) {
+					p.add( this.pos );
+					p.add( this.vel.times( step ) );
+				}
+			}
 		}
 
 		return shapes;
@@ -68,16 +79,14 @@ export class CenteredEntity extends Entity {
 		context.strokeStyle = 'black';
 		context.lineWidth = 1;
 
-		context.save();
-			context.translate( this.pos.x, this.pos.y );
-			context.rotate( this.angle );
+		let shapes = this.getShapes( 0.0 );
 
+		for ( let shape of shapes ) {
 			if ( this.drawWireframe ) {
-				context.strokeRect( -this.width / 2, -this.height / 2, this.width, this.height );	
+				shape.stroke( context );
 			} else {
-				context.fillRect( -this.width / 2, -this.height / 2, this.width, this.height );	
+				shape.fill( context );
 			}
-
-		context.restore();
+		}
 	}
 }
