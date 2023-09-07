@@ -1,9 +1,11 @@
 import { Entity } from './lib/juego/Entity.js'
+import { Contact } from './lib/juego/Contact.js'
 import { Material } from './lib/juego/Material.js'  
 import { Shape } from './lib/juego/Shape.js'
 import { Vec2 } from './lib/juego/Vec2.js'
 
-import { CenteredEntity } from './CenteredEntity.js' 
+import { CenteredEntity } from './CenteredEntity.js'
+import { COL } from './collisionGroup.js'
 import { Explosion } from './Explosion.js'
 import { Bullet } from './Bullet.js'
 
@@ -12,6 +14,7 @@ export class Barrier extends CenteredEntity {
 
 	// overrides
 	material = new Material( 210, 1.0, 0.7 );
+	drawWireframe = true;
 
 	constructor( pos: Vec2, diameter: number ) {
 		super( pos, diameter, diameter );
@@ -37,20 +40,9 @@ export class Barrier extends CenteredEntity {
 	}
 
 	draw( context: CanvasRenderingContext2D ) {
-		//context.fillStyle = this.material.getFillStyle();
-		/*context.strokeStyle = 'black';
-		context.lineWidth = 1;
-
-		context.save();
-			context.translate( this.pos.x, this.pos.y );
-			context.rotate( this.angle );
-
-				context.strokeRect( -this.width / 2, -this.height / 2, this.width, this.height );	
-			} else {
-				context.fillRect( -this.width / 2, -this.height / 2, this.width, this.height );	
-			}
-
-		context.restore();*/
+		for ( let shape of this.getShapes() ) {
+			shape.stroke( context );
+		}
 	}
 }
 
@@ -76,8 +68,8 @@ export class Gun extends CenteredEntity {
 				this.dir.turned( this.angle + Math.random() - 0.5 ).scale( 5 ) );
 	}
 
-	getShapes(): Array<Shape> {
-		let shapes = super.getShapes();
+	getShapes( step: number ): Array<Shape> {
+		let shapes = super.getShapes( step );
 
 		// make the short edges black
 		shapes[0].edges[1].material = this.flashMaterial;
@@ -101,6 +93,11 @@ export class RollBoss extends CenteredEntity {
 	flash: number = 0;
 	
 	updateFunc = this.defaultUpdate;
+
+	/* property overrides */
+
+	collisionGroup = COL.ENEMY_BODY;
+	collisionMask = COL.PLAYER_BULLET;
 
 	saveFields: Array<string> = this.saveFields.concat(
 		['health', 'alpha', 'tops', 'bottoms', 'shifted', 'startTime', 'flash'] );
@@ -144,53 +141,54 @@ export class RollBoss extends CenteredEntity {
 		return this.tops.concat( this.bottoms ).concat( this.guns.filter( x => x.health > 0 ) );
 	}
 
-	hitWith( otherEntity: Entity ): void {
+	hitWith( otherEntity: Entity, contact: Contact ): void {
 		if ( otherEntity instanceof Bullet ) {
 			this.flash = 10;
-		}
+			otherEntity.removeThis = true;
 
-		// direction of gun 1
-		let vec = new Vec2( -1, 1 ).rotate( this.angle );
+			// check which side the bullet hit on
+			let vec = new Vec2( -1, 1 ).rotate( this.angle ); // direction of gun 1
 
-		let dir = otherEntity.pos.minus( this.pos );
+			let dir = otherEntity.pos.minus( this.pos );
 
-		if ( vec.dot( dir ) > 0 ) {
-			if ( this.guns[0].health > 0 ) {
-				this.guns[0].health -= 1;	
-				
-				if ( this.guns[0].health <= 0 ) {
-					this.angleVel *= -1.2;
+			if ( vec.dot( dir ) > 0 ) {
+				if ( this.guns[0].health > 0 ) {
+					this.guns[0].health -= 1;	
+					
+					if ( this.guns[0].health <= 0 ) {
+						this.angleVel *= -1.2;
+					}
+				} else {
+					this.health -= 1;
 				}
+
 			} else {
-				this.health -= 1;
+				if ( this.guns[1].health > 0 ) {
+					this.guns[1].health -= 1;	
+					
+					if ( this.guns[1].health <= 0 ) {
+						this.angleVel *= -1.2;
+					}
+				} else {
+					this.health -= 1;
+				}
 			}
 
-		} else {
-			if ( this.guns[1].health > 0 ) {
-				this.guns[1].health -= 1;	
-				
-				if ( this.guns[1].health <= 0 ) {
-					this.angleVel *= -1.2;
-				}
-			} else {
-				this.health -= 1;
+			if ( this.health <= 0 ) {
+				this.updateFunc = this.explodeUpdate;
 			}
-		}
 
-		if ( this.health <= 0 ) {
-			this.updateFunc = this.explodeUpdate;
+			console.log( 'RollBoss status: ' + this.health + ' ' + this.guns[0].health + ' ' + this.guns[1].health );
 		}
-
-		console.log( 'RollBoss status: ' + this.health + ' ' + this.guns[0].health + ' ' + this.guns[1].health );
 	}
 
-	update() {
-		this.updateFunc();
+	update( step: number ) {
+		this.updateFunc( step );
 	}
 
-	defaultUpdate() {
-		this.pos.add( this.vel );
-		this.angle += this.angleVel;
+	defaultUpdate( step: number ) {
+		this.pos.add( this.vel.times( step ) );
+		this.angle += this.angleVel * step;
 
 		if ( Math.cos( this.angle ) > 0.9999  && !this.shifted ) {
 			this.shifted = true;
@@ -225,7 +223,12 @@ export class RollBoss extends CenteredEntity {
 				if ( sub.flashMaterial.lum > 1.0 ) sub.flashMaterial.lum = 1.0;
 
 				if ( now - this.startTime > 1000 ) {
-					this.spawnEntity( sub.fire() );
+					let bullet = sub.fire();
+
+					this.spawnEntity( bullet );
+
+					bullet.collisionGroup = COL.ENEMY_BULLET;
+					bullet.collisionMask = 0x00;
 				}
 			}
 		}
@@ -240,14 +243,14 @@ export class RollBoss extends CenteredEntity {
 		if ( this.flash > 0 ) {
 			this.material.lum = Math.abs( Math.sin( this.flash ) );
 
-			this.flash -= 1;
+			this.flash -= 1 * step;
 
 		} else {
 			this.flash = 0;
 		}
 	}
 
-	explodeUpdate() {
+	explodeUpdate( step: number ) {
 		let now = new Date().getTime();
 
 		if ( now - this.startTime > 500 ) {

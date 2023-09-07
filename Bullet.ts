@@ -33,8 +33,4 @@ export class Bullet extends Entity {
 	onCollideDown() {
 		this.removeThis = true;
 	}
-
-	update() {
-		this.pos.add( this.vel );
-	}
 }

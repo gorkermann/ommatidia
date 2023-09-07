@@ -4,6 +4,7 @@ import { store } from './store.js'
 
 export let flags: { [key: string]: boolean } = {
 	DRAW_NORMAL: false,
+	DRAW_RAYS: false,
 }
 
 export function toggleFlag( flagName: string ) {

@@ -1,0 +1,8 @@
+export let COL = {
+	PLAYER_BODY: 1,
+	PLAYER_BULLET: 2,
+	ENEMY_BODY: 4,
+	ENEMY_BULLET: 8,
+	LEVEL: 16,
+	ITEM: 32, 
+}

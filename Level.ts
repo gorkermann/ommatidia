@@ -16,6 +16,7 @@ import * as tp from './lib/toastpoint.js'
 
 import { Bullet } from './Bullet.js'
 import { Coin } from './Coin.js'
+import { COL } from './collisionGroup.js'
 import { Player } from './Player.js'
 import { constructors, nameMap } from './objDef.js'
 import { renderFromEye, renderRays } from './render.js'
@@ -159,11 +160,7 @@ export class Level extends Scene {
 	begin() {
 		this.tryCount += 1;
 
-		if ( this.data.drawNormal ) {
-			Debug.flags.DRAW_NORMAL = true;
-		} else {
-			Debug.flags.DRAW_NORMAL = false;
-		}
+		Debug.setFlags( { 'DRAW_NORMAL': this.data.drawNormal } );
 
 		let pos: Vec2 = new Vec2();
 
@@ -175,16 +172,18 @@ export class Level extends Scene {
 
 				if ( index == 2 ) {
 					this.player = new Player( pos.copy() );
-					this.player.collisionGroup = 1;
+					this.player.collisionGroup = COL.PLAYER_BODY;
+					this.player.collisionMask = COL.ENEMY_BODY | COL.ENEMY_BULLET | COL.LEVEL | COL.ITEM;
 					this.em.insert( this.player );
 
 				} else if ( index == 3 ) {
 					let coin = new Coin( pos.copy() );
+					coin.collisionGroup = COL.ITEM;
+					coin.collisionMask = 0x00;
 					this.em.insert( coin );
 
 				} else if ( index == 4 ) {
 					let boss = new RollBoss( pos.copy(), true );
-					boss.collisionGroup = 2;
 					this.em.insert( boss );
 				}
 			}
@@ -206,7 +205,7 @@ export class Level extends Scene {
 											 this.grid.tileWidth * 2, this.grid.tileHeight );
 					if ( this.name == 'level2' ) {
 						region.update = function( this: Level) {
-							if ( region.overlaps( player ) ) {
+							if ( region.overlaps( player, 0.0 ) ) {
 								this.queueText( coin, 'You found the pit! Go ahead, try again.' );
 							
 								region.removeThis = true;
@@ -229,7 +228,7 @@ export class Level extends Scene {
 			this.queueText( coins[0], 'Okay, here goes.' );
 			this.queueSliceCount( 0 );
 			this.updateQueue.push( new QueueFunc( function(): boolean {
-				Debug.flags.DRAW_NORMAL = false;
+				Debug.setFlags( { 'DRAW_NORMAL': false } );
 
 				return true;
 			}, { runOnClear: true } ) );
@@ -263,7 +262,7 @@ export class Level extends Scene {
 			this.queueText( coins[0], '...and don\'t forget about the pit!' );
 
 		} else if ( this.name == 'level2' && this.tryCount > 1 ) {
-			Debug.flags.DRAW_NORMAL = false;
+			Debug.setFlags( { 'DRAW_NORMAL': false } );
 		}
 
 		if ( this.name == 'level3' && this.tryCount == 1 ) {
@@ -380,58 +379,99 @@ export class Level extends Scene {
 				bullet.material.hue = 90;
 
 				this.player.spawnEntity( bullet );
+
+				bullet.collisionGroup = COL.PLAYER_BULLET;
+				bullet.collisionMask = 0x00;
 			}
 		}
 
-		this.player.blockedDir = null;
 		for ( let entity of this.em.entities ) {
 			for ( let otherEntity of this.em.entities ) {
-				if ( !otherEntity.canOverlap( entity ) ) continue;
+				if ( !entity.canOverlap( otherEntity ) ) continue;
 
-				if ( entity.overlaps( otherEntity ) ) {
-					if ( entity instanceof Bullet && entity.collisionGroup == 1 ) {
-						console.log( 'a hit!' );
+				let contact = entity.overlaps( otherEntity, 1.0 );
+				if ( !contact ) continue;
 
-						otherEntity.hitWith( entity );
-						entity.removeThis = true;
-					}
-					if ( entity == this.player ) {
-						console.log( 'ow!' );
+				entity.hitWith( otherEntity, contact );
+			}
+		}
+
+
+		let stepTotal = 0.0;
+		let lastTotal = 0.0;
+		this.player.blockedDirs = [];
+		let advanced = false;
+
+		while ( stepTotal < 1.0 ) {
+			let step = 1.0 - stepTotal;
+			let contact = null;
+
+			while ( step > 0.05 ) {
+				contact = null;
+
+				// TODO: rank contacts
+				for ( let otherEntity of this.em.entities ) {
+					if ( !this.player.canOverlap( otherEntity ) ) continue;
+
+					let overlap = this.player.overlaps( otherEntity, stepTotal + step );
+					if ( !overlap ) continue;
+
+					if ( otherEntity.collisionGroup == COL.ENEMY_BODY ) {
+						contact = overlap;
 					}
 				}
-			}
-
-			if ( entity instanceof Barrier ) {
-				let contact = this.player.overlaps( entity );
 
 				if ( contact ) {
-					this.player.blockedDir = contact.normal.copy();
+					step /= 2;
+				} else {
+					break;
 				}
 			}
 
-			if ( entity instanceof RollBoss ) {
-				let contact = this.player.overlaps( entity );
+			if ( contact ) {
+				this.player.blockedDirs.push( contact.normal.copy() );
+				
+				// player hits something, cancel player velocity in object direction
+				let ndot = this.player.vel.dot( contact.normal );
+				let before = this.player.vel.copy();
 
-				if ( contact ) {
-					let v1 = this.player.vel.unit();
-					let v2 = contact.vel.unit();
-					let dot = v1.dot( v2 );
-					if ( dot < 0 ) dot = 0;
+				if ( ndot < 0 ) {
+					let advance = stepTotal;// - lastTotal;
+					if ( advance < 0.05 ) advance = 0; // at wall, running into a wall 
 
-					let v = contact.vel.copy();
-					v.sub( v2.times( dot ) )
+					this.player.pos.add( this.player.vel.times( advance ) );
+					this.player.vel.sub( contact.normal.times( ndot )).scale( 1 - advance );
 
-					this.player.vel.add( v );
+					lastTotal = stepTotal; // not sure if this is necessary
+
+					advanced = true;
+				}
+
+				// object pushes player
+				let v1 = this.player.vel.unit();
+				let v2 = contact.vel.unit();
+				let vdot = v1.dot( v2 );
+				if ( vdot < 0 ) vdot = 0;
+
+				let push = contact.vel.copy();
+				push.sub( v2.times( vdot ) );
+
+				let ahead = this.player.center.minus( contact.point ).dot( push ) > 0;
+
+				if ( ahead ) {
+					this.player.vel.add( push.times( 1.0 - stepTotal ) );
 				}
 			}
+
+			stepTotal += step;
 		}
 
 		this.em.collide( this.grid );
-		this.em.update();
+		this.em.update( 1.0 );
 
 		for ( let entity of this.em.entities ) {
 			if ( entity instanceof Coin ) {
-				if ( entity.overlaps( this.player ) ) {
+				if ( entity.overlaps( this.player, 0.0 ) ) {
 					entity.removeThis = true;
 				}
 			}
@@ -439,7 +479,7 @@ export class Level extends Scene {
 			if ( entity != this.player ) {
 				entity.drawWireframe = false;
 
-				if ( entity.overlaps( this.player ) ) {
+				if ( entity.overlaps( this.player, 0.0 ) ) {
 					entity.drawWireframe = true;
 				}
 			}
@@ -462,7 +502,7 @@ export class Level extends Scene {
 		if ( coins.length == 1 && oldCoinCount > coins.length && this.name == 'level8' ) {
 			this.queueText( coins[0], 'Wow, you\'re almost there! I\'m so proud of you. To turn yourself back, press the D key.' );
 			this.updateQueue.push( new QueueFunc( function(): boolean {
-				Debug.flags.DRAW_NORMAL = false;
+				Debug.setFlags( { 'DRAW_NORMAL': false } );
 
 				return true;
 			}, { runOnClear: true } ) );
@@ -494,6 +534,8 @@ export class Level extends Scene {
 	updateCursor( pos: Vec2 ) {
 		this.cursorPos.set( pos );
 	}
+
+	/* Events */
 
 	openTextBoxAnim(): boolean {
 		this.textBox.height += 10;
@@ -573,7 +615,12 @@ export class Level extends Scene {
 		}.bind( this ) ) );
 	}
 
+	/* Drawing */
+
 	draw( context: CanvasRenderingContext2D ) {
+
+		/* Prepare Scene */
+
 		let origin = this.player.pos.plus(
 				new Vec2( this.player.width / 2, this.player.height / 4 ) );
 
@@ -608,9 +655,11 @@ export class Level extends Scene {
 		let shapes = this.grid.shapes.concat();
 		for ( let entity of this.em.entities ) {
 			if ( entity != this.player ) {
-				shapes.push( ...entity.getShapes() );
+				shapes.push( ...entity.getShapes( 0.0 ) );
 			}
 		}
+
+		/* Draw Scene */
 
 		// draw 2D
 		if ( Debug.flags.DRAW_NORMAL ) {
@@ -618,7 +667,9 @@ export class Level extends Scene {
 				this.grid.draw( context );	
 				this.em.draw( context );
 			
-				//renderRays( context, shapes, origin, slices );
+				if ( Debug.flags.DRAW_RAYS ) {
+					renderRays( context, shapes, origin, slices );
+				}
 			context.restore();
 
 		// draw from eye
@@ -628,6 +679,8 @@ export class Level extends Scene {
 				renderFromEye( context, shapes, origin, slices, or, ir );
 			context.restore();
 		}
+
+		/* Text Box */
 
 		this.textBox.draw( context );
 

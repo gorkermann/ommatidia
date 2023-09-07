@@ -18,13 +18,17 @@ export class CenteredEntity extends Entity {
 		return [];
 	}
 
-	getOwnShapes(): Array<Shape> {
+	getOwnShapes( step: number ): Array<Shape> {
 		let shape = Shape.makeRectangle( 
 				new Vec2( -this.width / 2, -this.height / 2), this.width, this.height );
 
 		for ( let p of shape.points ) {
-			p.rotate( this.angle );
-			p.add( this.pos );
+			p.rotate( this.angle + this.angleVel );
+			p.add( this.pos.plus( this.vel ) );
+		}
+
+		for ( let n of shape.normals ) {
+			n.rotate( this.angle + this.angleVel );
 		}
 
 		shape.material = this.material;
@@ -39,11 +43,11 @@ export class CenteredEntity extends Entity {
 		return [shape];
 	}
 
-	getShapes(): Array<Shape> {
-		let shapes = this.getOwnShapes();
+	getShapes( step: number ): Array<Shape> {
+		let shapes = this.getOwnShapes( step );
 
 		for ( let sub of this.getSubs() ) {
-			shapes.push( ...sub.getShapes() );	
+			shapes.push( ...sub.getShapes( step ) );	
 		}
 
 		return shapes;

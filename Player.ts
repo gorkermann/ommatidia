@@ -1,30 +1,26 @@
 import { Entity } from "./lib/juego/Entity.js"
+import { Contact } from "./lib/juego/Contact.js"
 import { Shape } from "./lib/juego/Shape.js"
 import { Vec2 } from "./lib/juego/Vec2.js"
+
+import { Bullet } from './Bullet.js'
 
 export class Player extends Entity {
 
 	jumping: boolean = false;
 	maxJumpFrames: number = 20;
 	jumpFrames: number = 0;
-	blockedDir: Vec2 = null;
+	blockedDirs: Array<Vec2> = [];
 
 	constructor( pos: Vec2 ) {
 		super( pos, 16, 16 );
 	}
 
-	update() {
-		let blockedVel = new Vec2( 0, 0 );
-
-		if ( this.blockedDir ) {
-			let dot = this.vel.dot( this.blockedDir );
-
-			if ( dot < 0 ) {
-				blockedVel.set( this.blockedDir.times( dot ) );
-			}		
+	hitWith( otherEntity: Entity, contact: Contact ): void {
+		if ( otherEntity instanceof Bullet ) {
+			console.log( 'ow!' );
+			otherEntity.removeThis = true;
 		}
-
-		this.pos.add( this.vel.minus( blockedVel ) );
 	}
 
 	draw( context: CanvasRenderingContext2D ) {
@@ -33,8 +29,8 @@ export class Player extends Entity {
 		context.strokeStyle = 'red';
 		context.lineWidth = 2;
 
-		if ( this.blockedDir ) {
-			let a = this.pos.plus( this.blockedDir.times( 10 ) );
+		for ( let blockedDir of this.blockedDirs ) {
+			let a = this.pos.plus( blockedDir.times( 10 ) );
 
 			context.beginPath();
 			context.moveTo( this.pos.x, this.pos.y );
