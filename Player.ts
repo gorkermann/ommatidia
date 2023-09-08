@@ -3,7 +3,7 @@ import { Contact } from "./lib/juego/Contact.js"
 import { Shape } from "./lib/juego/Shape.js"
 import { Vec2 } from "./lib/juego/Vec2.js"
 
-import { Bullet } from './Bullet.js'
+import { Bullet, Gutter } from './Bullet.js'
 
 export class Player extends Entity {
 
@@ -20,6 +20,9 @@ export class Player extends Entity {
 		if ( otherEntity instanceof Bullet ) {
 			console.log( 'ow!' );
 			otherEntity.removeThis = true;
+
+		} else if ( otherEntity instanceof Gutter ) {
+			console.log( 'ow!' );
 		}
 	}
 

@@ -1,3 +1,4 @@
+import { Contact } from './lib/juego/Contact.js'
 import { Entity } from './lib/juego/Entity.js'
 import { EntityManager } from './lib/juego/EntityManager.js'
 import { GridArea } from './lib/juego/GridArea.js'
@@ -86,6 +87,10 @@ class QueueFunc {
 
 let MODE_GRAVITY = 0;
 let MODE_SQUARE = 1;
+
+let solidFilter = function( e: Entity ): boolean {
+	return e.collisionGroup == COL.ENEMY_BODY;
+}
 
 ///////////
 // LEVEL //
@@ -205,7 +210,7 @@ export class Level extends Scene {
 											 this.grid.tileWidth * 2, this.grid.tileHeight );
 					if ( this.name == 'level2' ) {
 						region.update = function( this: Level) {
-							if ( region.overlaps( player, 0.0 ) ) {
+							if ( region.overlaps( player, 0.0 ).length > 0 ) {
 								this.queueText( coin, 'You found the pit! Go ahead, try again.' );
 							
 								region.removeThis = true;
@@ -389,21 +394,27 @@ export class Level extends Scene {
 			for ( let otherEntity of this.em.entities ) {
 				if ( !entity.canOverlap( otherEntity ) ) continue;
 
-				let contact = entity.overlaps( otherEntity, 1.0 );
-				if ( !contact ) continue;
+				let contacts = entity.overlaps( otherEntity, 1.0 );
+				let rootHit = false;
 
-				entity.hitWith( otherEntity, contact );
+				if ( contacts.length > 0 ) {
+					for ( let contact of contacts ) {
+						if ( contact.otherSub == otherEntity ) {
+							if ( !rootHit ) {
+								entity.hitWith( contact.otherSub, contact );
+								rootHit = true;
+							}
+						} else {
+							entity.hitWith( contact.otherSub, contact );
+						}
+					}
+				}
 			}
 
 			if ( entity instanceof RollBoss ) {
 				entity.watch( this.player.pos );
 			}
 		}
-
-		let stepTotal = 0.0;
-		let lastTotal = 0.0;
-		this.player.blockedDirs = [];
-		let contacted: Entity = null;
 
 		// debug {
 			let canvas = ( window as any ).canvas;
@@ -412,7 +423,6 @@ export class Level extends Scene {
 			context.clearRect( 0, 0, canvas.width, canvas.height );
 
 			let shapes = this.player.getShapes( 0.0 );
-			if ( contacted ) shapes.push( ...contacted.getShapes( 0.0 ) );
 			for ( let shape of shapes ) {
 				shape.material = new Material( 0, 0, 0.5 );
 			}
@@ -422,28 +432,37 @@ export class Level extends Scene {
 			}
 		// }
 
+		let stepTotal = 0.0;
+		let lastTotal = 0.0;
+		this.player.blockedDirs = [];
+		let contacted: Entity = null;
+
 		while ( stepTotal < 1.0 ) {
 			let step = 1.0 - stepTotal;
-			let contacts = [];
+			let solidContacts = [];
 
 			while ( step > 0.05 ) {
-				contacts = [];
+				solidContacts = [];
 				contacted = null;
 
 				// TODO: rank contacts
 				for ( let otherEntity of this.em.entities ) {
 					if ( !this.player.canOverlap( otherEntity ) ) continue;
 
-					let contact = this.player.overlaps( otherEntity, stepTotal + step );
-					if ( !contact ) continue;
-
-					if ( otherEntity.collisionGroup == COL.ENEMY_BODY ) {
-						contacts.push( contact );
+					let contacts = this.player.overlaps( otherEntity, stepTotal + step );
+					
+					if ( contacts.length > 0 ) {
 						contacted = otherEntity;
+					}
+
+					for ( let contact of contacts ) {
+						if ( contact.otherSub.collisionGroup == COL.ENEMY_BODY ) {
+							 solidContacts.push( contact );
+						}
 					}
 				}
 
-				if ( contacts.length > 0) {
+				if ( solidContacts.length > 0) {
 					step /= 2;
 				} else {
 					break;
@@ -461,7 +480,7 @@ export class Level extends Scene {
 				}
 			// }
 
-			for ( let contact of contacts ) {
+			for ( let contact of solidContacts ) {
 				this.player.blockedDirs.push( contact.normal.copy() );
 				
 				// player hits something, cancel player velocity in object direction
@@ -501,7 +520,7 @@ export class Level extends Scene {
 
 		for ( let entity of this.em.entities ) {
 			if ( entity instanceof Coin ) {
-				if ( entity.overlaps( this.player, 0.0 ) ) {
+				if ( entity.overlaps( this.player, 0.0 ).length > 0 ) {
 					entity.removeThis = true;
 				}
 			}
@@ -509,7 +528,7 @@ export class Level extends Scene {
 			if ( entity != this.player ) {
 				entity.drawWireframe = false;
 
-				if ( entity.overlaps( this.player, 0.0 ) ) {
+				if ( entity.overlaps( this.player, 0.0 ).length > 0 ) {
 					entity.drawWireframe = true;
 				}
 			}

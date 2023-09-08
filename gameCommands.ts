@@ -10,26 +10,29 @@ import { store } from './store.js'
 
 export let gameCommands: Array<CommandRef> = [];
 
+
 // Save State
 let c = new CommandRef( 'Save State 1', null, null, KeyCode.DIGIT_1, MOD.CTRL );
 c.enter = function( this: GameControllerDom ) {
 	let toaster = new tp.Toaster( constructors, nameMap );
+	let scene = this.manager.currentScene;
 
-	if ( this.manager.currentScene instanceof Level ) {
-		let flatLevel = tp.toJSON( this.manager.currentScene, toaster );
-		
+	if ( scene instanceof Level ) {
+		let flatLevel = tp.toJSON( scene, toaster );
+
 		store['state_1'] = JSON.stringify( flatLevel );
 
 		console.log( 'Saved state to slot 1' );
 
 	} else {
 		console.warn( 'Save State: Unhandled Scene type ' + 
-			this.manager.currentScene.constructor.name );
+			scene.constructor.name );
 	}
 
 	toaster.cleanAddrIndex();
 }
 gameCommands.push( c );
+
 
 // Load State
 c = new CommandRef( 'Load State 1', null, null, KeyCode.DIGIT_1 );
@@ -47,6 +50,7 @@ c.enter = function( this: GameControllerDom ) {
 	tp.resolveList( [level], toaster );
 	
 	for ( let entity of level['entities'] ) {
+		entity.init();
 		level.em.insert( entity );
 	}
 

@@ -6,10 +6,6 @@ import { Vec2 } from './lib/juego/Vec2.js'
 export class CenteredEntity extends Entity {
 	altMaterial: Material = null;
 
-	/* property overrides */
-
-	saveFields: Array<string> = this.saveFields.concat( ['altMaterial'] );
-
 	constructor( pos: Vec2, width: number, height: number ) {
 		super( pos, width, height );
 	}
@@ -35,7 +31,9 @@ export class CenteredEntity extends Entity {
 	}
 
 	getShapes( step: number ): Array<Shape> {
-		let shapes = this.getOwnShapes();
+		let shapes: Array<Shape> = [];
+
+		shapes = this.getOwnShapes();
 
 		for ( let shape of shapes ) {
 			for ( let p of shape.points ) {
@@ -45,11 +43,11 @@ export class CenteredEntity extends Entity {
 
 			for ( let n of shape.normals ) {
 				n.rotate( this.angle + this.angleVel * step );
-			}	
+			}
 		}
 		
 		for ( let sub of this.getSubs() ) {
-			shapes.push( ...sub.getShapes( step ) );	
+			shapes.push( ...sub.getShapes( step ) );
 		}
 
 		if ( !this.relPos ) {

@@ -7,7 +7,7 @@ import { Vec2 } from './lib/juego/Vec2.js'
 import { CenteredEntity } from './CenteredEntity.js'
 import { COL } from './collisionGroup.js'
 import { Explosion } from './Explosion.js'
-import { Bullet } from './Bullet.js'
+import { Bullet, Gutter } from './Bullet.js'
 
 export class Barrier extends CenteredEntity {
 	altMaterial = new Material( 210, 1.0, 0.9 );
@@ -53,7 +53,7 @@ export class Gun extends CenteredEntity {
 	flashMaterial = new Material( 0, 0, 0.2 );
 	health = gunHealth;
 
-	constructor( relPos: Vec2 ) {
+	constructor( relPos: Vec2=new Vec2( 0, 0 ) ) {
 		super( new Vec2(), 40, 10 );
 
 		this.relPos = relPos;
@@ -67,7 +67,7 @@ export class Gun extends CenteredEntity {
 	fire(): Entity {
 		return new Bullet( 
 				this.pos.copy(), 
-				this.dir.turned( this.angle + Math.random() - 0.5 ).scale( 5 ) );
+				this.dir.turned( this.angle ).scale( 5 ) );
 	}
 
 	getShapes( step: number ): Array<Shape> {
@@ -81,7 +81,6 @@ export class Gun extends CenteredEntity {
 }
 
 class Trigger {
-	set: boolean = false;
 	condition: () => boolean;
 	action: () => void;
 	desc: string;
@@ -92,17 +91,21 @@ class Trigger {
 		this.desc = desc;
 	}
 
-	update() {
-		if ( !this.set && this.condition() ) {
+	update(): boolean {
+		let set = false;
+
+		if ( this.condition() ) {
 			this.action();
-			this.set = true;
+			set = true;
 
 			console.log( this.desc );
 		}
+
+		return set;
 	}
 }
 
-class Target {
+export class Target {
 	target: number;
 	rate: number;
 
@@ -126,6 +129,11 @@ class Target {
 	}
 }
 
+let RollBossState = {
+	DEFAULT: 0,
+	EXPLODE: 1,
+}
+
 export class RollBoss extends CenteredEntity {
 	tops: Array<CenteredEntity> = []; // 225deg
 	bottoms: Array<CenteredEntity> = []; // 45deg
@@ -135,7 +143,11 @@ export class RollBoss extends CenteredEntity {
 
 	coreMaterial = new Material( 30, 1.0, 0.5 );
 
+	gutter: Gutter;
+
 	/* behavior */
+
+	state: number = RollBossState.DEFAULT;
 
 	health: number = 20;
 	alpha: number = 1.0;
@@ -157,10 +169,9 @@ export class RollBoss extends CenteredEntity {
 	extensionTarget = new Target( 0, 2 );
 	
 	triggers: Array<Trigger> = [];
+	triggerSet: Array<boolean> = [];
 
 	watchTarget: Vec2 = null;
-
-	updateFunc = this.defaultUpdate;
 
 	oldSin = 0;
 
@@ -173,17 +184,21 @@ export class RollBoss extends CenteredEntity {
 	collisionGroup = COL.ENEMY_BODY;
 	collisionMask = COL.PLAYER_BULLET;
 
-	saveFields: Array<string> = this.saveFields.concat(
-		['health', 'alpha', 'tops', 'bottoms', 'guns', 'startTime', 'flash'] );
+	discardFields: Array<string> = this.discardFields.concat(
+		['material', 'altMaterial'] ).concat(
 
-	constructor( pos: Vec2=new Vec2( 0, 0 ), createBarrier: boolean=false ) {
+		['rollerLength', 'coreMaterial', 'triggers'] );
+
+	constructor( pos: Vec2=new Vec2( 0, 0 ), spawn: boolean=false, doInit: boolean=true ) {
 		super( pos, 40, 40 );
 
 		this.angle = Math.PI / 4;
 
+		// guns
 		this.guns.push( new Gun( new Vec2( -this.width / 1.41, 0 ) ) );
 		this.guns.push( new Gun( new Vec2( this.width / 1.41, 0 ) ) );
 
+		// rollers
 		for ( let i = 0; i < 3; i++ ) {
 			let top = new CenteredEntity( 
 					new Vec2( 0, -this.height / 2 - this.rollerLength * ( i + 0.5 ) ), 20, this.rollerLength );
@@ -202,9 +217,21 @@ export class RollBoss extends CenteredEntity {
 			this.bottoms.push( bottom );
 		}
 
-		if ( createBarrier ) {
+		// gutter
+		this.gutter = new Gutter( new Vec2( 0, -150 ), 10, 300 );
+		this.gutter.collisionGroup = COL.ENEMY_BULLET;
+		this.gutter.collisionMask = 0x00;
+
+		if ( spawn ) {
 			this.spawnEntity( new Barrier( this.pos.copy(), 600 ) );
 		}
+
+		if ( doInit ) {
+			this.init();
+		}
+	}
+
+	init() {
 
 		/* behavior */ 
 
@@ -251,10 +278,17 @@ export class RollBoss extends CenteredEntity {
 			() => this.shiftRollers = true,
 			'RollBoss: no guns left'
 		) );
+
+		while ( this.triggerSet.length < this.triggers.length ) {
+			this.triggerSet.push( false );
+		}
 	}
 
 	getSubs(): Array<CenteredEntity> {
-		return this.tops.concat( this.bottoms ).concat( this.guns.filter( x => x.health > 0 ) );
+		return this.tops
+			   .concat( this.bottoms )
+			   .concat( this.guns.filter( x => x.health > 0 ) )
+			   .concat( [this.gutter].filter( () => this.health > 0 ) );
 	}
 
 	getOwnShapes(): Array<Shape> {
@@ -290,9 +324,9 @@ export class RollBoss extends CenteredEntity {
 
 			let hit = true;
 
-			if ( contact.entity && contact.entity instanceof CenteredEntity ) {
-				if ( this.tops.includes( contact.entity ) || 
-					 this.bottoms.includes( contact.entity ) ) {
+			if ( contact.sub && contact.sub instanceof CenteredEntity ) {
+				if ( this.tops.includes( contact.sub ) || 
+					 this.bottoms.includes( contact.sub ) ) {
 					hit = false;
 				}
 			}
@@ -323,7 +357,7 @@ export class RollBoss extends CenteredEntity {
 				}
 
 				if ( this.health <= 0 ) {
-					this.updateFunc = this.explodeUpdate;
+					this.state = RollBossState.EXPLODE;
 				}
 
 				console.log( 'RollBoss status: ' + this.health + ' ' + this.guns[0].health + ' ' + this.guns[1].health );
@@ -336,7 +370,11 @@ export class RollBoss extends CenteredEntity {
 	}
 
 	update( step: number ) {
-		this.updateFunc( step );
+		if ( this.state == RollBossState.EXPLODE ) {
+			this.explodeUpdate( step );
+		} else {
+			this.defaultUpdate( step );
+		}
 	}
 
 	defaultUpdate( step: number ) {
@@ -409,6 +447,8 @@ export class RollBoss extends CenteredEntity {
 		// sub-entities
 		let now = new Date().getTime();
 
+		this.gutter.relAngle = -this.angle;
+
 		for ( let sub of this.getSubs() ) {
 			sub.angle = this.angle + sub.relAngle;
 			sub.pos = sub.relPos.turned( this.angle + sub.relAngle);
@@ -421,15 +461,20 @@ export class RollBoss extends CenteredEntity {
 				if ( sub.flashMaterial.lum > 1.0 ) sub.flashMaterial.lum = 1.0;
 
 				if ( now - this.startTime > this.fireInterval ) {
-					let bullet = sub.fire();
+					//for ( let spread = 0; spread < 3; spread++ ) {
+						let bullet = sub.fire();
+						//bullet.vel.rotate( -0.15 + 0.15 * spread );
 
-					this.spawnEntity( bullet );
+						this.spawnEntity( bullet );
 
-					bullet.collisionGroup = COL.ENEMY_BULLET;
-					bullet.collisionMask = 0x00;
+						bullet.collisionGroup = COL.ENEMY_BULLET;
+						bullet.collisionMask = 0x00;
+					//}
 				}
 			}
 		}
+
+		this.gutter.angleVel = 0.0;
 
 		if ( now - this.startTime > this.fireInterval ) {
 			this.startTime = new Date().getTime();
@@ -452,8 +497,10 @@ export class RollBoss extends CenteredEntity {
 
 		this.coreMaterial.skewH = 15 * Math.sin( Math.PI * 2 * ( now % 1000 ) / 1000 );
 
-		for ( let trigger of this.triggers ) {
-			trigger.update();
+		for ( let i = 0; i < this.triggers.length; i++ ) {
+			if ( !this.triggerSet[i] ) {
+				this.triggerSet[i] = this.triggers[i].update();	
+			}
 		}
 	}
 
