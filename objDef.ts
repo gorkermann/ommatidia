@@ -13,7 +13,7 @@ import { Coin } from './Coin.js'
 import { Explosion } from './Explosion.js'
 import { Level } from './Level.js'
 import { Player } from './Player.js'
-import { RollBoss, Gun, Barrier, Target } from './RollBoss.js'
+import { RollBoss, Gun, Barrier, Value } from './RollBoss.js'
 
 export type Newable = { new ( ...args: any[] ): any }
 
@@ -46,7 +46,7 @@ classMap['Gun'] = Gun;
 classMap['Bullet'] = Bullet;
 classMap['Explosion'] = Explosion;
 classMap['Barrier'] = Barrier;
-classMap['Target'] = Target;
+classMap['Value'] = Value;
 classMap['Gutter'] = Gutter;
 
 // list of constructor functions

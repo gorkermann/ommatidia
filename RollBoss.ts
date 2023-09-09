@@ -1,8 +1,9 @@
-import { Entity } from './lib/juego/Entity.js'
+import { Entity, cullList } from './lib/juego/Entity.js'
 import { Contact } from './lib/juego/Contact.js'
 import { Material } from './lib/juego/Material.js'  
 import { Shape } from './lib/juego/Shape.js'
 import { Vec2 } from './lib/juego/Vec2.js'
+import { Dict } from './lib/juego/util.js'
 
 import { CenteredEntity } from './CenteredEntity.js'
 import { COL } from './collisionGroup.js'
@@ -105,23 +106,72 @@ class Trigger {
 	}
 }
 
-export class Target {
-	target: number;
+type MilliCountdown = number;
+
+type Target = {
+	value: number
+	expired?: boolean
+	expireOnCount?: MilliCountdown
+	expireOnReach?: boolean
+	expireOnOther?: Target
+}
+
+export class Value {
+	default: Target;
+	stack: Array<Target> = []; // stack of target values, can push to save the old one
 	rate: number;
 
-	constructor( target: number, rate: number ) {
-		this.target = target;
+	constructor( value: number, rate: number ) {
+		this.default = {
+			value: value,
+		};
 		this.rate = Math.abs( rate );
 	}
 
-	update( step: number, value: number ): number {
-		if ( Math.abs( value - this.target ) <= this.rate * step ) {
-			value = this.target;
+	getTarget(): Target {
+		let target = this.default;
+		if ( this.stack.length > 0 ) target = this.stack[this.stack.length - 1];
 
-		} else if ( value < this.target ) {
+		return target;
+	}
+
+	cleanStack(): boolean {
+		let prevLength = this.stack.length;
+
+		for ( let t of this.stack ) {
+			if ( t.expireOnCount <= 0 ) t.expired = true;
+			if ( t.expireOnOther && t.expireOnOther.expired ) t.expired = true; 
+		}
+		this.stack = this.stack.filter( x => !x.expired );
+
+		return this.stack.length != prevLength;
+	}
+
+	update( step: number, value: number, elapsed: number ): number {
+
+		// clean up stack
+		for ( let t of this.stack ) {
+			if ( t.expireOnCount && t.expireOnCount > 0 ) {
+				t.expireOnCount -= elapsed;
+			}
+		}
+
+		this.cleanStack();
+
+		// update value
+		let target = this.getTarget();
+
+		if ( Math.abs( value - target.value ) <= this.rate * step ) {
+			value = target.value;
+
+			if ( target.expireOnReach ) {
+				target.expired = true;
+			}
+
+		} else if ( value < target.value ) {
 			value += this.rate * step;
 
-		} else { // value > this.target
+		} else { // value > target.value
 			value -= this.rate * step;
 		}
 
@@ -132,6 +182,20 @@ export class Target {
 let RollBossState = {
 	DEFAULT: 0,
 	EXPLODE: 1,
+}
+
+class Chrono {
+	count: MilliCountdown;
+	interval: number;
+
+	constructor( count: MilliCountdown, interval: number ) {
+		this.count = count;
+		this.interval = interval;
+	}
+
+	reset() {
+		this.count = this.interval;
+	}
 }
 
 export class RollBoss extends CenteredEntity {
@@ -145,6 +209,8 @@ export class RollBoss extends CenteredEntity {
 
 	gutter: Gutter;
 
+	oldTime: number = 0;
+
 	/* behavior */
 
 	state: number = RollBossState.DEFAULT;
@@ -157,16 +223,20 @@ export class RollBoss extends CenteredEntity {
 
 	shiftRollers: boolean = false;
 	
-	startTime: number = 0;
 	flash: number = 0;
-	fireInterval: number = 1000;
+
+	counts: Dict<Chrono> = {
+		'fire': new Chrono( 0, 1000 ),
+		'lockOn': new Chrono( 10000, 10000 ),
+		'explode': new Chrono( 0, 500 ),
+	};
 
 	angleVelBase = 0.02;
-	angleVelTarget = new Target( this.angleVelBase, 0.001 );
 	angleVelFactor = 1.2;
+	angleVel_ctrl = new Value( this.angleVelBase, 0.001 );
 
 	extension: number = 0;
-	extensionTarget = new Target( 0, 2 );
+	extension_ctrl = new Value( 0, 2 );
 	
 	triggers: Array<Trigger> = [];
 	triggerSet: Array<boolean> = [];
@@ -236,13 +306,19 @@ export class RollBoss extends CenteredEntity {
 		/* behavior */ 
 
 		let gunFunc = () => {
-			if ( this.extensionTarget.target == 0 ) {
-				this.extensionTarget.target = this.rollerLength;
-				this.angleVelTarget.target = 0;
+			if ( this.extension_ctrl.default.value == 0 ) {
+				this.extension_ctrl.default.value = this.rollerLength;
+				this.extension_ctrl.default.expireOnReach = true;
+				this.angleVel_ctrl.default.value *= -this.angleVelFactor;
+				this.angleVel_ctrl.stack.push( {
+					'value': 0,
+					'expireOnOther': this.extension_ctrl.default,
+				} );
 				this.fireGun = false;
 				this.invuln = true;
+
 			} else {
-				this.angleVelTarget.target *= -this.angleVelFactor
+				this.angleVel_ctrl.default.value *= -this.angleVelFactor;
 			}
 		}
 
@@ -256,8 +332,8 @@ export class RollBoss extends CenteredEntity {
 			this.triggers.push( new Trigger( 
 				() => gun.health <= 0,
 				() => { 
-					this.angleVelTarget.target *= this.angleVelFactor;
-					this.fireInterval *= 0.5;
+					this.angleVel_ctrl.default.value *= this.angleVelFactor;
+					this.counts['fire'].interval *= 0.5;
 				},
 				'RollBoss: gun health reduced to 0'
 			) );
@@ -266,7 +342,7 @@ export class RollBoss extends CenteredEntity {
 		this.triggers.push( new Trigger(
 			() => this.extension == this.rollerLength,
 			() => {
-				this.angleVelTarget.target = this.angleVelBase * -this.angleVelFactor;
+				this.counts['lockOn'].reset();
 				this.fireGun = true;
 				this.invuln = false;
 			},
@@ -370,20 +446,48 @@ export class RollBoss extends CenteredEntity {
 	}
 
 	update( step: number ) {
+		let now = new Date().getTime();
+
+		if ( this.oldTime == 0 ) this.oldTime = now;
+		let elapsed = now - this.oldTime;
+
 		if ( this.state == RollBossState.EXPLODE ) {
-			this.explodeUpdate( step );
+			this.explodeUpdate( step, elapsed );
 		} else {
-			this.defaultUpdate( step );
+			this.defaultUpdate( step, elapsed );
 		}
+
+		for ( let key in this.counts ) {
+			if ( this.counts[key].count > 0 ) {
+				this.counts[key].count -= elapsed;
+			}
+		}
+
+		this.oldTime = now;
 	}
 
-	defaultUpdate( step: number ) {
+	defaultUpdate( step: number, elapsed: number ) {
 		this.pos.add( this.vel.times( step ) );
 		this.angle += this.angleVel * step;
 
-		this.angleVel = this.angleVelTarget.update( step, this.angleVel );
-		this.extension = this.extensionTarget.update( step, this.extension );
+		this.angleVel = this.angleVel_ctrl.update( step, this.angleVel, elapsed );
+		this.extension = this.extension_ctrl.update( step, this.extension, elapsed );
 
+		let cleaned;
+		do {
+			cleaned = false;
+
+			cleaned ||= this.angleVel_ctrl.cleanStack();
+			cleaned ||= this.extension_ctrl.cleanStack();
+		} while ( cleaned );
+
+		for ( let i = 0; i < this.triggers.length; i++ ) {
+			if ( !this.triggerSet[i] ) {
+				this.triggerSet[i] = this.triggers[i].update();	
+			}
+		}
+
+		// sub-entities
 		if ( !this.shiftRollers ) {
 			for ( let i = 1; i < this.tops.length; i++ ) {
 				this.tops[i].relPos.y = this.tops[i-1].relPos.y - this.rollerLength - this.extension;
@@ -444,9 +548,6 @@ export class RollBoss extends CenteredEntity {
 			this.oldSin = sin;
 		}
 
-		// sub-entities
-		let now = new Date().getTime();
-
 		this.gutter.relAngle = -this.angle;
 
 		for ( let sub of this.getSubs() ) {
@@ -456,29 +557,41 @@ export class RollBoss extends CenteredEntity {
 
 			sub.angleVel = this.angleVel;
 
-			if ( sub instanceof Gun && this.fireGun ) {
-				sub.flashMaterial.lum = ( now - this.startTime ) / this.fireInterval;
-				if ( sub.flashMaterial.lum > 1.0 ) sub.flashMaterial.lum = 1.0;
+			if ( sub instanceof Gun ) {
+				if ( this.fireGun ) {
+					let dir = sub.relPos.unit().rotate( sub.angle );
+					if ( dir.dot( this.watchTarget.unit() ) > 0.999 && this.counts['lockOn'].count <= 0 ) {
+						this.angleVel_ctrl.stack.push( {
+							'value': 0.01 * ( this.angleVel < 0 ? -1 : 1 ),
+							'expireOnCount': 5000,
+						} );
 
-				if ( now - this.startTime > this.fireInterval ) {
-					//for ( let spread = 0; spread < 3; spread++ ) {
-						let bullet = sub.fire();
-						//bullet.vel.rotate( -0.15 + 0.15 * spread );
+						this.counts['lockOn'].reset();
+					}
 
-						this.spawnEntity( bullet );
+					sub.flashMaterial.lum = this.counts['fire'].count / this.counts['fire'].interval;
+					if ( sub.flashMaterial.lum > 1.0 ) sub.flashMaterial.lum = 1.0;
 
-						bullet.collisionGroup = COL.ENEMY_BULLET;
-						bullet.collisionMask = 0x00;
-					//}
+					if ( this.counts['fire'].count <= 0 ) {
+						//for ( let spread = 0; spread < 3; spread++ ) {
+							let bullet = sub.fire();
+							bullet.vel.rotate( 0.5 * Math.random() - 0.25 );
+
+							this.spawnEntity( bullet );
+
+							bullet.collisionGroup = COL.ENEMY_BULLET;
+							bullet.collisionMask = 0x00;
+						//}
+					}
 				}
 			}
 		}
 
-		this.gutter.angleVel = 0.0;
-
-		if ( now - this.startTime > this.fireInterval ) {
-			this.startTime = new Date().getTime();
+		if ( this.counts['fire'].count <= 0 ) {
+			this.counts['fire'].reset();
 		}
+
+		this.gutter.angleVel = 0.0;
 
 		// material
 		let skew = 0;
@@ -495,19 +608,12 @@ export class RollBoss extends CenteredEntity {
 			if ( sub.altMaterial ) sub.altMaterial.skewL = skew;
 		}
 
+		let now = new Date().getTime();
 		this.coreMaterial.skewH = 15 * Math.sin( Math.PI * 2 * ( now % 1000 ) / 1000 );
-
-		for ( let i = 0; i < this.triggers.length; i++ ) {
-			if ( !this.triggerSet[i] ) {
-				this.triggerSet[i] = this.triggers[i].update();	
-			}
-		}
 	}
 
-	explodeUpdate( step: number ) {
-		let now = new Date().getTime();
-
-		if ( now - this.startTime > 500 ) {
+	explodeUpdate( step: number, elapsed: number ) {
+		if ( this.counts['explode'].count <= 0 ) {
 			let ents = this.getSubs().concat( [this] );
 			let i = Math.floor( Math.random() * ents.length );
 
@@ -515,7 +621,7 @@ export class RollBoss extends CenteredEntity {
 
 			this.spawnEntity( new Explosion( p ) );
 
-			this.startTime = new Date().getTime();
+			this.counts['explode'].reset();
 
 			this.alpha -= 0.1;
 		
