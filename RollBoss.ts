@@ -1,3 +1,4 @@
+import { Chrono, Anim, AnimField, AnimFrame, MilliCountdown } from './lib/juego/Anim.js'
 import { Entity, cullList } from './lib/juego/Entity.js'
 import { Contact } from './lib/juego/Contact.js'
 import { Material } from './lib/juego/Material.js'  
@@ -106,16 +107,7 @@ class Trigger {
 	}
 }
 
-type MilliCountdown = number;
-
-type Target = {
-	value: number
-	expired?: boolean
-	expireOnCount?: MilliCountdown
-	expireOnReach?: boolean
-	expireOnOther?: Target
-}
-
+/*
 export class Value {
 	default: Target;
 	stack: Array<Target> = []; // stack of target values, can push to save the old one
@@ -128,7 +120,9 @@ export class Value {
 		this.rate = Math.abs( rate );
 	}
 
-	getTarget(): Target {
+	private getTarget( key: string ): AnimTarget {
+
+
 		let target = this.default;
 		if ( this.stack.length > 0 ) target = this.stack[this.stack.length - 1];
 
@@ -177,25 +171,11 @@ export class Value {
 
 		return value;
 	}
-}
+}*/
 
 let RollBossState = {
 	DEFAULT: 0,
 	EXPLODE: 1,
-}
-
-class Chrono {
-	count: MilliCountdown;
-	interval: number;
-
-	constructor( count: MilliCountdown, interval: number ) {
-		this.count = count;
-		this.interval = interval;
-	}
-
-	reset() {
-		this.count = this.interval;
-	}
 }
 
 export class RollBoss extends CenteredEntity {
@@ -229,15 +209,26 @@ export class RollBoss extends CenteredEntity {
 		'fire': new Chrono( 0, 1000 ),
 		'lockOn': new Chrono( 10000, 10000 ),
 		'explode': new Chrono( 0, 500 ),
-	};
+	}
 
 	angleVelBase = 0.02;
 	angleVelFactor = 1.2;
-	angleVel_ctrl = new Value( this.angleVelBase, 0.001 );
 
 	extension: number = 0;
-	extension_ctrl = new Value( 0, 2 );
 	
+	anim = new Anim( {
+		'angleVel': new AnimField( this, 'angleVel', 0.001 ),
+		'extension': new AnimField( this, 'extension', 2 ),
+		'fireGun': new AnimField( this, 'fireGun' ),
+		'invuln': new AnimField( this, 'invuln' ),
+	},
+	new AnimFrame( {
+		'angleVel': { value: this.angleVelBase },
+		'extension': { value: 0 },
+		'fireGun': { value: true },
+		'invuln': { value: false }
+	} ) );
+
 	triggers: Array<Trigger> = [];
 	triggerSet: Array<boolean> = [];
 
@@ -305,20 +296,23 @@ export class RollBoss extends CenteredEntity {
 
 		/* behavior */ 
 
+		let defaultTargets = this.anim.stack[0].targets;
+
 		let gunFunc = () => {
-			if ( this.extension_ctrl.default.value == 0 ) {
-				this.extension_ctrl.default.value = this.rollerLength;
-				this.extension_ctrl.default.expireOnReach = true;
-				this.angleVel_ctrl.default.value *= -this.angleVelFactor;
-				this.angleVel_ctrl.stack.push( {
-					'value': 0,
-					'expireOnOther': this.extension_ctrl.default,
-				} );
-				this.fireGun = false;
-				this.invuln = true;
+			if ( defaultTargets['extension'].value == 0 ) {
+
+				defaultTargets['extension'].value = this.rollerLength;
+				( defaultTargets['angleVel'].value as number ) *= -this.angleVelFactor;
+
+				this.anim.pushFrame( new AnimFrame( {
+					'extension': { value: this.rollerLength, expireOnReach: true },
+					'angleVel': { value: 0 },
+					'fireGun': { value: false },
+					'invuln': { value: true }
+				} ) );
 
 			} else {
-				this.angleVel_ctrl.default.value *= -this.angleVelFactor;
+				( defaultTargets['angleVel'].value as number ) *= -this.angleVelFactor;
 			}
 		}
 
@@ -332,8 +326,8 @@ export class RollBoss extends CenteredEntity {
 			this.triggers.push( new Trigger( 
 				() => gun.health <= 0,
 				() => { 
-					this.angleVel_ctrl.default.value *= this.angleVelFactor;
-					this.counts['fire'].interval *= 0.5;
+					( defaultTargets['angleVel'].value as number ) *= this.angleVelFactor;
+					//this.counts['fire'].interval *= 0.5;
 				},
 				'RollBoss: gun health reduced to 0'
 			) );
@@ -343,15 +337,17 @@ export class RollBoss extends CenteredEntity {
 			() => this.extension == this.rollerLength,
 			() => {
 				this.counts['lockOn'].reset();
-				this.fireGun = true;
-				this.invuln = false;
 			},
 			'RollBoss: extended arms',
 		) );
 
 		this.triggers.push( new Trigger(
 			() => this.guns.filter( x => x.health > 0 ).length == 0,
-			() => this.shiftRollers = true,
+			() => {
+				this.shiftRollers = true;
+				( defaultTargets['angleVel'].value as number ) *= this.angleVelFactor;
+				this.anim.clear();
+			},
 			'RollBoss: no guns left'
 		) );
 
@@ -442,7 +438,7 @@ export class RollBoss extends CenteredEntity {
 	}
 
 	watch( target: Vec2 ) {
-		this.watchTarget = target.copy();
+		this.watchTarget = target.minus( this.pos );
 	}
 
 	update( step: number ) {
@@ -470,16 +466,17 @@ export class RollBoss extends CenteredEntity {
 		this.pos.add( this.vel.times( step ) );
 		this.angle += this.angleVel * step;
 
-		this.angleVel = this.angleVel_ctrl.update( step, this.angleVel, elapsed );
-		this.extension = this.extension_ctrl.update( step, this.extension, elapsed );
+		this.anim.update( step, elapsed );
+		//this.angleVel = this.angleVel_ctrl.update( step, this.angleVel, elapsed );
+		//this.extension = this.extension_ctrl.update( step, this.extension, elapsed );
 
-		let cleaned;
+		/*let cleaned;
 		do {
 			cleaned = false;
 
 			cleaned ||= this.angleVel_ctrl.cleanStack();
 			cleaned ||= this.extension_ctrl.cleanStack();
-		} while ( cleaned );
+		} while ( cleaned );*/
 
 		for ( let i = 0; i < this.triggers.length; i++ ) {
 			if ( !this.triggerSet[i] ) {
@@ -560,11 +557,16 @@ export class RollBoss extends CenteredEntity {
 			if ( sub instanceof Gun ) {
 				if ( this.fireGun ) {
 					let dir = sub.relPos.unit().rotate( sub.angle );
-					if ( dir.dot( this.watchTarget.unit() ) > 0.999 && this.counts['lockOn'].count <= 0 ) {
-						this.angleVel_ctrl.stack.push( {
-							'value': 0.01 * ( this.angleVel < 0 ? -1 : 1 ),
-							'expireOnCount': 5000,
-						} );
+					let cross = dir.cross( this.watchTarget.unit() );
+					if ( dir.dot( this.watchTarget.unit() ) > 0.9 && 
+						 cross * this.angleVel > 0 && 
+						 this.counts['lockOn'].count <= 0 ) {
+						this.anim.pushFrame( new AnimFrame( {
+							'angleVel': {
+								value: 0.01 * ( this.angleVel < 0 ? -1 : 1 ), 
+								expireOnCount: 5000
+							}
+						} ) );
 
 						this.counts['lockOn'].reset();
 					}

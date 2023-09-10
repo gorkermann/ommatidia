@@ -1,3 +1,4 @@
+import { Chrono, Anim, AnimField, AnimFrame } from './lib/juego/Anim.js'
 import { Entity } from './lib/juego/Entity.js'
 import { GridArea } from './lib/juego/GridArea.js'
 import { Line } from './lib/juego/Line.js'
@@ -13,7 +14,7 @@ import { Coin } from './Coin.js'
 import { Explosion } from './Explosion.js'
 import { Level } from './Level.js'
 import { Player } from './Player.js'
-import { RollBoss, Gun, Barrier, Value } from './RollBoss.js'
+import { RollBoss, Gun, Barrier } from './RollBoss.js'
 
 export type Newable = { new ( ...args: any[] ): any }
 
@@ -36,6 +37,10 @@ classMap['Entity'] = Entity; // no loops
 classMap['Region'] = Region; // no loops
 classMap['GridArea'] = GridArea;
 classMap['TileArray'] = TileArray;
+classMap['Anim'] = Anim;
+classMap['AnimField'] = AnimField;
+classMap['AnimFrame'] = AnimFrame;
+classMap['Chrono'] = Chrono;
 
 classMap['Level'] = Level;
 classMap['Player'] = Player;
@@ -46,7 +51,6 @@ classMap['Gun'] = Gun;
 classMap['Bullet'] = Bullet;
 classMap['Explosion'] = Explosion;
 classMap['Barrier'] = Barrier;
-classMap['Value'] = Value;
 classMap['Gutter'] = Gutter;
 
 // list of constructor functions
