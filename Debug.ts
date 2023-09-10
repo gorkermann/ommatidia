@@ -1,25 +1,29 @@
 import { Dict } from './lib/juego/util.js'
+import { Debug as juegoDebug } from './lib/juego/Debug.js'
 
 import { store } from './store.js'
 
-export let flags: { [key: string]: boolean } = {
+export let flags: Dict<boolean> = {
 	DRAW_NORMAL: false,
 	DRAW_RAYS: false,
+	LOG_ANIM: false,
+}
+
+for ( let flagName in juegoDebug ) {
+	flags[flagName] = juegoDebug[flagName];
 }
 
 export function toggleFlag( flagName: string ) {
 	if ( flagName in flags ) {
+		let obj: any = {};
+
 		if ( flags[flagName] ) {
-			flags[flagName] = false;
+			obj[flagName] = false;
 		} else {
-			flags[flagName] = true;
+			obj[flagName] = true;
 		}
 
-		if ( typeof document !== 'undefined' ) {
-			document.dispatchEvent( 
-				new CustomEvent( 'var_' + flagName, { detail: flags[flagName] } ) );
-		}
-
+		setFlags( obj );
 	} else {
 		throw new Error( 'Debug.toggleFlag: No flag named ' + flagName );
 	}
@@ -29,6 +33,10 @@ export function setFlags( newFlags: Dict<boolean> ) {
 	for ( let flagName in newFlags ) {
 		if ( flagName in flags ) {
 			flags[flagName] = newFlags[flagName];
+
+			if ( flagName in juegoDebug ) {
+				juegoDebug[flagName] = flags[flagName];
+			}
 
 			if ( typeof document !== 'undefined' ) {
 				document.dispatchEvent( 
@@ -54,8 +62,10 @@ export function createDOMPanel(): HTMLDivElement {
 		checkbox.checked = flags[optionName];
 
 		checkbox.onchange = () => {
-			flags[optionName] = checkbox.checked;
-			document.dispatchEvent( new CustomEvent( 'var_' + optionName, { detail: flags[optionName] } ) );
+			let obj: any = {};
+			obj[optionName] = checkbox.checked;
+
+			setFlags( obj );
 		}
 
 		document.addEventListener( 'var_' + optionName, ( e: Event ) => {

@@ -107,72 +107,6 @@ class Trigger {
 	}
 }
 
-/*
-export class Value {
-	default: Target;
-	stack: Array<Target> = []; // stack of target values, can push to save the old one
-	rate: number;
-
-	constructor( value: number, rate: number ) {
-		this.default = {
-			value: value,
-		};
-		this.rate = Math.abs( rate );
-	}
-
-	private getTarget( key: string ): AnimTarget {
-
-
-		let target = this.default;
-		if ( this.stack.length > 0 ) target = this.stack[this.stack.length - 1];
-
-		return target;
-	}
-
-	cleanStack(): boolean {
-		let prevLength = this.stack.length;
-
-		for ( let t of this.stack ) {
-			if ( t.expireOnCount <= 0 ) t.expired = true;
-			if ( t.expireOnOther && t.expireOnOther.expired ) t.expired = true; 
-		}
-		this.stack = this.stack.filter( x => !x.expired );
-
-		return this.stack.length != prevLength;
-	}
-
-	update( step: number, value: number, elapsed: number ): number {
-
-		// clean up stack
-		for ( let t of this.stack ) {
-			if ( t.expireOnCount && t.expireOnCount > 0 ) {
-				t.expireOnCount -= elapsed;
-			}
-		}
-
-		this.cleanStack();
-
-		// update value
-		let target = this.getTarget();
-
-		if ( Math.abs( value - target.value ) <= this.rate * step ) {
-			value = target.value;
-
-			if ( target.expireOnReach ) {
-				target.expired = true;
-			}
-
-		} else if ( value < target.value ) {
-			value += this.rate * step;
-
-		} else { // value > target.value
-			value -= this.rate * step;
-		}
-
-		return value;
-	}
-}*/
-
 let RollBossState = {
 	DEFAULT: 0,
 	EXPLODE: 1,
@@ -189,13 +123,12 @@ export class RollBoss extends CenteredEntity {
 
 	gutter: Gutter;
 
-	oldTime: number = 0;
-
 	/* behavior */
 
 	state: number = RollBossState.DEFAULT;
 
 	health: number = 20;
+	maxHealth: number; // set in constructor
 	alpha: number = 1.0;
 
 	invuln: boolean = false;
@@ -221,18 +154,20 @@ export class RollBoss extends CenteredEntity {
 		'extension': new AnimField( this, 'extension', 2 ),
 		'fireGun': new AnimField( this, 'fireGun' ),
 		'invuln': new AnimField( this, 'invuln' ),
+		'fireInt': new AnimField( this.counts['fire'], 'interval', 1000 ) // high rate
 	},
 	new AnimFrame( {
 		'angleVel': { value: this.angleVelBase },
 		'extension': { value: 0 },
 		'fireGun': { value: true },
-		'invuln': { value: false }
+		'invuln': { value: false },
+		'fireInt': { value: 1000 },
 	} ) );
 
 	triggers: Array<Trigger> = [];
 	triggerSet: Array<boolean> = [];
 
-	watchTarget: Vec2 = null;
+	watchTarget: Vec2 = null; // relative to this.pos
 
 	oldSin = 0;
 
@@ -287,6 +222,8 @@ export class RollBoss extends CenteredEntity {
 			this.spawnEntity( new Barrier( this.pos.copy(), 600 ) );
 		}
 
+		this.maxHealth = this.getHealth();
+
 		if ( doInit ) {
 			this.init();
 		}
@@ -304,6 +241,7 @@ export class RollBoss extends CenteredEntity {
 				defaultTargets['extension'].value = this.rollerLength;
 				( defaultTargets['angleVel'].value as number ) *= -this.angleVelFactor;
 
+				this.anim.clear();
 				this.anim.pushFrame( new AnimFrame( {
 					'extension': { value: this.rollerLength, expireOnReach: true },
 					'angleVel': { value: 0 },
@@ -312,7 +250,7 @@ export class RollBoss extends CenteredEntity {
 				} ) );
 
 			} else {
-				( defaultTargets['angleVel'].value as number ) *= -this.angleVelFactor;
+				( defaultTargets['angleVel'].value as number ) *= this.angleVelFactor;
 			}
 		}
 
@@ -390,6 +328,12 @@ export class RollBoss extends CenteredEntity {
 		return shapes;
 	}
 
+	getHealth(): number {
+		return Math.max( this.health, 0 ) +
+			   Math.max( this.guns[0].health, 0 ) + 
+			   Math.max( this.guns[1].health, 0 ); 
+	}
+
 	hitWith( otherEntity: Entity, contact: Contact ): void {
 		if ( otherEntity instanceof Bullet ) {
 			otherEntity.removeThis = true;
@@ -418,7 +362,7 @@ export class RollBoss extends CenteredEntity {
 					if ( vec.dot( dir ) > 0 && this.guns[0].health > 0 ) {
 						this.guns[0].health -= 1;
 						this.flash = 5;
-					} else if ( this.guns[1].health > 0 ) {
+					} else if ( vec.dot( dir ) < 0 && this.guns[1].health > 0 ) {
 						this.guns[1].health -= 1;
 						this.flash = 5;
 					}
@@ -441,12 +385,7 @@ export class RollBoss extends CenteredEntity {
 		this.watchTarget = target.minus( this.pos );
 	}
 
-	update( step: number ) {
-		let now = new Date().getTime();
-
-		if ( this.oldTime == 0 ) this.oldTime = now;
-		let elapsed = now - this.oldTime;
-
+	update( step: number, elapsed: number ) {
 		if ( this.state == RollBossState.EXPLODE ) {
 			this.explodeUpdate( step, elapsed );
 		} else {
@@ -458,8 +397,6 @@ export class RollBoss extends CenteredEntity {
 				this.counts[key].count -= elapsed;
 			}
 		}
-
-		this.oldTime = now;
 	}
 
 	defaultUpdate( step: number, elapsed: number ) {
@@ -498,22 +435,22 @@ export class RollBoss extends CenteredEntity {
 			let sin = Math.sin( this.angle - Math.PI / 4 );
 			let cos = Math.cos( this.angle - Math.PI / 4 );
 
-			let dist = this.pos.distTo( this.watchTarget ) - this.height / 2;
+			let dist = this.watchTarget.length() - this.height / 2;
 			if ( dist < 0 ) dist = 0;
 
 			let bin = Math.floor( dist / this.rollerLength );
 
-			let shift = [0, 0, 0]; // default is bins 0, 2, and 4
+			let shift = [0, 0, 0]; // o---
 
-			if ( bin == 2 ) {
+			if ( bin == 2 ) { // o- - - 
 				shift[1] = 1;
 				shift[2] = 1;
 			
-			} else if ( bin == 3 ) {
+			} else if ( bin == 3 ) { // o- --
 				shift[1] = 1;
 				shift[2] = 0;
 			
-			} else if ( bin == 4 ) {
+			} else if ( bin == 4 ) { // o-  --
 				shift[1] = 2;
 				shift[2] = 0;
 			}
@@ -565,6 +502,9 @@ export class RollBoss extends CenteredEntity {
 							'angleVel': {
 								value: 0.01 * ( this.angleVel < 0 ? -1 : 1 ), 
 								expireOnCount: 5000
+							},
+							'fireInt': {
+								value: 750
 							}
 						} ) );
 
@@ -609,9 +549,6 @@ export class RollBoss extends CenteredEntity {
 			sub.material.skewL = skew / ( sub.relPos.length() / 100 + 1 );
 			if ( sub.altMaterial ) sub.altMaterial.skewL = skew;
 		}
-
-		let now = new Date().getTime();
-		this.coreMaterial.skewH = 15 * Math.sin( Math.PI * 2 * ( now % 1000 ) / 1000 );
 	}
 
 	explodeUpdate( step: number, elapsed: number ) {
@@ -631,6 +568,11 @@ export class RollBoss extends CenteredEntity {
 				document.dispatchEvent( new CustomEvent( "complete", {} ) );
 			}
 		}
+	}
+
+	shade() {
+		let now = new Date().getTime();
+		this.coreMaterial.skewH = 15 * Math.sin( Math.PI * 2 * ( now % 1000 ) / 1000 );
 	}
 
 	draw( context: CanvasRenderingContext2D ) {

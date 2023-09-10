@@ -1,3 +1,4 @@
+import { Anim, AnimField, AnimFrame } from './lib/juego/Anim.js'
 import { Contact } from './lib/juego/Contact.js'
 import { Entity } from './lib/juego/Entity.js'
 import { EntityManager } from './lib/juego/EntityManager.js'
@@ -24,51 +25,6 @@ import { renderFromEye, renderRays } from './render.js'
 import { RollBoss, Barrier } from './RollBoss.js' 
 
 import * as Debug from './Debug.js'
-
-class Quant {
-	value: number;
-	min: number;
-	max: number;
-	rate: number;
-	currentRate: number = 0;
-
-	constructor( value: number, min: number, max: number, rate: number ) {
-		this.value = value;
-		this.min = min;
-		this.max = max;
-		this.rate = rate;
-	}
-
-	setMin() {
-		this.value = this.min;
-	}
-
-	setMax() {
-		this.value = this.max;
-	}
-
-	trans() {
-
-	}
-
-	update() {
-		this.value += this.currentRate;
-
-		if ( this.value > this.max ) {
-			this.value = this.max;
-
-			if ( this.currentRate > 0 ) {
-				this.currentRate = 0;
-			}
-		} else if ( this.value < this.min ) {
-			this.value = this.min;
-
-			if ( this.currentRate < 0 ) {
-				this.currentRate = 0;
-			}
-		}
-	}
-}
 
 type QueueFuncOptions = {
 	runOnClear?: boolean;
@@ -119,6 +75,8 @@ export class Level extends Scene {
 	speaker: Entity = null;
 
 	//
+	paused: boolean = false;
+
 	tryCount: number = 0;
 	updateQueue: Array<QueueFunc> = [];
 	boundKeyHandler = this.keyHandler.bind(this);
@@ -127,7 +85,30 @@ export class Level extends Scene {
 	
 	sliceCount: number = 45;
 
-	saveFields = ['grid', 'player', 'controlMode', 'grav', 'data'];
+	healthBar: number = 0;
+	healthBarMax: number = 0;
+	haloWidth: number = 40;
+	oldTime: number = 0;
+
+	ir: number = 300;
+	or: number = 320;
+
+	anim = new Anim( {
+		'healthBar': new AnimField( this, 'healthBar', 3 ),
+		'haloWidth': new AnimField( this, 'haloWidth', 5 ),
+		'or': new AnimField( this, 'or', 40 ),
+		'ir': new AnimField( this, 'ir', 40 ),
+	},
+	new AnimFrame( {
+		'healthBar': { value: 0 },
+		'haloWidth': { value: 40 },
+		'or': { value: 320 },
+		'ir': { value: 300}
+	} ) );
+
+	discardFields = ['em', 'textBox', 'textBoxHeight', 'text', 'textIndex', 'speaker',
+					 'updateQueue', 'boundKeyHandler', 'cursorPos', 'sliceCount', 'oldTime'];
+	//saveFields = ['grid', 'player', 'controlMode', 'grav', 'data', 'bossHealthMax'];
 
 	constructor( name: string, data: any ) {
 		super( name );
@@ -138,7 +119,16 @@ export class Level extends Scene {
 	}
 
 	protected toJSON( toaster: tp.Toaster ): any {
-		let fields = this.saveFields;
+		let fields = Object.keys( this );
+
+		// never save these fields (which are lists of other fields)
+		let exclude = ['editFields', 'saveFields', 'discardFields', 'entities'];
+
+		// fields for for serialization only (exclude the old value if left in by mistake)
+		exclude = exclude.concat( ['entities'] );
+
+		exclude = exclude.concat( this.discardFields );
+		fields = fields.filter( x => !exclude.includes( x ) );
 
 		let flat: any = {};
 
@@ -163,6 +153,8 @@ export class Level extends Scene {
 	}
 	
 	begin() {
+		this.healthBar = 0;
+		this.oldTime = 0;
 		this.tryCount += 1;
 
 		Debug.setFlags( { 'DRAW_NORMAL': this.data.drawNormal } );
@@ -190,6 +182,17 @@ export class Level extends Scene {
 				} else if ( index == 4 ) {
 					let boss = new RollBoss( pos.copy(), true );
 					this.em.insert( boss );
+
+					this.healthBarMax = boss.getHealth();
+					this.anim.stack[0].targets['healthBar'].value = this.healthBarMax;
+
+					this.anim.pushFrame( new AnimFrame( { 'healthBar': { value: this.healthBarMax, expireOnReach: true } } ) );
+
+					this.anim.stack[0].targets['or'].value = 120;
+					this.anim.stack[0].targets['ir'].value = 100;
+
+					this.anim.pushFrame( new AnimFrame( { 'or': { value: 120, expireOnReach: true } } ) );
+					this.anim.pushFrame( new AnimFrame( { 'ir': { value: 100, expireOnReach: true } } ) );
 				}
 			}
 		}
@@ -290,6 +293,21 @@ export class Level extends Scene {
 	}
 
 	update() {
+		if ( Keyboard.keyHit( KeyCode.SPACE ) ) {
+			if ( this.paused ) {
+				this.paused = false;
+			} else {
+				this.paused = true;
+			}
+		}
+
+		// paused
+		if ( this.paused ) {
+			this.oldTime = new Date().getTime();
+
+			return;
+		}
+
 		// some animation is playing
 		if ( this.updateQueue.length > 0 ) {
 			let finished = this.updateQueue[0].func();
@@ -316,6 +334,17 @@ export class Level extends Scene {
 	}
 
 	defaultUpdate() {
+		let now = new Date().getTime();
+
+		if ( this.oldTime == 0 ) this.oldTime = now;
+		let elapsed = now - this.oldTime;
+
+		this.oldTime = now;
+
+		let frameStep = 1.0;//elapsed / 60;
+
+		this.anim.update( frameStep, elapsed );
+
 		if ( Keyboard.keyHit( KeyCode.A ) ) {
 			if ( this.controlMode == MODE_GRAVITY ) {
 				this.controlMode = MODE_SQUARE;
@@ -394,7 +423,7 @@ export class Level extends Scene {
 			for ( let otherEntity of this.em.entities ) {
 				if ( !entity.canOverlap( otherEntity ) ) continue;
 
-				let contacts = entity.overlaps( otherEntity, 1.0 );
+				let contacts = entity.overlaps( otherEntity, frameStep );
 				let rootHit = false;
 
 				if ( contacts.length > 0 ) {
@@ -437,8 +466,8 @@ export class Level extends Scene {
 		this.player.blockedDirs = [];
 		let contacted: Entity = null;
 
-		while ( stepTotal < 1.0 ) {
-			let step = 1.0 - stepTotal;
+		while ( stepTotal < frameStep ) {
+			let step = frameStep - stepTotal;
 			let solidContacts = [];
 
 			while ( step > 0.05 ) {
@@ -508,7 +537,7 @@ export class Level extends Scene {
 
 				let ahead = this.player.center.minus( contact.point ).dot( push ) > 0;
 				if ( ahead ) {
-					this.player.vel.add( push.times( 1.0 - stepTotal ) );
+					this.player.vel.add( push.times( frameStep - stepTotal ) );
 				}
 			}
 
@@ -516,7 +545,7 @@ export class Level extends Scene {
 		}
 
 		this.em.collide( this.grid );
-		this.em.update( 1.0 );
+		this.em.update( frameStep, elapsed );
 
 		for ( let entity of this.em.entities ) {
 			if ( entity instanceof Coin ) {
@@ -673,8 +702,8 @@ export class Level extends Scene {
 		let origin = this.player.pos.plus(
 				new Vec2( this.player.width / 2, this.player.height / 4 ) );
 
-		let ir = 100;
-		let or = 120;
+		let ir = this.ir;
+		let or = this.or;
 
 		let count = this.sliceCount;
 		let slices: Array<number> = [];
@@ -711,6 +740,8 @@ export class Level extends Scene {
 		/* Draw Scene */
 
 		// draw 2D
+		this.em.shade();
+
 		if ( Debug.flags.DRAW_NORMAL ) {
 			context.save();
 				this.grid.draw( context );	
@@ -726,6 +757,38 @@ export class Level extends Scene {
 			context.save();
 				context.translate( 200, 200 );
 				renderFromEye( context, shapes, origin, slices, or, ir );
+
+				let boss = this.em.entities.filter( x => x instanceof RollBoss )[0];
+
+				ir = or + 2;
+				or = ir + this.haloWidth;
+
+				let gradient = context.createRadialGradient(0, 0, ir, 0, 0, or);
+				gradient.addColorStop(0, "hsl( 210, 100%, 90% )");
+				gradient.addColorStop(1, "white");
+
+				if ( boss && boss instanceof RollBoss ) {
+					this.anim.stack[0].targets['healthBar'].value = boss.getHealth();
+
+					let segments = this.healthBarMax;
+					let slice = Math.PI * 2 / segments;
+
+					let sweep = this.healthBar * slice;
+					context.fillStyle = gradient;
+
+					context.globalAlpha = 1.0;
+					
+					for ( let angle = -Math.PI / 2; angle < -Math.PI / 2 + sweep; angle += slice ) {
+						context.beginPath();
+						context.moveTo( Math.cos( angle ) * ir, Math.sin( angle ) * ir );
+						context.lineTo( Math.cos( angle ) * or, Math.sin( angle ) * or );
+						context.lineTo( Math.cos( angle + slice ) * or, Math.sin( angle + slice ) * or );
+						context.lineTo( Math.cos( angle + slice ) * ir, Math.sin( angle + slice ) * ir );
+						context.fill();
+					}
+					
+					context.globalAlpha = 1.0;
+				}
 			context.restore();
 		}
 
@@ -785,6 +848,19 @@ export class Level extends Scene {
 			context.fillStyle = 'white';
 			context.fillText( 'Z: skip', 400 - 35,
 				   			  400 - 6 );
+		}
+
+		/* Pause Overlay */
+		if ( this.paused ) {
+			context.fillStyle = 'hsl( 0, 0%, 90%)';
+			context.font = "24px Arial";
+
+			let text = 'P A U S E';
+			let meas = context.measureText( text );
+			let w = meas.width;
+			let h = meas.actualBoundingBoxAscent + meas.actualBoundingBoxDescent;
+			
+			context.fillText( text, 200 - w / 2, 200 + h / 2 );
 		}
 	}
 }

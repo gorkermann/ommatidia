@@ -54,6 +54,8 @@ c.enter = function( this: GameControllerDom ) {
 		level.em.insert( entity );
 	}
 
+	delete level['entities'];
+
 	if ( this.manager.currentScene !== null ) {
 		this.manager.currentScene.sleep();
 	}

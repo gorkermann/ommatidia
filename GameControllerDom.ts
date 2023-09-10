@@ -16,6 +16,7 @@ import { DeathScene } from './DeathScene.js'
 import { FloaterScene } from './FloaterScene.js'
 import { TitleScene } from './TitleScene.js'
 
+tp.config.WRITE_PTR_CLASSNAME = true;
 
 class FadingImage {
 	image: HTMLImageElement;
