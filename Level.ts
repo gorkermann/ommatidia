@@ -102,8 +102,8 @@ export class Level extends Scene {
 	new AnimFrame( {
 		'healthBar': { value: 0 },
 		'haloWidth': { value: 40 },
-		'or': { value: 320 },
-		'ir': { value: 300}
+		'or': { value: 120 },
+		'ir': { value: 100}
 	} ) );
 
 	discardFields = ['em', 'textBox', 'textBoxHeight', 'text', 'textIndex', 'speaker',
@@ -125,7 +125,7 @@ export class Level extends Scene {
 		let exclude = ['editFields', 'saveFields', 'discardFields', 'entities'];
 
 		// fields for for serialization only (exclude the old value if left in by mistake)
-		exclude = exclude.concat( ['entities'] );
+		exclude = exclude.concat( ['__entities'] );
 
 		exclude = exclude.concat( this.discardFields );
 		fields = fields.filter( x => !exclude.includes( x ) );
@@ -133,7 +133,7 @@ export class Level extends Scene {
 		let flat: any = {};
 
 		tp.setMultiJSON( flat, fields, this, toaster );
-		tp.setJSON( flat, 'entities', this.em.entities, toaster );
+		tp.setJSON( flat, '__entities', this.em.entities, toaster );
 
 		return flat;
 	}
@@ -158,8 +158,9 @@ export class Level extends Scene {
 		this.tryCount += 1;
 
 		Debug.setFlags( { 'DRAW_NORMAL': this.data.drawNormal } );
+		this.controlMode = this.data.controlMode;
 
-		let pos: Vec2 = new Vec2();
+		let pos: Vec2 = new Vec2();		
 
 		for (let c = 0; c <= this.grid.hTiles; c++ ) {
 			for (let r = 0; r <= this.grid.vTiles; r++ ) {
@@ -184,18 +185,25 @@ export class Level extends Scene {
 					this.em.insert( boss );
 
 					this.healthBarMax = boss.getHealth();
-					this.anim.stack[0].targets['healthBar'].value = this.healthBarMax;
 
-					this.anim.pushFrame( new AnimFrame( { 'healthBar': { value: this.healthBarMax, expireOnReach: true } } ) );
-
-					this.anim.stack[0].targets['or'].value = 120;
-					this.anim.stack[0].targets['ir'].value = 100;
-
-					this.anim.pushFrame( new AnimFrame( { 'or': { value: 120, expireOnReach: true } } ) );
-					this.anim.pushFrame( new AnimFrame( { 'ir': { value: 100, expireOnReach: true } } ) );
+					this.anim.pushFrame( new AnimFrame( {
+						'healthBar': {
+							value: this.healthBarMax, 
+							expireOnReach: true,
+							setDefault: true
+						}
+					} ) );
 				}
 			}
 		}
+
+		this.or = 320;
+		this.ir = 300;
+
+		this.anim.pushFrame( new AnimFrame( {
+			'or': { value: 120, expireOnReach: true } } ) );
+		this.anim.pushFrame( new AnimFrame( { 
+			'ir': { value: 100, expireOnReach: true } } ) );
 
 		let coins = this.em.entities.filter( x => x instanceof Coin );
 

@@ -49,12 +49,12 @@ c.enter = function( this: GameControllerDom ) {
 	let level = tp.fromJSON( json, toaster );
 	tp.resolveList( [level], toaster );
 	
-	for ( let entity of level['entities'] ) {
+	for ( let entity of level['__entities'] ) {
 		entity.init();
 		level.em.insert( entity );
 	}
 
-	delete level['entities'];
+	delete level['__entities'];
 
 	if ( this.manager.currentScene !== null ) {
 		this.manager.currentScene.sleep();
