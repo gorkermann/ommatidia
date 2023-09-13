@@ -1,6 +1,6 @@
 import { Anim, AnimField, AnimFrame } from './lib/juego/Anim.js'
 import { Contact } from './lib/juego/Contact.js'
-import { Entity } from './lib/juego/Entity.js'
+import { Entity, TopLeftEntity } from './lib/juego/Entity.js'
 import { EntityManager } from './lib/juego/EntityManager.js'
 import { GridArea } from './lib/juego/GridArea.js'
 import { Keyboard, KeyCode } from './lib/juego/keyboard.js'
@@ -16,13 +16,17 @@ import { Vec2 } from './lib/juego/Vec2.js'
 
 import * as tp from './lib/toastpoint.js'
 
+import { Boss } from './Boss.js'
 import { Bullet } from './Bullet.js'
+import { RandomPoly } from './CenteredEntity.js'
 import { Coin } from './Coin.js'
 import { COL } from './collisionGroup.js'
 import { Player } from './Player.js'
 import { constructors, nameMap } from './objDef.js'
 import { renderFromEye, renderRays } from './render.js'
+
 import { RollBoss, Barrier } from './RollBoss.js' 
+import { LockBoss } from './LockBoss.js'
 
 import * as Debug from './Debug.js'
 
@@ -67,7 +71,7 @@ export class Level extends Scene {
 	data: any;
 	
 	// text box
-	textBox: Entity = new Entity( new Vec2( 0, 300 ), 400, 0 );
+	textBox: Entity = new TopLeftEntity( new Vec2( 0, 300 ), 400, 0 );
 	textBoxHeight: number = 50;//Quant = new Quant( 0, 0, 50, 2 );
 
 	text: string = '';
@@ -166,7 +170,8 @@ export class Level extends Scene {
 			for (let r = 0; r <= this.grid.vTiles; r++ ) {
 				let index = this.grid.spawnLayer.get( r, c );
 
-				pos.setValues( c * this.grid.tileWidth, r * this.grid.tileHeight );
+				pos.setValues( ( c + 0.5 ) * this.grid.tileWidth, 
+							   ( r + 0.5 ) * this.grid.tileHeight );
 
 				if ( index == 2 ) {
 					this.player = new Player( pos.copy() );
@@ -193,6 +198,16 @@ export class Level extends Scene {
 							setDefault: true
 						}
 					} ) );
+				} else if ( index == 5 ) {
+					let entity = new RandomPoly( pos.copy(), 3 + Math.floor( Math.random() * 6 ) );
+					entity.angleVel = -0.04 + Math.random() * 0.08;
+					entity.material = new Material( Math.random() * 360, 1.0, 0.5 );
+					entity.collisionGroup = COL.ENEMY_BODY;
+					this.em.insert( entity );
+
+				} else if ( index == 6 ) {
+					let entity = new LockBoss( pos.copy(), true );
+					this.em.insert( entity );
 				}
 			}
 		}
@@ -363,6 +378,7 @@ export class Level extends Scene {
 
 		if ( this.controlMode == MODE_GRAVITY ) {
 			this.player.vel.x = 0;
+			if ( this.player.collideDown ) this.player.vel.y = 0;
 
 			// left/right
 			if ( Keyboard.keyHeld( KeyCode.LEFT ) && !this.player.collideLeft ) {
@@ -380,7 +396,7 @@ export class Level extends Scene {
 				this.player.vel.y += this.grav.y;
 			}
 
-			if ( Keyboard.keyHit( KeyCode.UP ) && !this.player.collideUp && this.player.collideDown ) {
+			if ( Keyboard.keyHeld( KeyCode.UP ) && !this.player.collideUp && this.player.collideDown ) {
 				this.player.jumping = true;
 			}
 
@@ -427,31 +443,8 @@ export class Level extends Scene {
 			}
 		}
 
-		for ( let entity of this.em.entities ) {
-			for ( let otherEntity of this.em.entities ) {
-				if ( !entity.canOverlap( otherEntity ) ) continue;
-
-				let contacts = entity.overlaps( otherEntity, frameStep );
-				let rootHit = false;
-
-				if ( contacts.length > 0 ) {
-					for ( let contact of contacts ) {
-						if ( contact.otherSub == otherEntity ) {
-							if ( !rootHit ) {
-								entity.hitWith( contact.otherSub, contact );
-								rootHit = true;
-							}
-						} else {
-							entity.hitWith( contact.otherSub, contact );
-						}
-					}
-				}
-			}
-
-			if ( entity instanceof RollBoss ) {
-				entity.watch( this.player.pos );
-			}
-		}
+		// collision
+		this.em.collide( this.grid );
 
 		// debug {
 			let canvas = ( window as any ).canvas;
@@ -459,20 +452,50 @@ export class Level extends Scene {
 
 			context.clearRect( 0, 0, canvas.width, canvas.height );
 
-			let shapes = this.player.getShapes( 0.0 );
-			for ( let shape of shapes ) {
-				shape.material = new Material( 0, 0, 0.5 );
-			}
+			for ( let entity of this.em.entities ) {
+				let shapes = entity.getShapes( 0.0 );
 
-			for ( let shape of shapes ) {
-				shape.stroke( context );
+				for ( let shape of shapes ) {
+					shape.material = new Material( 0, 0, 0.5 );
+				}
+
+				for ( let shape of shapes ) {
+					shape.stroke( context );
+				}
 			}
 		// }
+
+		for ( let entity of this.em.entities ) {
+			for ( let otherEntity of this.em.entities ) {
+				if ( !entity.canOverlap( otherEntity ) ) continue;
+
+				let contacts = entity.overlaps( otherEntity, frameStep );
+
+				if ( contacts.length > 0 ) {
+					// debug {
+						for ( let entity of this.em.entities ) {
+							let shapes = entity.getShapes( frameStep );
+
+							for ( let shape of shapes ) {
+								shape.stroke( context );
+							}
+						}
+					//}
+
+					entity.hitWithMultiple( otherEntity, contacts );
+				}
+			}
+
+			if ( entity instanceof Boss ) {
+				entity.watch( this.player.pos );
+			}
+		}
 
 		let stepTotal = 0.0;
 		let lastTotal = 0.0;
 		this.player.blockedDirs = [];
 		let contacted: Entity = null;
+		let shapes = [];
 
 		while ( stepTotal < frameStep ) {
 			let step = frameStep - stepTotal;
@@ -518,6 +541,8 @@ export class Level extends Scene {
 			// }
 
 			for ( let contact of solidContacts ) {
+				if ( contact.normal.dot( this.grav ) < 0 ) this.player.collideDown = true;
+
 				this.player.blockedDirs.push( contact.normal.copy() );
 				
 				// player hits something, cancel player velocity in object direction
@@ -543,7 +568,7 @@ export class Level extends Scene {
 				let push = contact.vel.copy();
 				push.sub( v2.times( vdot ) );
 
-				let ahead = this.player.center.minus( contact.point ).dot( push ) > 0;
+				let ahead = this.player.pos.minus( contact.point ).dot( push ) > 0;
 				if ( ahead ) {
 					this.player.vel.add( push.times( frameStep - stepTotal ) );
 				}
@@ -552,7 +577,6 @@ export class Level extends Scene {
 			stepTotal += step;
 		}
 
-		this.em.collide( this.grid );
 		this.em.update( frameStep, elapsed );
 
 		for ( let entity of this.em.entities ) {
@@ -707,8 +731,7 @@ export class Level extends Scene {
 
 		/* Prepare Scene */
 
-		let origin = this.player.pos.plus(
-				new Vec2( this.player.width / 2, this.player.height / 4 ) );
+		let origin = this.player.pos.copy();
 
 		let ir = this.ir;
 		let or = this.or;
@@ -752,6 +775,7 @@ export class Level extends Scene {
 
 		if ( Debug.flags.DRAW_NORMAL ) {
 			context.save();
+				context.translate( -this.player.pos.x + 200, -this.player.pos.y + 200 );
 				this.grid.draw( context );	
 				this.em.draw( context );
 			

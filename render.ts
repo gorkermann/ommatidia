@@ -1,9 +1,10 @@
 import { Vec2 } from './lib/juego/Vec2.js'
 import { Line } from './lib/juego/Line.js'
+import { Material, toFillStyle} from './lib/juego/Material.js'
 import { RayHit, closestTo } from "./lib/juego/RayHit.js"
 import { Shape } from './lib/juego/Shape.js'
 
-function shapecast( line: Line, shapes: Array<Shape> ): RayHit | null {
+function shapecast( line: Line, shapes: Array<Shape> ): Array<RayHit> {
 	let closestRayHits: Array<RayHit> = [];
 
 	for ( let shape of shapes ) {
@@ -18,25 +19,22 @@ function shapecast( line: Line, shapes: Array<Shape> ): RayHit | null {
 		}
 	}
 
-	if ( closestRayHits.length > 0 ) {
-		closestRayHits.sort( closestTo( line.p1 ) );
+	
+	closestRayHits.sort( closestTo( line.p1 ) );
 
-		return closestRayHits[0]; 
-	} else {
-		return null;
-	}	
+	return closestRayHits;	
 }
 
 class SliceInfo {
 	angle: number;
 	slice: number;
-	hit: RayHit;
-	hitDist: number;
+	hits: Array<RayHit>; 
+	hitDist: number; // distance to first hit
 
-	constructor( angle: number, slice: number, hit: RayHit, hitDist: number ) {
+	constructor( angle: number, slice: number, hits: Array<RayHit>, hitDist: number ) {
 		this.angle = angle;
 		this.slice = slice;
-		this.hit = hit;
+		this.hits = hits;
 		this.hitDist = hitDist;
 	}
 }
@@ -51,14 +49,13 @@ function getHits( shapes: Array<Shape>,
 	for ( let slice of slices ) {
 		angle += slice / 2;
 
-		let hit = shapecast( new Line( origin.x, origin.y,
+		let hits = shapecast( new Line( origin.x, origin.y,
 									   origin.x + Math.cos( angle ) * 1000, 
 									   origin.y + Math.sin( angle ) * 1000 ), shapes );
-		let hitDist = -1;
-		if ( hit !== null ) {
-			hitDist = hit.point.minus( origin ).length();
+		if ( hits.length > 0 ) {
+			let hitDist = hits[0].point.minus( origin ).length();
 		
-			output.push( new SliceInfo( angle, slice, hit, hitDist ) );
+			output.push( new SliceInfo( angle, slice, hits, hitDist ) );
 
 		} else {
 			output.push( null );
@@ -80,19 +77,21 @@ export function renderRays( context: CanvasRenderingContext2D,
 	for ( let sliceInfo of sliceInfos ) {
 		if ( !sliceInfo ) continue;
 
+		let hit = sliceInfo.hits[0];
+
 		context.strokeStyle = 'black';
 		context.lineWidth = 1;
 		context.beginPath();
 		context.moveTo( origin.x, origin.y );
-		context.lineTo( sliceInfo.hit.point.x, sliceInfo.hit.point.y );
+		context.lineTo( hit.point.x, hit.point.y );
 		context.stroke();
 
-		let n = sliceInfo.hit.point.plus( sliceInfo.hit.normal.times( 10 ) );
+		let n = hit.point.plus( hit.normal.times( 10 ) );
 
 		context.strokeStyle = 'blue';
 		context.lineWidth = 1;
 		context.beginPath();
-		context.moveTo( sliceInfo.hit.point.x, sliceInfo.hit.point.y );
+		context.moveTo( hit.point.x, hit.point.y );
 		context.lineTo( n.x, n.y );
 		context.stroke();
 	}
@@ -102,6 +101,42 @@ let warnCos = -Math.cos( Math.PI * 15 / 180 );
 let warnRadius = 200; // pixels
 let binSize = 40;
 let minPeriod = 400; // milliseconds
+
+function highlightCorners( hit: RayHit, prevHit: RayHit, nextHit: RayHit ) {
+	let score = 0.0;
+
+	if ( prevHit === null || nextHit === null ) {
+		score = 1.0;
+	} else {
+		let dot = prevHit.normal.dot( hit.normal );
+		let nextDot = nextHit.normal.dot( hit.normal );
+		if ( nextDot < dot ) dot = nextDot;
+
+		if ( dot <= 0 ) {
+			score = 1.0;
+		} else if ( dot < 0.866 ) {
+			score = ( 0.866 - dot ) / 0.866;
+		}
+	}
+
+	hit.material.hue += score * 10;
+	//hit.material.lum *= ( 1 - score * 0.6 );
+}
+
+function approachFlash( hit: RayHit, angle: number, hitDist: number ) {
+	let dir = new Vec2( Math.cos( angle ), Math.sin( angle ) );
+
+		if ( hit.vel && // shape is moving 
+			 hit.vel.unit().dot( dir ) < warnCos && // shape is moving toward viewer
+			 hitDist < warnRadius ) { // shape is close
+
+		let period = ( Math.floor( hitDist / binSize ) + 1 ) * minPeriod;
+		let warn = ( ( new Date().getTime() % period ) / period ) * Math.PI * 2;
+
+		hit.material.hue += Math.sin( warn ) * 16 - 8;
+		hit.material.lum += Math.sin( warn ) / 10;
+	}
+}
 
 export function renderFromEye( context: CanvasRenderingContext2D, 
 							   shapes: Array<Shape>,
@@ -116,51 +151,35 @@ export function renderFromEye( context: CanvasRenderingContext2D,
 
 		let angle = sliceInfos[i].angle;
 		let slice = sliceInfos[i].slice;
-		let hit = sliceInfos[i].hit;
 		let hitDist = sliceInfos[i].hitDist;
+
+		let hits = sliceInfos[i].hits;
+
+		let opaqueIndex = hits.length - 1;
+		for ( let j = 0; j < hits.length; j++ ) {
+			if ( hits[j].material.alpha == 1.0 ) {
+				opaqueIndex = j;
+				break;
+			}
+		}
 
 		context.globalAlpha = 1 / ( Math.sqrt( hitDist ) / 3 );
 		//context.globalAlpha = 1 / ( hitDist / 20 );
 
 		// highlight corners and edges of shapes
-		let prevHit = sliceInfos[(i + sliceInfos.length - 1) % sliceInfos.length];
-		let nextHit = sliceInfos[(i + 1) % sliceInfos.length];
+		let prevInfo = sliceInfos[(i + sliceInfos.length - 1) % sliceInfos.length];
+		let nextInfo = sliceInfos[(i + 1) % sliceInfos.length];
 
-		let score = 0.0;
+		highlightCorners( hits[0], ( prevInfo ? prevInfo.hits[0] : null ), ( nextInfo ? nextInfo.hits[0] : null ))
+		approachFlash( hits[0], angle, hitDist );
 
-		if ( prevHit === null || nextHit === null ) {
-			score = 1.0;
-		} else {
-			let dot = prevHit.hit.normal.dot( hit.normal );
-			let nextDot = nextHit.hit.normal.dot( hit.normal );
-			if ( nextDot < dot ) dot = nextDot;
-
-			if ( dot <= 0 ) {
-				score = 1.0;
-			} else if ( dot < 0.866 ) {
-				score = ( 0.866 - dot ) / 0.866;
-			}
-		}
-
-		hit.material.hue += score * 10;
-		//hit.material.lum *= ( 1 - score * 0.6 );
-
-		// flash if the shapes appears to be approaching
-		let dir = new Vec2( Math.cos( angle ), Math.sin( angle ) );
-
- 		if ( hit.vel && // shape is moving 
- 			 hit.vel.unit().dot( dir ) < warnCos && // shape is moving toward viewer
- 			 hitDist < warnRadius ) { // shape is close
-
-			let period = ( Math.floor( hitDist / binSize ) + 1 ) * minPeriod;
-			let warn = ( ( new Date().getTime() % period ) / period ) * Math.PI * 2;
-
-			hit.material.hue += Math.sin( warn ) * 16 - 8;
-			hit.material.lum += Math.sin( warn ) / 10;
+		let blended = { h: 0, s: 0, l: 1.0, a: 1.0 }; // l=1.0 for white background
+		for ( let j = opaqueIndex; j >= 0; j-- ) {
+			hits[j].material.blendWith( blended );
 		}
 
 		// draw the segment
-		context.fillStyle = hit.material.getFillStyle();
+		context.fillStyle = toFillStyle( blended );
 
 		context.beginPath();
 		context.moveTo( Math.cos( angle - slice / 2 ) * ir, Math.sin( angle - slice / 2 ) * ir );

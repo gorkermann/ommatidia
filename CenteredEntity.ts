@@ -1,4 +1,4 @@
-import { Entity } from './lib/juego/Entity.js'
+import { Entity, cullList } from './lib/juego/Entity.js'
 import { Material } from './lib/juego/Material.js'
 import { Shape } from './lib/juego/Shape.js'
 import { Vec2 } from './lib/juego/Vec2.js'
@@ -10,11 +10,9 @@ export class CenteredEntity extends Entity {
 		super( pos, width, height );
 	}
 
-	getSubs(): Array<Entity> {
-		return [];
-	}
-
 	getOwnShapes(): Array<Shape> {
+		if ( this.isGhost ) return [];
+
 		let shape = Shape.makeRectangle( 
 				new Vec2( -this.width / 2, -this.height / 2), this.width, this.height );
 
@@ -28,38 +26,6 @@ export class CenteredEntity extends Entity {
 		}
 
 		return [shape];
-	}
-
-	getShapes( step: number ): Array<Shape> {
-		let shapes: Array<Shape> = [];
-
-		shapes = this.getOwnShapes();
-
-		for ( let shape of shapes ) {
-			for ( let p of shape.points ) {
-				if ( this.relPos ) p.add( this.relPos );
-				p.rotate( this.angle + this.angleVel * step );
-			}
-
-			for ( let n of shape.normals ) {
-				n.rotate( this.angle + this.angleVel * step );
-			}
-		}
-		
-		for ( let sub of this.getSubs() ) {
-			shapes.push( ...sub.getShapes( step ) );
-		}
-
-		if ( !this.relPos ) {
-			for ( let shape of shapes ) {
-				for ( let p of shape.points ) {
-					p.add( this.pos );
-					p.add( this.vel.times( step ) );
-				}
-			}
-		}
-
-		return shapes;
 	}
 
 	// doesn't work for non-rectangles
@@ -86,5 +52,32 @@ export class CenteredEntity extends Entity {
 				shape.fill( context );
 			}
 		}
+	}
+}
+
+export class RandomPoly extends CenteredEntity {
+	points: Array<Vec2> = [];
+
+	constructor( pos: Vec2, pointCount: number, radius: number=100 ) {
+		super( pos, 20, 20 );
+
+		if ( pointCount < 3 ) pointCount = 3;
+
+		let angle = 0;
+
+		for ( let i = 0; i < pointCount; i++ ) {
+			this.points.push( Vec2.fromPolar( angle, 20 + Math.random() * radius ) );
+
+			angle += Math.PI * 2 / pointCount;
+		}
+	}
+
+	getOwnShapes(): Array<Shape> {
+		let shape = Shape.fromPoints( this.points.map( x => x.copy() ) );
+
+		shape.material = this.material;
+		shape.parent = this;
+
+		return [shape];
 	}
 }

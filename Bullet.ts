@@ -38,10 +38,9 @@ export class Bullet extends Entity {
 }
 
 export class Gutter extends CenteredEntity {
-	constructor( relPos: Vec2=new Vec2(), w: number=20, h: number=100 ) {
-		super( new Vec2(), w, h );
+	constructor( pos: Vec2=new Vec2(), w: number=20, h: number=100 ) {
+		super( pos, w, h );
 
-		this.relPos = relPos;
-		this.material = new Material( 30, 1.0, 0.5, 1 );
+		this.material = new Material( 30, 0.0, 0.6, 1.0 );
 	}
 }

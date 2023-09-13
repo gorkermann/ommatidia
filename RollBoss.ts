@@ -6,6 +6,7 @@ import { Shape } from './lib/juego/Shape.js'
 import { Vec2 } from './lib/juego/Vec2.js'
 import { Dict } from './lib/juego/util.js'
 
+import { Boss, BossState } from './Boss.js'
 import { CenteredEntity } from './CenteredEntity.js'
 import { COL } from './collisionGroup.js'
 import { Explosion } from './Explosion.js'
@@ -27,8 +28,6 @@ export class Barrier extends CenteredEntity {
 
 		shape.material = this.material;
 		shape.parent = this;
-
-		let quarterLen = Math.floor( shape.edges.length / 4 );
 
 		for ( let i = 0; i < shape.edges.length; i++ ) {
 			if ( this.altMaterial && i % 2 == 0 ) {
@@ -55,13 +54,12 @@ export class Gun extends CenteredEntity {
 	flashMaterial = new Material( 0, 0, 0.2 );
 	health = gunHealth;
 
-	constructor( relPos: Vec2=new Vec2( 0, 0 ) ) {
-		super( new Vec2(), 40, 10 );
+	constructor( pos: Vec2=new Vec2( 0, 0 ) ) {
+		super( pos, 40, 10 );
 
-		this.relPos = relPos;
-		this.relAngle = -Math.PI / 4;
+		this.angle = -Math.PI / 4;
 
-		this.dir = this.relPos.unit();
+		this.dir = this.pos.unit();
 
 		this.material = new Material( 60, 0.8, 0.5 );
 	}
@@ -107,29 +105,27 @@ class Trigger {
 	}
 }
 
-let RollBossState = {
-	DEFAULT: 0,
-	EXPLODE: 1,
+enum RollBossState {
+	STATE1 = BossState.EXPLODE + 1
 }
 
-export class RollBoss extends CenteredEntity {
+type State = BossState | RollBossState;
+
+export class RollBoss extends Boss {
 	tops: Array<CenteredEntity> = []; // 225deg
 	bottoms: Array<CenteredEntity> = []; // 45deg
 	rollerLength: number = 60;
 
 	guns: Array<Gun> = [];
 
-	coreMaterial = new Material( 30, 1.0, 0.5 );
-
 	gutter: Gutter;
 
 	/* behavior */
 
-	state: number = RollBossState.DEFAULT;
+	state: State = BossState.DEFAULT;
 
 	health: number = 20;
 	maxHealth: number; // set in constructor
-	alpha: number = 1.0;
 
 	invuln: boolean = false;
 	fireGun: boolean = true;
@@ -167,8 +163,6 @@ export class RollBoss extends CenteredEntity {
 	triggers: Array<Trigger> = [];
 	triggerSet: Array<boolean> = [];
 
-	watchTarget: Vec2 = null; // relative to this.pos
-
 	oldSin = 0;
 
 	/* property overrides */
@@ -194,22 +188,24 @@ export class RollBoss extends CenteredEntity {
 		this.guns.push( new Gun( new Vec2( -this.width / 1.41, 0 ) ) );
 		this.guns.push( new Gun( new Vec2( this.width / 1.41, 0 ) ) );
 
+		this.guns.map( x => this.addSub( x ) );
+
 		// rollers
 		for ( let i = 0; i < 3; i++ ) {
 			let top = new CenteredEntity( 
-					new Vec2( 0, -this.height / 2 - this.rollerLength * ( i + 0.5 ) ), 20, this.rollerLength );
-			top.relPos = top.pos.copy();
-			top.relAngle = -Math.PI / 4;
+				new Vec2( 0, -this.height / 2 - this.rollerLength * ( i + 0.5 ) ), 20, this.rollerLength );
+			top.angle = -Math.PI / 4;
 			top.material = new Material( 0, 1.0, 0.5 );
 			top.altMaterial = new Material( 0, 1.0, 0.3 );
+			this.addSub( top );
 			this.tops.push( top );
 
 			let bottom = new CenteredEntity( 
-					new Vec2( 0, this.height / 2 + this.rollerLength * ( i + 0.5 ) ), 20, this.rollerLength );
-			bottom.relPos = bottom.pos.copy();
-			bottom.relAngle = -Math.PI / 4;
+				new Vec2( 0, this.height / 2 + this.rollerLength * ( i + 0.5 ) ), 20, this.rollerLength );
+			bottom.angle = -Math.PI / 4;
 			bottom.material = new Material( 0, 1.0, 0.5 );
 			bottom.altMaterial = new Material( 0, 1.0, 0.3 );
+			this.addSub( bottom );
 			this.bottoms.push( bottom );
 		}
 
@@ -217,9 +213,10 @@ export class RollBoss extends CenteredEntity {
 		this.gutter = new Gutter( new Vec2( 0, -150 ), 10, 300 );
 		this.gutter.collisionGroup = COL.ENEMY_BULLET;
 		this.gutter.collisionMask = 0x00;
+		this.addSub( this.gutter );
 
 		if ( spawn ) {
-			this.spawnEntity( new Barrier( this.pos.copy(), 600 ) );
+			this.spawnEntity( new Barrier( this.pos.copy(), 640 ) );
 		}
 
 		this.maxHealth = this.getHealth();
@@ -233,24 +230,20 @@ export class RollBoss extends CenteredEntity {
 
 		/* behavior */ 
 
-		let defaultTargets = this.anim.stack[0].targets;
-
 		let gunFunc = () => {
-			if ( defaultTargets['extension'].value == 0 ) {
+			if ( this.anim.stack[0].targets['extension'].value == 0 ) {
 
-				defaultTargets['extension'].value = this.rollerLength;
-				( defaultTargets['angleVel'].value as number ) *= -this.angleVelFactor;
-
+				this.increaseSpeed();
 				this.anim.clear();
 				this.anim.pushFrame( new AnimFrame( {
-					'extension': { value: this.rollerLength, expireOnReach: true },
+					'extension': { value: this.rollerLength, expireOnReach: true, setDefault: true },
 					'angleVel': { value: 0 },
 					'fireGun': { value: false },
 					'invuln': { value: true }
 				} ) );
 
 			} else {
-				( defaultTargets['angleVel'].value as number ) *= this.angleVelFactor;
+				this.increaseSpeed();
 			}
 		}
 
@@ -264,7 +257,7 @@ export class RollBoss extends CenteredEntity {
 			this.triggers.push( new Trigger( 
 				() => gun.health <= 0,
 				() => { 
-					( defaultTargets['angleVel'].value as number ) *= this.angleVelFactor;
+					this.increaseSpeed();
 					//this.counts['fire'].interval *= 0.5;
 				},
 				'RollBoss: gun health reduced to 0'
@@ -283,7 +276,7 @@ export class RollBoss extends CenteredEntity {
 			() => this.guns.filter( x => x.health > 0 ).length == 0,
 			() => {
 				this.shiftRollers = true;
-				( defaultTargets['angleVel'].value as number ) *= this.angleVelFactor;
+				this.increaseSpeed();
 				this.anim.clear();
 			},
 			'RollBoss: no guns left'
@@ -301,19 +294,12 @@ export class RollBoss extends CenteredEntity {
 			   .concat( [this.gutter].filter( () => this.health > 0 ) );
 	}
 
+	increaseSpeed() {
+		( this.anim.stack[0].targets['angleVel'].value as number ) *= this.angleVelFactor;
+	}
+
 	getOwnShapes(): Array<Shape> {
-		let shapes = [];
-
-		let core = Shape.makeCircle( new Vec2( 0, 0 ), 39, 9 );
-		core.material = this.coreMaterial;
-		core.parent = this;
-
-		let altM = new Material( 0, 1.0, 0.7 );
-		for ( let i = 1; i < core.edges.length; i += 2 ) {
-		//	core.edges[i].material = altM;
-		}
-
-		shapes.push( core );
+		let shapes = super.getOwnShapes();
 
 		if ( this.guns.filter( x => x.health > 0 ).length > 0 ) {
 			let shell = Shape.makeRectangle(
@@ -373,7 +359,7 @@ export class RollBoss extends CenteredEntity {
 				}
 
 				if ( this.health <= 0 ) {
-					this.state = RollBossState.EXPLODE;
+					this.state = BossState.EXPLODE;
 				}
 
 				console.log( 'RollBoss status: ' + this.health + ' ' + this.guns[0].health + ' ' + this.guns[1].health );
@@ -381,12 +367,8 @@ export class RollBoss extends CenteredEntity {
 		}
 	}
 
-	watch( target: Vec2 ) {
-		this.watchTarget = target.minus( this.pos );
-	}
-
 	update( step: number, elapsed: number ) {
-		if ( this.state == RollBossState.EXPLODE ) {
+		if ( this.state == BossState.EXPLODE ) {
 			this.explodeUpdate( step, elapsed );
 		} else {
 			this.defaultUpdate( step, elapsed );
@@ -400,8 +382,9 @@ export class RollBoss extends CenteredEntity {
 	}
 
 	defaultUpdate( step: number, elapsed: number ) {
-		this.pos.add( this.vel.times( step ) );
-		this.angle += this.angleVel * step;
+		this.advance( step );
+		//this.pos.add( this.vel.times( step ) );
+		//this.angle += this.angleVel * step;
 
 		this.anim.update( step, elapsed );
 		//this.angleVel = this.angleVel_ctrl.update( step, this.angleVel, elapsed );
@@ -424,11 +407,11 @@ export class RollBoss extends CenteredEntity {
 		// sub-entities
 		if ( !this.shiftRollers ) {
 			for ( let i = 1; i < this.tops.length; i++ ) {
-				this.tops[i].relPos.y = this.tops[i-1].relPos.y - this.rollerLength - this.extension;
+				this.tops[i].pos.y = this.tops[i-1].pos.y - this.rollerLength - this.extension;
 			}
 
 			for ( let i = 1; i < this.bottoms.length; i++ ) {
-				this.bottoms[i].relPos.y = this.bottoms[i-1].relPos.y + this.rollerLength + this.extension;
+				this.bottoms[i].pos.y = this.bottoms[i-1].pos.y + this.rollerLength + this.extension;
 			}
 
 		} else if ( this.watchTarget ) {
@@ -457,44 +440,41 @@ export class RollBoss extends CenteredEntity {
 
 			// top rollers are pointing up
 			if ( sin * this.oldSin < 0 && cos > 0 ) {
-				//this.tops[0].relPos.y = -this.height / 2 - this.rollerLength * 1.5; 
+				//this.tops[0].pos.y = -this.height / 2 - this.rollerLength * 1.5; 
 
 				for ( let i = 1; i < this.tops.length; i++ ) {
-					this.tops[i].relPos.y = this.tops[i-1].relPos.y - 
+					this.tops[i].pos.y = this.tops[i-1].pos.y - 
 						this.rollerLength * ( 1 + shift[i] );
 				}
-
-				//this.angleVelTarget.target = -this.angleVel;
 			}
 
 			// bottom rollers are pointing up
 			if ( sin * this.oldSin < 0 && cos < 0 ) {
-				//this.bottoms[0].relPos.y = this.height / 2 + this.rollerLength * 1.5; 
+				//this.bottoms[0].pos.y = this.height / 2 + this.rollerLength * 1.5; 
 
 				for ( let i = 1; i < this.bottoms.length; i++ ) {
-					this.bottoms[i].relPos.y = this.bottoms[i-1].relPos.y +
+					this.bottoms[i].pos.y = this.bottoms[i-1].pos.y +
 						this.rollerLength * ( 1 + shift[i] );
 				}
-
-				//this.angleVelTarget.target = -this.angleVel;
 			}
 
 			this.oldSin = sin;
 		}
 
-		this.gutter.relAngle = -this.angle;
+		this.gutter.angle = -this.angle;
 
 		for ( let sub of this.getSubs() ) {
-			sub.angle = this.angle + sub.relAngle;
+			/*sub.angle = this.angle + sub.relAngle;
 			sub.pos = sub.relPos.turned( this.angle + sub.relAngle);
 			sub.pos.add( this.pos );
 
-			sub.angleVel = this.angleVel;
+			sub.angleVel = this.angleVel;*/
 
 			if ( sub instanceof Gun ) {
 				if ( this.fireGun ) {
-					let dir = sub.relPos.unit().rotate( sub.angle );
+					let dir = sub.pos.unit().rotate( sub.angle );
 					let cross = dir.cross( this.watchTarget.unit() );
+
 					if ( dir.dot( this.watchTarget.unit() ) > 0.9 && 
 						 cross * this.angleVel > 0 && 
 						 this.counts['lockOn'].count <= 0 ) {
@@ -535,7 +515,7 @@ export class RollBoss extends CenteredEntity {
 
 		this.gutter.angleVel = 0.0;
 
-		// material
+		// flash when hit
 		let skew = 0;
 
 		if ( this.flash > 0 ) {
@@ -546,7 +526,7 @@ export class RollBoss extends CenteredEntity {
 
 		this.material.skewL = skew;
 		for ( let sub of this.getSubs() ) {
-			sub.material.skewL = skew / ( sub.relPos.length() / 100 + 1 );
+			sub.material.skewL = skew / ( sub.pos.length() / 100 + 1 );
 			if ( sub.altMaterial ) sub.altMaterial.skewL = skew;
 		}
 	}
@@ -560,24 +540,13 @@ export class RollBoss extends CenteredEntity {
 
 			this.spawnEntity( new Explosion( p ) );
 
-			this.counts['explode'].reset();
-
 			this.alpha -= 0.1;
 		
 			if ( this.alpha <= 0 ) {
 				document.dispatchEvent( new CustomEvent( "complete", {} ) );
 			}
+
+			this.counts['explode'].reset();
 		}
-	}
-
-	shade() {
-		let now = new Date().getTime();
-		this.coreMaterial.skewH = 15 * Math.sin( Math.PI * 2 * ( now % 1000 ) / 1000 );
-	}
-
-	draw( context: CanvasRenderingContext2D ) {
-		context.globalAlpha = this.alpha;
-		super.draw( context );
-		context.globalAlpha = 1.0;
 	}
 }
