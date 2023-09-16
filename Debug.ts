@@ -7,6 +7,7 @@ export let flags: Dict<boolean> = {
 	DRAW_NORMAL: false,
 	DRAW_RAYS: false,
 	LOG_ANIM: false,
+	SUPER_SHOT: false
 }
 
 for ( let flagName in juegoDebug ) {

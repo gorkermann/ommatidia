@@ -27,6 +27,8 @@ export class Explosion extends CenteredEntity {
 		//this.material.lum *= 1.1;
 		this.alpha *= 0.95;
 		this.material.hue *= 0.95;
+
+		this.material.alpha = this.alpha;
 	}
 
 	draw( context: CanvasRenderingContext2D ) {

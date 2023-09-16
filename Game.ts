@@ -2,6 +2,7 @@ import { Keyboard, KeyCode } from './lib/juego/keyboard.js'
 import { Vec2 } from './lib/juego/Vec2.js'
 
 import { GameControllerDom } from './GameControllerDom.js'
+import { MILLIS_PER_FRAME } from './collisionGroup.js'
 
 import { whiteText } from './render.js'
 
@@ -46,7 +47,7 @@ window.onload = function() {
 	let debugDiv = document.getElementById( 'debug' );
 	debugDiv.appendChild( Debug.createDOMPanel() );
 
-	setInterval( update, 60 );
+	setInterval( update, MILLIS_PER_FRAME );
 }
 
 document.addEventListener( "keydown", function( e: any ) {

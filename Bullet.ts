@@ -41,6 +41,6 @@ export class Gutter extends CenteredEntity {
 	constructor( pos: Vec2=new Vec2(), w: number=20, h: number=100 ) {
 		super( pos, w, h );
 
-		this.material = new Material( 30, 0.0, 0.6, 1.0 );
+		this.material = new Material( 30, 1.0, 0.6, 1 );
 	}
 }
