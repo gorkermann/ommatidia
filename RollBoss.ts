@@ -4,11 +4,11 @@ import { Contact } from './lib/juego/Contact.js'
 import { Material } from './lib/juego/Material.js'  
 import { Shape } from './lib/juego/Shape.js'
 import { Vec2 } from './lib/juego/Vec2.js'
-import { Dict } from './lib/juego/util.js'
+import { Dict, discreteAccelDist } from './lib/juego/util.js'
 
 import { Boss, BossState } from './Boss.js'
 import { CenteredEntity } from './CenteredEntity.js'
-import { COL } from './collisionGroup.js'
+import { COL, MILLIS_PER_FRAME } from './collisionGroup.js'
 import { Explosion } from './Explosion.js'
 import { Bullet, Gutter } from './Bullet.js'
 
@@ -50,35 +50,56 @@ export class Barrier extends CenteredEntity {
 let gunHealth = 20;
 
 export class Gun extends CenteredEntity {
-	dir: Vec2;
 	flashMaterial = new Material( 0, 0, 0.2 );
 	health = gunHealth;
 
-	constructor( pos: Vec2=new Vec2( 0, 0 ) ) {
+	constructor( pos: Vec2=new Vec2( 0, 0 ), angle: number ) {
 		super( pos, 40, 10 );
 
-		this.angle = -Math.PI / 4;
-
-		this.dir = this.pos.unit();
+		this.angle = angle;
 
 		this.material = new Material( 60, 0.8, 0.5 );
 	}
 
-	fire(): Entity {
-		return new Bullet( 
-				this.pos.copy(), 
-				this.dir.turned( this.angle ).scale( 5 ) );
+	getDir(): Vec2 {
+		return this.applyTransform( new Vec2( 1, 0 ), 0.0, { angleOnly: true } );
 	}
 
-	getShapes( step: number ): Array<Shape> {
-		let shapes = super.getShapes( step );
+	fire(): Entity {
+		return new Bullet( 
+			this.applyTransform( this.pos.copy() ), 
+			this.getDir().scale( 5 ) );
+	}
+
+	getOwnShapes(): Array<Shape> {
+		let shapes = super.getOwnShapes();
 
 		// make the short edges black
 		shapes[0].edges[1].material = this.flashMaterial;
 		shapes[0].edges[3].material = this.flashMaterial;
+
+		shapes[0].points[1].scale( 2 );
+
+		let shell = Shape.fromPoints( [
+			new Vec2( 0, 0 ),
+			new Vec2( -this.pos.x, 40 ),
+			new Vec2( -this.pos.x, -40 ) ] );
+
+		shell.material = this.material;
+		shell.parent = this;
+
+		shapes.push( shell );
+
 		return shapes;
 	}
 }
+
+// four more guns on middle rollers
+
+// center gun beam attack
+// center guns fly off and run around on the edge of the arena,
+// do beam attack between them (strafe left/right or top down)
+// player must hide between the rollers to avoid it (rollers are aligned with beam dir)
 
 class Trigger {
 	condition: () => boolean;
@@ -112,6 +133,8 @@ enum RollBossState {
 type State = BossState | RollBossState;
 
 export class RollBoss extends Boss {
+	axis = new CenteredEntity( new Vec2( 0, 0 ), 0, 0 );
+
 	tops: Array<CenteredEntity> = []; // 225deg
 	bottoms: Array<CenteredEntity> = []; // 45deg
 	rollerLength: number = 60;
@@ -124,9 +147,6 @@ export class RollBoss extends Boss {
 
 	state: State = BossState.DEFAULT;
 
-	health: number = 20;
-	maxHealth: number; // set in constructor
-
 	invuln: boolean = false;
 	fireGun: boolean = true;
 
@@ -134,78 +154,85 @@ export class RollBoss extends Boss {
 	
 	flash: number = 0;
 
-	counts: Dict<Chrono> = {
-		'fire': new Chrono( 0, 1000 ),
-		'lockOn': new Chrono( 10000, 10000 ),
-		'explode': new Chrono( 0, 500 ),
-	}
-
 	angleVelBase = 0.02;
 	angleVelFactor = 1.2;
 
 	extension: number = 0;
-	
-	anim = new Anim( {
-		'angleVel': new AnimField( this, 'angleVel', 0.001 ),
-		'extension': new AnimField( this, 'extension', 2 ),
-		'fireGun': new AnimField( this, 'fireGun' ),
-		'invuln': new AnimField( this, 'invuln' ),
-		'fireInt': new AnimField( this.counts['fire'], 'interval', 1000 ) // high rate
-	},
-	new AnimFrame( {
-		'angleVel': { value: this.angleVelBase },
-		'extension': { value: 0 },
-		'fireGun': { value: true },
-		'invuln': { value: false },
-		'fireInt': { value: 1000 },
-	} ) );
 
 	triggers: Array<Trigger> = [];
 	triggerSet: Array<boolean> = [];
 
 	oldSin = 0;
 
+	tracking: boolean = false;
+
 	/* property overrides */
 
-	angleVel = this.angleVelBase;
+	health = 20;
 
 	material = new Material( 60, 1.0, 0.5 );
 
 	collisionGroup = COL.ENEMY_BODY;
 	collisionMask = COL.PLAYER_BULLET;
 
+	counts: Dict<Chrono> = { ...this.counts,
+		'fire': new Chrono( 0, 1000 ),
+		'lockOn': new Chrono( 10000, 10000 ),
+	}
+
+	anim = new Anim( {
+		'angleVel': new AnimField( this.axis, 'angleVel', 0.0005 ),
+		'extension': new AnimField( this, 'extension', 1 ),
+		'fireGun': new AnimField( this, 'fireGun' ),
+		'invuln': new AnimField( this, 'invuln' ),
+		'fireInt': new AnimField( this.counts['fire'], 'interval', 1000 ),
+		'tracking': new AnimField( this, 'tracking' )
+	},
+	new AnimFrame( {
+		'angleVel': { value: 0 },
+		'extension': { value: 0 },
+		'fireGun': { value: true },
+		'invuln': { value: false },
+		'fireInt': { value: 1000 },
+		'tracking': { value: false }
+	} ) );
+
 	discardFields: Array<string> = this.discardFields.concat(
 		['material', 'altMaterial'] ).concat(
-
 		['rollerLength', 'coreMaterial', 'triggers'] );
 
 	constructor( pos: Vec2=new Vec2( 0, 0 ), spawn: boolean=false, doInit: boolean=true ) {
 		super( pos, 40, 40 );
 
-		this.angle = Math.PI / 4;
+		// add a buffer entity so the eye doesn't rotate
+		this.axis.angle = Math.PI / 2;
+		this.axis.isGhost = true;
+		this.addSub( this.axis );
 
 		// guns
-		this.guns.push( new Gun( new Vec2( -this.width / 1.41, 0 ) ) );
-		this.guns.push( new Gun( new Vec2( this.width / 1.41, 0 ) ) );
+		this.guns.push( new Gun( new Vec2( this.width / 1.41, 0 ), 0 ) );
+		this.guns.push( new Gun( new Vec2( this.width / 1.41, 0 ), Math.PI ) );
 
-		this.guns.map( x => this.addSub( x ) );
+		this.guns.map( x => this.axis.addSub( x ) );
 
 		// rollers
 		for ( let i = 0; i < 3; i++ ) {
 			let top = new CenteredEntity( 
 				new Vec2( 0, -this.height / 2 - this.rollerLength * ( i + 0.5 ) ), 20, this.rollerLength );
-			top.angle = -Math.PI / 4;
 			top.material = new Material( 0, 1.0, 0.5 );
 			top.altMaterial = new Material( 0, 1.0, 0.3 );
-			this.addSub( top );
+			top.collisionGroup = COL.ENEMY_BODY;
+			top.collisionMask = COL.PLAYER_BULLET;
+			this.axis.addSub( top );
 			this.tops.push( top );
 
 			let bottom = new CenteredEntity( 
 				new Vec2( 0, this.height / 2 + this.rollerLength * ( i + 0.5 ) ), 20, this.rollerLength );
-			bottom.angle = -Math.PI / 4;
 			bottom.material = new Material( 0, 1.0, 0.5 );
 			bottom.altMaterial = new Material( 0, 1.0, 0.3 );
-			this.addSub( bottom );
+			bottom.collisionGroup = COL.ENEMY_BODY;
+			bottom.collisionMask = COL.PLAYER_BULLET;
+			this.axis.addSub( bottom );
 			this.bottoms.push( bottom );
 		}
 
@@ -242,6 +269,11 @@ export class RollBoss extends Boss {
 					'invuln': { value: true }
 				} ) );
 
+				this.anim.pushFrame( new AnimFrame( {
+					'fireGun': { value: false },
+					'invuln': { value: true, expireOnCount: 2000 }
+				} ) );
+
 			} else {
 				this.increaseSpeed();
 			}
@@ -273,13 +305,13 @@ export class RollBoss extends Boss {
 		) );
 
 		this.triggers.push( new Trigger(
-			() => this.guns.filter( x => x.health > 0 ).length == 0,
+			() => this.guns.length < 2,
 			() => {
 				this.shiftRollers = true;
 				this.increaseSpeed();
 				this.anim.clear();
 			},
-			'RollBoss: no guns left'
+			'RollBoss: core exposed'
 		) );
 
 		while ( this.triggerSet.length < this.triggers.length ) {
@@ -287,37 +319,32 @@ export class RollBoss extends Boss {
 		}
 	}
 
-	getSubs(): Array<CenteredEntity> {
-		return this.tops
+	cull() {
+		cullList( this.guns );
+
+		super.cull();
+	}
+
+	getBody(): Array<CenteredEntity> {
+		return ( [this] as Array<CenteredEntity> )
+			   .concat( this.tops )
 			   .concat( this.bottoms )
-			   .concat( this.guns.filter( x => x.health > 0 ) )
-			   .concat( [this.gutter].filter( () => this.health > 0 ) );
+			   .concat( this.guns );
 	}
 
 	increaseSpeed() {
-		( this.anim.stack[0].targets['angleVel'].value as number ) *= this.angleVelFactor;
-	}
+		let speed = this.anim.stack[0].targets['angleVel'].value as number;
+		if ( speed == 0 ) speed = this.angleVelBase;
 
-	getOwnShapes(): Array<Shape> {
-		let shapes = super.getOwnShapes();
-
-		if ( this.guns.filter( x => x.health > 0 ).length > 0 ) {
-			let shell = Shape.makeRectangle(
-				new Vec2( -this.width / 2, -this.height / 2), this.width, this.height );
-
-			shell.material = this.material;
-			shell.parent = this;
-
-			shapes.push( shell );
-		}
-
-		return shapes;
+		( this.anim.stack[0].targets['angleVel'].value as number ) = speed * this.angleVelFactor;
 	}
 
 	getHealth(): number {
-		return Math.max( this.health, 0 ) +
-			   Math.max( this.guns[0].health, 0 ) + 
-			   Math.max( this.guns[1].health, 0 ); 
+		let health = Math.max( this.health, 0 );
+
+		this.guns.map( x => health += Math.max( x.health, 0 ) );
+
+		return health;
 	}
 
 	hitWith( otherEntity: Entity, contact: Contact ): void {
@@ -339,65 +366,66 @@ export class RollBoss extends Boss {
 
 			if ( hit ) {
 
-				// check which side the bullet hit on
-				let vec = new Vec2( -1, 1 ).rotate( this.angle ); // direction of gun 1
-				let gunCount = this.guns.filter( x => x.health > 0 ).length;
-				let dir = otherEntity.pos.minus( this.pos );
+				let gunCount = this.guns.length;
+				let gunHit = false;
 
-				if ( gunCount > 0 ) {
-					if ( vec.dot( dir ) > 0 && this.guns[0].health > 0 ) {
-						this.guns[0].health -= 1;
+				for ( let gun of this.guns ) {
+
+					// check which side the bullet hit on
+					let pos = gun.applyTransform( new Vec2() );
+					let dot = contact.point.minus( this.pos ).dot( pos.minus( this.pos ) );
+					
+					// debug {
+						let context = ( window as any ).context;
+
+						context.fillStyle = 'black';
+						context.fillRect( contact.point.x, contact.point.y, 4, 4 );
+						context.fillStyle = 'red';
+						context.fillRect( this.pos.x, this.pos.y, 4, 4 );
+						context.fillStyle = 'blue';
+						context.fillRect( pos.x, pos.y, 4, 4 );
+					//}
+
+					if ( dot > 0 ) {
+						gun.health -= 1;
 						this.flash = 5;
-					} else if ( vec.dot( dir ) < 0 && this.guns[1].health > 0 ) {
-						this.guns[1].health -= 1;
-						this.flash = 5;
+						gunHit = true;
 					}
 
-				} else {
+					if ( gun.health <= 0 ) {
+						gun.destructor();
+					}
+				}
+
+				if ( !gunHit ) {
 					this.health -= 1;
 					this.flash = 5;
+
+					this.doEyeStrain();
 				}
 
 				if ( this.health <= 0 ) {
+					this.doEyeDead();
 					this.state = BossState.EXPLODE;
 				}
 
-				console.log( 'RollBoss status: ' + this.health + ' ' + this.guns[0].health + ' ' + this.guns[1].health );
+				let str = 'RollBoss state: ' + this.health;
+				for ( let gun of this.guns ) {
+					str += ' ' + gun.health;
+				}
+
+				console.log( str );
 			}
 		}
 	}
 
-	update( step: number, elapsed: number ) {
-		if ( this.state == BossState.EXPLODE ) {
-			this.explodeUpdate( step, elapsed );
-		} else {
-			this.defaultUpdate( step, elapsed );
-		}
-
-		for ( let key in this.counts ) {
-			if ( this.counts[key].count > 0 ) {
-				this.counts[key].count -= elapsed;
-			}
-		}
-	}
-
-	defaultUpdate( step: number, elapsed: number ) {
-		this.advance( step );
-		//this.pos.add( this.vel.times( step ) );
-		//this.angle += this.angleVel * step;
+	animate( step: number, elapsed: number ) {
+		super.animate( step, elapsed );
 
 		this.anim.update( step, elapsed );
-		//this.angleVel = this.angleVel_ctrl.update( step, this.angleVel, elapsed );
-		//this.extension = this.extension_ctrl.update( step, this.extension, elapsed );
+	}
 
-		/*let cleaned;
-		do {
-			cleaned = false;
-
-			cleaned ||= this.angleVel_ctrl.cleanStack();
-			cleaned ||= this.extension_ctrl.cleanStack();
-		} while ( cleaned );*/
-
+	defaultLogic( step: number, elapsed: number ) {
 		for ( let i = 0; i < this.triggers.length; i++ ) {
 			if ( !this.triggerSet[i] ) {
 				this.triggerSet[i] = this.triggers[i].update();	
@@ -415,8 +443,8 @@ export class RollBoss extends Boss {
 			}
 
 		} else if ( this.watchTarget ) {
-			let sin = Math.sin( this.angle - Math.PI / 4 );
-			let cos = Math.cos( this.angle - Math.PI / 4 );
+			let sin = Math.sin( this.axis.angle );
+			let cos = Math.cos( this.axis.angle );
 
 			let dist = this.watchTarget.length() - this.height / 2;
 			if ( dist < 0 ) dist = 0;
@@ -461,49 +489,63 @@ export class RollBoss extends Boss {
 			this.oldSin = sin;
 		}
 
-		this.gutter.angle = -this.angle;
+		for ( let gun of this.guns ) {
+			if ( this.fireGun ) {
+				let dir = gun.getDir();
+				let cross = dir.cross( this.watchTarget.unit() );
 
-		for ( let sub of this.getSubs() ) {
-			/*sub.angle = this.angle + sub.relAngle;
-			sub.pos = sub.relPos.turned( this.angle + sub.relAngle);
-			sub.pos.add( this.pos );
+				if ( this.counts['lockOn'].count <= 0 ) {
+					let lockVel = 0.01;
+					let decel = 0.005;
+					let stopAngle = discreteAccelDist( this.axis.angleVel, decel, 0 );
+					let watchCos = dir.dot( this.watchTarget.unit() );
+					let lockTime = 5000;
+					let sweepAngle = lockTime / MILLIS_PER_FRAME * lockVel;
 
-			sub.angleVel = this.angleVel;*/
+					if ( !this.tracking && 
+						 this.guns.length > 1 &&
+						 watchCos > Math.cos( stopAngle + sweepAngle / 2 ) && 
+						 cross * this.axis.angleVel > 0 ) {
 
-			if ( sub instanceof Gun ) {
-				if ( this.fireGun ) {
-					let dir = sub.pos.unit().rotate( sub.angle );
-					let cross = dir.cross( this.watchTarget.unit() );
-
-					if ( dir.dot( this.watchTarget.unit() ) > 0.9 && 
-						 cross * this.angleVel > 0 && 
-						 this.counts['lockOn'].count <= 0 ) {
 						this.anim.pushFrame( new AnimFrame( {
 							'angleVel': {
-								value: 0.01 * ( this.angleVel < 0 ? -1 : 1 ), 
+								value: lockVel * ( this.axis.angleVel < 0 ? -1 : 1 ), 
+								overrideRate: decel, // decelerate quickly
 								expireOnCount: 5000
 							},
-							'fireInt': {
-								value: 750
-							}
+							'fireInt': { value: 750 },
+							'tracking': { value: true }
 						} ) );
 
 						this.counts['lockOn'].reset();
 					}
+				}
 
-					sub.flashMaterial.lum = this.counts['fire'].count / this.counts['fire'].interval;
-					if ( sub.flashMaterial.lum > 1.0 ) sub.flashMaterial.lum = 1.0;
+				gun.flashMaterial.lum = this.counts['fire'].count / this.counts['fire'].interval;
+				if ( gun.flashMaterial.lum > 1.0 ) gun.flashMaterial.lum = 1.0;
 
-					if ( this.counts['fire'].count <= 0 ) {
-						//for ( let spread = 0; spread < 3; spread++ ) {
-							let bullet = sub.fire();
-							bullet.vel.rotate( 0.5 * Math.random() - 0.25 );
+				if ( this.counts['fire'].count <= 0 ) {
+					//for ( let spread = 0; spread < 3; spread++ ) {
+						let bullet = gun.fire();
+						bullet.vel.rotate( 0.5 * Math.random() - 0.25 );
 
-							this.spawnEntity( bullet );
+						this.spawnEntity( bullet );
 
-							bullet.collisionGroup = COL.ENEMY_BULLET;
-							bullet.collisionMask = 0x00;
-						//}
+						bullet.collisionGroup = COL.ENEMY_BULLET;
+						bullet.collisionMask = 0x00;
+					//}
+
+					if ( !this.tracking &&
+						 this.guns.length == 1 ) {
+
+						this.anim.pushFrame( new AnimFrame( {
+							'angleVel': {
+								value: ( this.anim.stack[0].targets['angleVel'].value as number ) * ( cross < 0 ? -1 : 1 ),
+								overrideRate: 0.005,
+								expireOnCount: 1000
+							},
+							'tracking': { value: true }
+						} ) );
 					}
 				}
 			}
@@ -512,8 +554,6 @@ export class RollBoss extends Boss {
 		if ( this.counts['fire'].count <= 0 ) {
 			this.counts['fire'].reset();
 		}
-
-		this.gutter.angleVel = 0.0;
 
 		// flash when hit
 		let skew = 0;
@@ -525,28 +565,9 @@ export class RollBoss extends Boss {
 		}
 
 		this.material.skewL = skew;
-		for ( let sub of this.getSubs() ) {
+		for ( let sub of this.getBody() ) {
 			sub.material.skewL = skew / ( sub.pos.length() / 100 + 1 );
 			if ( sub.altMaterial ) sub.altMaterial.skewL = skew;
-		}
-	}
-
-	explodeUpdate( step: number, elapsed: number ) {
-		if ( this.counts['explode'].count <= 0 ) {
-			let ents = this.getSubs().concat( [this] );
-			let i = Math.floor( Math.random() * ents.length );
-
-			let p = ( ents[i] as CenteredEntity ).getRandomPoint();
-
-			this.spawnEntity( new Explosion( p ) );
-
-			this.alpha -= 0.1;
-		
-			if ( this.alpha <= 0 ) {
-				document.dispatchEvent( new CustomEvent( "complete", {} ) );
-			}
-
-			this.counts['explode'].reset();
 		}
 	}
 }

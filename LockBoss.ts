@@ -12,6 +12,8 @@ import { COL } from './collisionGroup.js'
 import { Explosion } from './Explosion.js'
 import { Bullet, Gutter } from './Bullet.js'
 
+import * as Debug from './Debug.js'
+
 let fieldWidth = 200;
 let fieldHeight = fieldWidth * 2;
 let wallUnit = 20;
@@ -26,7 +28,7 @@ export class LockBossBarrier extends CenteredEntity {
 	altMaterial = new Material( 210, 0.0, 0.75 );
 	drawWireframe = true;
 
-	constructor( pos: Vec2, width: number, height: number ) {
+	constructor( pos: Vec2=new Vec2(), width: number=0, height: number=0 ) {
 		super( pos, width, height );
 	}
 
@@ -134,7 +136,7 @@ export class LockWall extends CenteredEntity {
 	material = new Material( 210, 1.0, 0.3 );
 	altMaterial = new Material( 210, 1.0, 0.5 );
 
-	constructor( pos: Vec2, speed: number  ) {
+	constructor( pos: Vec2=new Vec2(), speed: number=0 ) {
 		super( pos, fieldWidth, wallUnit );
 
 		this.vel.set( new Vec2( 0, speed ) );
@@ -184,6 +186,7 @@ export class LockWall extends CenteredEntity {
 
 			let bulb = new LockBulb( new Vec2( ( x + 0.5 ) * wallUnit, wallUnit / 2 ) );
 			bulb.collisionGroup = COL.ENEMY_BODY;
+			bulb.collisionMask = COL.PLAYER_BULLET;
 
 			if ( x < openingIndex ) {
 				bulb.pos.x -= this.left.width / 2;
@@ -258,7 +261,7 @@ export class LockJaw extends CenteredEntity {
 	material = new Material( 210, 1.0, 0.3 );
 	altMaterial = new Material( 210, 1.0, 0.5 );
 
-	constructor( pos: Vec2, speed: number ) {
+	constructor( pos: Vec2=new Vec2(), speed: number=0 ) {
 		super( pos, fieldWidth, wallUnit );
 
 		this.speed = speed;
@@ -387,7 +390,7 @@ export class LockRing extends CenteredEntity {
 	material = new Material( 210, 1.0, 0.3 );
 	altMaterial = new Material( 210, 1.0, 0.5 );
 
-	constructor( pos: Vec2, speed: number ) {
+	constructor( pos: Vec2=new Vec2(), speed: number=0 ) {
 		super( pos, fieldWidth, wallUnit );
 
 		this.vel.set( new Vec2( 0, speed ) );
@@ -398,14 +401,14 @@ export class LockRing extends CenteredEntity {
 		let moonCount = 8;
 		let bulbCount = 4;
 
-		// get some random indices
+		/*// get some random indices
 		let indices: Array<number> = [];
 		for ( let i = 0; i < moonCount; i++ ) {
 			indices.push( i );
 		}
 		for ( let i = 0; i < moonCount - bulbCount; i++ ) {
 			indices.splice( Math.floor( Math.random() * indices.length ), 1 );
-		}
+		}*/
 
 		// make ring sections
 		for ( let i = 0; i < moonCount; i++ ) {
@@ -424,14 +427,16 @@ export class LockRing extends CenteredEntity {
 			moon.angle = Math.PI * 2 * i / 8;
 
 			this.moons.push( moon );
-
-			if ( indices.includes( i ) ) {
-				let bulb = new LockBulb( new Vec2( -wallUnit / 2, 0 ) );
-				bulb.collisionGroup = COL.ENEMY_BODY;
-				moon.addSub( bulb );
-			}
-
 			this.addSub( moon );
+		}
+
+		let index = Math.floor( Math.random() * this.moons.length );
+		for ( let i = 0; i < bulbCount; i++ ) {
+			let bulb = new LockBulb( new Vec2( -wallUnit / 2, 0 ) );
+			bulb.collisionGroup = COL.ENEMY_BODY;
+			bulb.collisionMask = COL.PLAYER_BULLET;
+
+			this.moons[(index + i) % this.moons.length].addSub( bulb );
 		}
 
 		this.anim = new Anim( {
@@ -484,7 +489,11 @@ export class LockRing extends CenteredEntity {
 			moon.cull();
 		}
 
+		// when all bulbs are gone, expand then fade
 		if ( count > 0 && this.getBulbCount() == 0 ) {
+			this.anim.pushFrame( new AnimFrame( {
+				'alpha': { value: 0, expireOnReach: true }
+			} ) );
 			this.anim.pushFrame( new AnimFrame( {
 	 			'radiusVec': { value: new Vec2( this.exteriorRadius, 0 ), 
 	 						   expireOnReach: true,
@@ -528,13 +537,27 @@ export class LockBarrage extends CenteredEntity {
 	material = new Material( 210, 1.0, 0.5 );
 	altMaterial = new Material( 210, 1.0, 0.3 );
 
-	constructor( pos: Vec2, speed: number ) {
+	constructor( pos: Vec2=new Vec2(), speed: number=0 ) {
 		super( pos, fieldWidth, wallUnit );
 
 		this.material.alpha = this.alpha;
 		this.altMaterial.alpha = this.alpha;
 
+		/* create subentities */
+
 		let bitCount = 5;
+
+		for ( let i = 0; i < bitCount; i++ ) {
+			let bit = new CenteredEntity( new Vec2( ( i + 0.5 ) * wallUnit * 2 - fieldWidth / 2, 0 ), wallUnit * 2, wallUnit );
+
+			bit.material = this.material;
+			bit.altMaterial = this.altMaterial;
+
+			this.bits.push( bit );
+			this.addSub( bit );
+		}
+
+		/* animation */
 
 		this.anim = new Anim( {
 			'alpha': new AnimField( this, 'alpha', 0.1 ),
@@ -545,19 +568,15 @@ export class LockBarrage extends CenteredEntity {
 			'vel': { value: new Vec2( 0, 0 ) },
 		} ) );
 
+		// move bits down together
 		this.anim.pushFrame( new AnimFrame( {
 			'vel': { value: new Vec2( 0, speed ), setDefault: true, expireOnReach: true },
 		} ) );
 
+		// move bits down separately
 		let yVals = [0, 2, 4, 6, 8];
-
 		for ( let i = 0; i < bitCount; i++ ) {
-			let bit = new CenteredEntity( new Vec2( ( i + 0.5 ) * wallUnit * 2 - fieldWidth / 2, 0 ), wallUnit * 2, wallUnit );
-
-			bit.material = this.material;
-			bit.altMaterial = this.altMaterial;
-
-			this.anim.fields['bit' + i + 'pos'] = new PhysField( bit, 'pos', 'vel', 10 );
+			this.anim.fields['bit' + i + 'pos'] = new PhysField( this.bits[i], 'pos', 'vel', 10 );
 
 			let y = yVals.splice( Math.floor( Math.random() * yVals.length ), 1 )[0];
 
@@ -569,9 +588,6 @@ export class LockBarrage extends CenteredEntity {
 				//setDefault: true
 			};
 			this.anim.pushFrame( frame );
-
-			this.bits.push( bit );
-			this.addSub( bit );
 		}
 
 		// fade in
@@ -600,6 +616,14 @@ export class LockBarrage extends CenteredEntity {
 	}
 }
 
+// LockSandwich
+// two halves, one travels down, other stays up top, track player x, stop, crush
+// maybe put some red herring bulbs on top one? or crush occurs when bulbs are gone
+
+// LockBroom
+// vertical 10x1 smasher that has one bulb on the end, too long and fast to get across,
+// opens to two 5x1s when bulb is gone
+
 enum LockBossState {
 	STATE_1 = BossState.EXPLODE + 1
 }
@@ -614,42 +638,44 @@ enum WaveType {
 	length
 }
 
+// TODO: clear wall wave if boss takes damage 
 export class LockBoss extends Boss {
-	counts: Dict<Chrono> = {
-		'createWave': new Chrono( 0, 1000 ),
-	}
-
 	waves: Array<LockWall | LockJaw | LockRing | LockBarrage> = []; 
 
-	waveQueue: Array<WaveType> = [WaveType.WALL, WaveType.WALL, WaveType.WALL, WaveType.JAW, WaveType.BARRAGE];
+	waveQueue: Array<WaveType> = [WaveType.WALL, WaveType.WALL, WaveType.JAW, WaveType.BARRAGE,
+								  WaveType.WALL, WaveType.JAW, WaveType.BARRAGE, WaveType.RING];
 
-	wallSpeed: number = 0.4;
-	wallSpeedRise: number = 0.3;
+	wallSpeed: number = 0.5;
+	wallSpeedRise: number = 0.5;
 	wallSpeedMax: number = 3;
 
 	jawSpeed: number = 2;
 	jawSpeedRise: number = 0.4;
 	jawSpeedMax: number = 5;
 
-	ringSpeed: number = 0.6;
-	ringSpeedRise: number = 0.2;
+	ringSpeed: number = 0.5;
+	ringSpeedRise: number = 0.5;
 	ringSpeedMax: number = 1;
 
-	barrageSpeed: number = 2;
-	barrageSpeedRise: number = 2;
-	barrageSpeedMax: number = 10;
+	barrageSpeed: number = 8;
+	barrageSpeedRise: number = 4;
+	barrageSpeedMax: number = 20;
 
 	/* property overrides */
+
+	health = 80;
 
 	state: State = BossState.DEFAULT;
 
 	collisionGroup = COL.ENEMY_BODY;
 	collisionMask = COL.PLAYER_BULLET;
 
+	counts: Dict<Chrono> = { ...this.counts,
+		'createWave': new Chrono( 5000, 1000 ),
+	};
+
 	constructor( pos: Vec2=new Vec2( 0, 0 ), spawn: boolean=false ) {
 		super( pos, 40, 40 );
-
-		this.attentionCount.active = false;
 
 		if ( spawn ) {
 			this.spawnEntity( 
@@ -665,32 +691,21 @@ export class LockBoss extends Boss {
 
 		let gutter = new Gutter( new Vec2( 0, -this.height / 2 + fieldHeight - wallUnit / 2 ), fieldWidth, 10 );
 		gutter.collisionGroup = COL.ENEMY_BULLET;
+		gutter.collisionMask = 0x00;
 		this.addSub( gutter );
+
+		this.maxHealth = this.getHealth();
 	}
 
-	update( step: number, elapsed: number ) {
-		super.update( step, elapsed );
-
-		// if ( this.state == RollBossState.EXPLODE ) {
-		// 	this.explodeUpdate( step, elapsed );
-		// } else {
-		 	this.defaultUpdate( step, elapsed );
-		// }
-
-		for ( let key in this.counts ) {
-			if ( this.counts[key].active && this.counts[key].count > 0 ) {
-				this.counts[key].count -= elapsed;
-			}
-		}
-	}
-
-	defaultUpdate( step: number, elapsed: number ) {
+	defaultLogic( step: number, elapsed: number ) {
+		// restart wave counter if there are no waves
 		if ( !this.counts['createWave'].active && this.waves.length == 0 ) {
 			this.counts['createWave'].active = true;
 			this.eyeAnim.clear();
-			this.attentionCount.count = 0;
+			this.counts['attention'].count = 0;
 		}
 
+		// create a wave when the wave counter trips
 		if ( this.counts['createWave'].count <= 0 ) {
 			let type: WaveType;
 
@@ -740,6 +755,7 @@ export class LockBoss extends Boss {
 			this.counts['createWave'].reset();
 		}
 
+		// update and end waves
 		for ( let wave of this.waves ) {
 			let fade = false;
 
@@ -781,6 +797,10 @@ export class LockBoss extends Boss {
 				wave.anim.pushFrame( new AnimFrame( { 'alpha': { value: 0.0, expireOnReach: true } } ) );
 			}	
 		}
+	}
+
+	cull() {
+		super.cull();
 
 		cullList( this.waves );
 	}
@@ -790,11 +810,15 @@ export class LockBoss extends Boss {
 			if ( contact.sub == this ) {
 				otherEntity.removeThis = true;
 
-				this.eyeAnim.clear();
-				this.eyeAnim.pushFrame( new AnimFrame( {
-					'blink': { value: -1, expireOnCount: 500, overrideRate: 0.5 },
-					'eyeStrain': { value: 0.5 }
-				} ) );
+				this.doEyeStrain();
+
+				this.health -= 1;
+				if ( Debug.flags.SUPER_SHOT ) this.health -= 10;
+
+				if ( this.health <= 0 ) {
+					this.state = BossState.EXPLODE;
+					this.doEyeDead();
+				}
 			}
 		}
 	}

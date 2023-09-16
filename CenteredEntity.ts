@@ -33,9 +33,7 @@ export class CenteredEntity extends Entity {
 		let x = -this.width / 2 + Math.random() * this.width;
 		let y = -this.height / 2 + Math.random() * this.height;
 
-		let output = new Vec2( x, y ).rotate( this.angle );
-
-		return this.pos.plus( output );
+		return this.applyTransform( new Vec2( x, y ), 0.0 );
 	}
 
 	draw( context: CanvasRenderingContext2D ) {

@@ -2,8 +2,10 @@ import { Chrono, Anim, AnimField, AnimFrame } from './lib/juego/Anim.js'
 import { Material } from './lib/juego/Material.js'
 import { Vec2 } from './lib/juego/Vec2.js'
 import { Shape } from './lib/juego/Shape.js'
+import { Dict } from './lib/juego/util.js'
 
 import { CenteredEntity } from './CenteredEntity.js'
+import { Explosion } from './Explosion.js'
 
 export enum BossState {
 	DEFAULT = 0,
@@ -11,6 +13,9 @@ export enum BossState {
 }
 
 export class Boss extends CenteredEntity {
+	health: number = 20;
+	maxHealth: number; // need to set in constructor
+
 	watchTarget: Vec2 = null; // relative to this.pos
 
 	alpha: number = 1.0;
@@ -21,12 +26,15 @@ export class Boss extends CenteredEntity {
 
 	state: number = BossState.DEFAULT;
 
-	blinkCount = new Chrono( 0, 3000 );
 	blink: number = 0.0; // 0.0 - 1.0;
 	eyeStrain: number = 0.0;
 	eyeAngle: number = 0;
 
-	attentionCount = new Chrono( 0, 5000 );
+	counts: Dict<Chrono> = {
+		'attention': new Chrono( 0, 5000 ),
+		'blink': new Chrono( 0, 3000 ),
+		'explode': new Chrono( 0, 500 )
+	}
 
 	eyeAnim = new Anim( {
 		'blink': new AnimField( this, 'blink', 0.2 ),
@@ -45,14 +53,6 @@ export class Boss extends CenteredEntity {
 
 	watch( target: Vec2 ) {
 		this.watchTarget = target.minus( this.pos );
-
-		if ( this.attentionCount.count <= 0 ) {
-			this.eyeAnim.pushFrame( new AnimFrame( {
-				'eyeAngle': { value: this.watchTarget.angle() - Math.PI / 2, expireOnReach: true, setDefault: true }
-			} ) );
-
-			this.attentionCount.reset();
-		}
 	}
 
 	getOwnShapes(): Array<Shape> {
@@ -82,6 +82,8 @@ export class Boss extends CenteredEntity {
 		let max = 12;
 
 		for ( let i = start; i <= max; i++ ) {
+			
+			// angle toward middle of eye
 			let angle = ( mid - i ) / 36 * Math.PI * 2;
 			if ( i >= mid ) angle = ( mid - i ) / 36 * Math.PI * 2;
 
@@ -102,24 +104,88 @@ export class Boss extends CenteredEntity {
 		return shapes;
 	}
 
+	getBody(): Array<CenteredEntity> { return [this] };
+
+	getHealth(): number {
+		return Math.max( this.health, 0 );
+	}
+
 	update( step: number, elapsed: number ) {
-		if ( this.blinkCount.active && this.blinkCount.count > 0 ) {
-			this.blinkCount.count -= elapsed;
+		if ( this.state != BossState.EXPLODE ) {
+			this.advance( step );
 		}
 
-		if ( this.attentionCount.active && this.attentionCount.count > 0 ) {
-			this.attentionCount.count -= elapsed;
+		for ( let key in this.counts ) {
+			this.counts[key].update( elapsed );
 		}
 
-		if ( this.blinkCount.count <= 0 ) {
+		this.animate( step, elapsed );
+
+		if ( this.state == BossState.EXPLODE ) {
+			this.explodeLogic( step, elapsed );
+		} else {
+			this.defaultLogic( step, elapsed );
+		}
+	}
+
+	animate( step: number, elapsed: number ) {
+		if ( this.counts['blink'].count <= 0 ) {
 			this.eyeAnim.pushFrame( new AnimFrame( {
 				'blink': { value: 1.0, expireOnReach: true }
 			} ) );
 
-			this.blinkCount.reset();
+			this.counts['blink'].reset();
+		}
+
+		if ( this.watchTarget && this.counts['attention'].count <= 0 ) {
+			this.eyeAnim.pushFrame( new AnimFrame( {
+				'eyeAngle': { value: this.watchTarget.angle() - Math.PI / 2, expireOnReach: true, setDefault: true }
+			} ) );
+
+			this.counts['attention'].reset();
 		}
 
 		this.eyeAnim.update( step, elapsed );
+	}
+
+	doEyeStrain() {
+		this.eyeAnim.clear();
+		this.eyeAnim.pushFrame( new AnimFrame( {
+			'blink': { value: -1, expireOnCount: 500, overrideRate: 0.5 },
+			'eyeStrain': { value: 0.5 }
+		} ) );
+	}
+
+	doEyeDead() {
+		this.eyeAnim.clear();
+		this.eyeAnim.pushFrame( new AnimFrame( {
+			'blink': { value: 1.0, expireOnReach: true, overrideRate: 0.04, setDefault: true },
+			'eyeStrain': { value: 0.0, setDefault: true }
+		} ) );
+	}
+
+	defaultLogic( step: number, elapsed: number ) {}
+
+	explodeLogic( step: number, elapsed: number ) {
+		this.counts['attention'].active = false;
+		this.counts['blink'].active = false;
+
+		if ( this.counts['explode'].count <= 0 ) {
+			let entities = this.getBody();
+			let i = Math.floor( Math.random() * entities.length );
+
+			let p = ( entities[i] as CenteredEntity ).getRandomPoint();
+
+			this.spawnEntity( new Explosion( p ) );
+
+			this.alpha -= 0.1;
+		
+			if ( this.alpha <= 0 ) {
+				document.dispatchEvent( new CustomEvent( "complete", {} ) );
+			}
+
+			this.counts['explode'].reset();
+		}
 	}
 
 	shade() {

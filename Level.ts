@@ -48,10 +48,6 @@ class QueueFunc {
 let MODE_GRAVITY = 0;
 let MODE_SQUARE = 1;
 
-let solidFilter = function( e: Entity ): boolean {
-	return e.collisionGroup == COL.ENEMY_BODY;
-}
-
 ///////////
 // LEVEL //
 ///////////
@@ -185,19 +181,29 @@ export class Level extends Scene {
 					coin.collisionMask = 0x00;
 					this.em.insert( coin );
 
-				} else if ( index == 4 ) {
-					let boss = new RollBoss( pos.copy(), true );
-					this.em.insert( boss );
+				} else if ( index == 4 || index == 6 ) {
+					let boss: Boss;
 
-					this.healthBarMax = boss.getHealth();
+					if ( index == 4 ) {
+						boss = new RollBoss( pos.copy(), true );
+					} else if ( index == 6 ) {
+						boss = new LockBoss( pos.copy(), true );
+					}
 
-					this.anim.pushFrame( new AnimFrame( {
-						'healthBar': {
-							value: this.healthBarMax, 
-							expireOnReach: true,
-							setDefault: true
-						}
-					} ) );
+					if ( boss ) {
+						this.em.insert( boss );
+
+						this.healthBarMax = boss.getHealth();
+
+						this.anim.pushFrame( new AnimFrame( {
+							'healthBar': {
+								value: this.healthBarMax, 
+								expireOnReach: true,
+								setDefault: true
+							}
+						} ) );
+					}
+
 				} else if ( index == 5 ) {
 					let entity = new RandomPoly( pos.copy(), 3 + Math.floor( Math.random() * 6 ) );
 					entity.angleVel = -0.04 + Math.random() * 0.08;
@@ -205,9 +211,37 @@ export class Level extends Scene {
 					entity.collisionGroup = COL.ENEMY_BODY;
 					this.em.insert( entity );
 
-				} else if ( index == 6 ) {
-					let entity = new LockBoss( pos.copy(), true );
-					this.em.insert( entity );
+				} else if ( index == 7 ) {
+					let fieldWidth = 4000;
+					let fieldHeight = 4000;
+					let planets: Array<Entity> = [];
+
+					for ( let i = 0; i < 10; i++ ) {
+						let overlapsAny = true;
+
+						while ( true ) {
+							let planet = new Barrier( new Vec2( Math.random() * fieldWidth - fieldWidth / 2,
+																Math.random() * fieldHeight - fieldHeight / 2 ),
+													  Math.random() * 400 + 100 );
+
+							let overlapsAny = false;
+							for ( let otherPlanet of planets ) {
+								if ( planet.overlaps( otherPlanet, 0.0 ).length > 0 ) {
+									overlapsAny = true;
+									break;
+								}
+							}
+
+							if ( !overlapsAny ) {
+								planets.push( planet );
+								break;
+							}
+						}
+					}
+
+					for ( let entity of planets ) {
+						this.em.insert( entity );
+					}
 				}
 			}
 		}
@@ -410,29 +444,41 @@ export class Level extends Scene {
 
 		} else if ( this.controlMode == MODE_SQUARE ) {
 			this.player.vel.setValues( 0, 0 );
+			this.player.angleVel = 0;
 
 			// left/right
-			if ( Keyboard.keyHeld( KeyCode.LEFT ) && !this.player.collideLeft ) {
-				this.player.vel.x = -5;
+			if ( Keyboard.keyHeld( KeyCode.LEFT ) ) {
+				this.player.vel.add( new Vec2( -1, 0 ) );
 			}
 
-			if ( Keyboard.keyHeld( KeyCode.RIGHT ) && !this.player.collideRight ) {
-				this.player.vel.x = 5;
+			if ( Keyboard.keyHeld( KeyCode.RIGHT ) ) {
+				this.player.vel.add( new Vec2( 1, 0 ) );
 			}
 			
 			// up/down
-			if ( Keyboard.keyHeld( KeyCode.UP ) && !this.player.collideUp ) {
-				this.player.vel.y = -5;
+			if ( Keyboard.keyHeld( KeyCode.UP ) ) {
+				this.player.vel.add( new Vec2( 0, -1 ) );
 			}
 
-			if ( Keyboard.keyHeld( KeyCode.DOWN ) && !this.player.collideDown ) {
-				this.player.vel.y = 5;
+			if ( Keyboard.keyHeld( KeyCode.DOWN ) ) {
+				this.player.vel.add( new Vec2( 0, 1 ) );
+			}
+
+			this.player.vel.scale( 5 );
+			this.player.vel.rotate( this.player.angle );
+
+			if ( Keyboard.keyHeld( KeyCode.Z ) ) {
+				this.player.angleVel = -0.1;
+			}
+
+			if ( Keyboard.keyHeld( KeyCode.C ) ) {
+				this.player.angleVel = 0.1;
 			}
 
 			if ( Keyboard.keyHit( KeyCode.X ) ) {
 				let bullet = new Bullet( 
 						this.player.pos.copy().plus( new Vec2( 0, -this.player.height ) ),
-						new Vec2( 0, -10 ) );
+						new Vec2( 0, -10 ).rotate( this.player.angle ) );
 				
 				bullet.material.hue = 90;
 
@@ -467,7 +513,7 @@ export class Level extends Scene {
 
 		for ( let entity of this.em.entities ) {
 			for ( let otherEntity of this.em.entities ) {
-				if ( !entity.canOverlap( otherEntity ) ) continue;
+				if ( !entity.canBeHitBy( otherEntity ) ) continue;
 
 				let contacts = entity.overlaps( otherEntity, frameStep );
 
@@ -507,7 +553,7 @@ export class Level extends Scene {
 
 				// TODO: rank contacts
 				for ( let otherEntity of this.em.entities ) {
-					if ( !this.player.canOverlap( otherEntity ) ) continue;
+					if ( !this.player.canBeHitBy( otherEntity ) ) continue;
 
 					let contacts = this.player.overlaps( otherEntity, stepTotal + step );
 					
@@ -788,9 +834,9 @@ export class Level extends Scene {
 		} else {
 			context.save();
 				context.translate( 200, 200 );
-				renderFromEye( context, shapes, origin, slices, or, ir );
+				context.rotate( -this.player.angle );
 
-				let boss = this.em.entities.filter( x => x instanceof RollBoss )[0];
+				renderFromEye( context, shapes, origin, slices, or, ir );
 
 				ir = or + 2;
 				or = ir + this.haloWidth;
@@ -799,27 +845,27 @@ export class Level extends Scene {
 				gradient.addColorStop(0, "hsl( 210, 100%, 90% )");
 				gradient.addColorStop(1, "white");
 
-				if ( boss && boss instanceof RollBoss ) {
+				let boss = this.em.entities.filter( x => x instanceof Boss )[0];
+
+				if ( boss && boss instanceof Boss ) {
 					this.anim.stack[0].targets['healthBar'].value = boss.getHealth();
 
-					let segments = this.healthBarMax;
-					let slice = Math.PI * 2 / segments;
+					if ( this.healthBarMax > 0 ) {
+						let segments = this.healthBarMax;
+						let slice = Math.PI * 2 / segments;
 
-					let sweep = this.healthBar * slice;
-					context.fillStyle = gradient;
-
-					context.globalAlpha = 1.0;
-					
-					for ( let angle = -Math.PI / 2; angle < -Math.PI / 2 + sweep; angle += slice ) {
-						context.beginPath();
-						context.moveTo( Math.cos( angle ) * ir, Math.sin( angle ) * ir );
-						context.lineTo( Math.cos( angle ) * or, Math.sin( angle ) * or );
-						context.lineTo( Math.cos( angle + slice ) * or, Math.sin( angle + slice ) * or );
-						context.lineTo( Math.cos( angle + slice ) * ir, Math.sin( angle + slice ) * ir );
-						context.fill();
+						let sweep = this.healthBar * slice;
+						context.fillStyle = gradient;
+						
+						for ( let angle = -Math.PI / 2; angle < -Math.PI / 2 + sweep; angle += slice ) {
+							context.beginPath();
+							context.moveTo( Math.cos( angle ) * ir, Math.sin( angle ) * ir );
+							context.lineTo( Math.cos( angle ) * or, Math.sin( angle ) * or );
+							context.lineTo( Math.cos( angle + slice ) * or, Math.sin( angle + slice ) * or );
+							context.lineTo( Math.cos( angle + slice ) * ir, Math.sin( angle + slice ) * ir );
+							context.fill();
+						}
 					}
-					
-					context.globalAlpha = 1.0;
 				}
 			context.restore();
 		}

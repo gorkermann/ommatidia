@@ -1,4 +1,4 @@
-import { Chrono, Anim, AnimField, AnimFrame } from './lib/juego/Anim.js'
+import { Chrono, Anim, AnimField, AnimFrame, PhysField } from './lib/juego/Anim.js'
 import { Entity } from './lib/juego/Entity.js'
 import { GridArea } from './lib/juego/GridArea.js'
 import { Line } from './lib/juego/Line.js'
@@ -15,7 +15,9 @@ import { Explosion } from './Explosion.js'
 import { Level } from './Level.js'
 import { Player } from './Player.js'
 import { RollBoss, Gun, Barrier } from './RollBoss.js'
-
+import { LockBoss, LockBossBarrier, LockWall, LockBulb,
+		 LockJaw, LockBarrage, LockRing } from './LockBoss.js'
+ 
 export type Newable = { new ( ...args: any[] ): any }
 
 let factory = ( newable: Newable ): ( () => Object ) => {
@@ -41,6 +43,7 @@ classMap['Anim'] = Anim;
 classMap['AnimField'] = AnimField;
 classMap['AnimFrame'] = AnimFrame;
 classMap['Chrono'] = Chrono;
+classMap['PhysField'] = PhysField;
 
 classMap['Level'] = Level;
 classMap['Player'] = Player;
@@ -52,6 +55,13 @@ classMap['Bullet'] = Bullet;
 classMap['Explosion'] = Explosion;
 classMap['Barrier'] = Barrier;
 classMap['Gutter'] = Gutter;
+classMap['LockBoss'] = LockBoss;
+classMap['LockBossBarrier'] = LockBossBarrier;
+classMap['LockWall'] = LockWall;
+classMap['LockBulb'] = LockBulb;
+classMap['LockJaw'] = LockJaw;
+classMap['LockBarrage'] = LockBarrage;
+classMap['LockRing'] = LockRing;
 
 // list of constructor functions
 // (need to access static props, not sure how to define this as a type in TS, so type is vague)
