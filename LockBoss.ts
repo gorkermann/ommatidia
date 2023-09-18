@@ -613,7 +613,7 @@ export class LockBarrage extends CenteredEntity {
 		if ( otherEntity instanceof Bullet ) {
 			otherEntity.removeThis = true;
 		}
-	}
+	} 
 }
 
 // LockSandwich
@@ -671,7 +671,7 @@ export class LockBoss extends Boss {
 	collisionMask = COL.PLAYER_BULLET;
 
 	counts: Dict<Chrono> = { ...this.counts,
-		'createWave': new Chrono( 5000, 1000 ),
+		'createWave': new Chrono( 3000, 1000 ),
 	};
 
 	constructor( pos: Vec2=new Vec2( 0, 0 ), spawn: boolean=false ) {
@@ -760,8 +760,13 @@ export class LockBoss extends Boss {
 			let fade = false;
 
 			if ( wave instanceof LockWall ) {
-				fade = this.watchTarget &&
-				 	   this.pos.plus( this.watchTarget ).y < wave.pos.y - wave.height;
+				fade = this.watchTarget && (
+
+					   this.pos.plus( this.watchTarget ).y < wave.pos.y - wave.height ||
+
+					   // player is at invisible wall
+					   ( wave.getBulbCount() == 0 &&
+					   	 this.watchTarget.y < this.height / 2 + wallUnit * 2.5 ) );
 			
 			} else if ( wave instanceof LockJaw ) {
 				fade = this.watchTarget &&
@@ -770,7 +775,7 @@ export class LockBoss extends Boss {
 			
 			} else if ( wave instanceof LockRing ) {
 				fade = this.watchTarget &&
-			 	   this.pos.plus( this.watchTarget ).y < wave.pos.y - fieldWidth / 2;
+			 	   	   this.pos.plus( this.watchTarget ).y < wave.pos.y - fieldWidth / 2;
 
 			 	let waveToWatch = wave.pos.minus( this.pos.plus( this.watchTarget ) );
 

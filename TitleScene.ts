@@ -15,31 +15,14 @@ export class TitleScene extends Scene {
 	floaters: Array<Entity> = [];
 	titleDrift: number = 0;
 
-	boundKeyHandler = this.keyHandler.bind(this);
-
 	constructor() {
 		super( "Title" );
 	}
 
-	wake() {
-		document.addEventListener( "keydown", this.boundKeyHandler );
+	update() {
+		if ( Keyboard.keyHit( KeyCode.Z ) ) document.dispatchEvent( new CustomEvent( "start" ) );
+		if ( Keyboard.keyHit( KeyCode.X ) ) document.dispatchEvent( new CustomEvent( "startBoss" ) );
 	}
-
-	sleep() {
-		document.removeEventListener( "keydown", this.boundKeyHandler );
-	}
-
-	keyHandler( e: any) {
-		if ( e.keyCode == KeyCode.Z ) {
-			document.dispatchEvent( new CustomEvent( "start" ) );
-		}
-
-		if ( e.keyCode == KeyCode.X ) {
-			document.dispatchEvent( new CustomEvent( "startBoss" ) );
-		}
-	}
-
-	update() {}
 
 	draw( context: CanvasRenderingContext2D ) {
 		let rStep = 20;

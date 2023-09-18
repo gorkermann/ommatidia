@@ -12,17 +12,19 @@ export class Player extends Entity {
 	jumpFrames: number = 0;
 	blockedDirs: Array<Vec2> = [];
 
+	health = 1;
+
 	constructor( pos: Vec2 ) {
 		super( pos, 16, 16 );
 	}
 
 	hitWith( otherEntity: Entity, contact: Contact ): void {
 		if ( otherEntity instanceof Bullet ) {
-			console.log( 'ow!' );
-			otherEntity.removeThis = true;
+			this.health -= 1;
+			if ( this.health > 0 ) otherEntity.removeThis = true;
 
 		} else if ( otherEntity instanceof Gutter ) {
-			console.log( 'ow!' );
+			this.health -= 1;
 		}
 	}
 

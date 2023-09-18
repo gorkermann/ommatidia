@@ -29,30 +29,17 @@ for ( let i in codeByDigit ) {
 	// Save State
 	let c = new CommandRef( 'Save State ' + i, null, null, codeByDigit[i], MOD.CTRL );
 	c.enter = function( this: GameControllerDom ) {
-		let toaster = new tp.Toaster( constructors, nameMap );
-		let scene = this.manager.currentScene;
+		let json = this.getJSON();
 
-		if ( scene instanceof Level ) {
-			let flatLevel = tp.toJSON( scene, toaster );
+		if ( json ) {
+			let str = JSON.stringify( json );
+			store['state_' + i] = str;
 
-			if ( toaster.errors.length > 0 ) {
-				console.error( 'Failed to create state' );
-
-				for ( let error of toaster.errors ) {
-					console.error( error );
-				}
-			} else {
-				store['state_' + i] = JSON.stringify( flatLevel );
-
-				console.log( 'Saved state to slot ' + i );
-			}
+			console.log( 'Saved state to slot ' + i + ' (' + str.length + ')' );
 
 		} else {
-			console.warn( 'Save State: Unhandled Scene type ' + 
-				scene.constructor.name );
+			console.error( 'Save State: Failed to create state' );
 		}
-
-		toaster.cleanAddrIndex();
 	}
 	gameCommands.push( c );
 
@@ -60,8 +47,6 @@ for ( let i in codeByDigit ) {
 	// Load State
 	c = new CommandRef( 'Load State ' + i, null, null, codeByDigit[i] );
 	c.enter = function( this: GameControllerDom ) {
-		let toaster = new tp.Toaster( constructors, nameMap );
-
 		if ( !store['state_' + i] ) {
 			console.warn( 'No state in slot ' + i );
 			return;
@@ -69,24 +54,7 @@ for ( let i in codeByDigit ) {
 
 		let json = JSON.parse( store['state_' + i] );
 
-		let level = tp.fromJSON( json, toaster );
-		tp.resolveList( [level], toaster );
-		
-		for ( let error of toaster.errors ) {
-			console.error( error );
-		}
-
-		for ( let entity of level['__entities'] ) {
-			entity.init();
-			level.em.insert( entity );
-		}
-
-		delete level['__entities'];
-
-		if ( this.manager.currentScene !== null ) {
-			this.manager.currentScene.sleep();
-		}
-		this.manager.currentScene = level as Level;
+		this.loadLevelFromJSON( json );
 
 		console.log( 'Loaded state from slot ' + i );
 	}

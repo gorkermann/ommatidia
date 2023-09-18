@@ -1,4 +1,5 @@
 import { Anim, AnimField, AnimFrame } from './lib/juego/Anim.js'
+import { solveCollisionsFor } from './lib/juego/collisionSolver.js'
 import { Contact } from './lib/juego/Contact.js'
 import { Entity, TopLeftEntity } from './lib/juego/Entity.js'
 import { EntityManager } from './lib/juego/EntityManager.js'
@@ -20,10 +21,10 @@ import { Boss } from './Boss.js'
 import { Bullet } from './Bullet.js'
 import { RandomPoly } from './CenteredEntity.js'
 import { Coin } from './Coin.js'
-import { COL } from './collisionGroup.js'
+import { COL, MILLIS_PER_FRAME } from './collisionGroup.js'
 import { Player } from './Player.js'
 import { constructors, nameMap } from './objDef.js'
-import { renderFromEye, renderRays } from './render.js'
+import { renderFromEye, renderRays, whiteText } from './render.js'
 
 import { RollBoss, Barrier } from './RollBoss.js' 
 import { LockBoss } from './LockBoss.js'
@@ -56,6 +57,12 @@ let MODE_SQUARE = 1;
 	Scene holding a player area 
 */
 
+enum LevelState {
+	DEFAULT = 0,
+	DEATH_REPLAY = 1,
+	DEATH_MENU = 2,
+}
+
 export class Level extends Scene {
 	em: EntityManager = new EntityManager();
 	grid: GridArea = new GridArea();
@@ -79,35 +86,48 @@ export class Level extends Scene {
 
 	tryCount: number = 0;
 	updateQueue: Array<QueueFunc> = [];
-	boundKeyHandler = this.keyHandler.bind(this);
 	
 	cursorPos: Vec2 = new Vec2( 0, 0 );
 	
-	sliceCount: number = 45;
+	sliceCount: number = 180;
 
 	healthBar: number = 0;
 	healthBarMax: number = 0;
 	haloWidth: number = 40;
+
 	oldTime: number = 0;
+	elapsedTotal: number = 0;
 
 	ir: number = 300;
 	or: number = 320;
+
+	state: LevelState = LevelState.DEFAULT;
+
+	replayImages: Array<ImageData> = [];
+	replayCount = 10;
+	replayIndex = 0;
+	replayAlpha = 1.0;
 
 	anim = new Anim( {
 		'healthBar': new AnimField( this, 'healthBar', 3 ),
 		'haloWidth': new AnimField( this, 'haloWidth', 5 ),
 		'or': new AnimField( this, 'or', 40 ),
 		'ir': new AnimField( this, 'ir', 40 ),
+		'replayIndex': new AnimField( this, 'replayIndex', 1 ),
+		'replayAlpha': new AnimField( this, 'replayAlpha', 0.1 ),
+		'state': new AnimField( this, 'state', 0 )
 	},
 	new AnimFrame( {
 		'healthBar': { value: 0 },
 		'haloWidth': { value: 40 },
 		'or': { value: 120 },
-		'ir': { value: 100}
+		'ir': { value: 100},
+		'replayAlpha': { value: 1.0 }
 	} ) );
 
 	discardFields = ['em', 'textBox', 'textBoxHeight', 'text', 'textIndex', 'speaker',
-					 'updateQueue', 'boundKeyHandler', 'cursorPos', 'sliceCount', 'oldTime'];
+					 'updateQueue', 'boundKeyHandler', 'cursorPos', 'sliceCount', 'oldTime',
+					 'replayImages', 'replayCount', 'replayIndex', 'replayAlpha'];
 	//saveFields = ['grid', 'player', 'controlMode', 'grav', 'data', 'bossHealthMax'];
 
 	constructor( name: string, data: any ) {
@@ -143,18 +163,7 @@ export class Level extends Scene {
 		this.grid = new GridArea();
 
 		this.grid.load( this.data );
-		this.begin();
 
-		this.isLoaded = true;
-
-		return new Promise( function(resolve, reject) {
-			resolve(0);
-		});
-	}
-	
-	begin() {
-		this.healthBar = 0;
-		this.oldTime = 0;
 		this.tryCount += 1;
 
 		Debug.setFlags( { 'DRAW_NORMAL': this.data.drawNormal } );
@@ -333,40 +342,42 @@ export class Level extends Scene {
 		if ( this.name == 'level3' && this.tryCount == 1 ) {
 			this.queueText( coins[0], 'You\'re on your own now. Good luck!' );
 		}
-	}
 
-	wake() {
-		document.addEventListener( "keydown", this.boundKeyHandler );
-	}
-
-	sleep() {
-		document.removeEventListener( "keydown", this.boundKeyHandler );
-	}
-
-	keyHandler( e: any ) {
-		if ( e.keyCode == KeyCode.Z ) {
-			document.dispatchEvent( new CustomEvent( "transition", { detail: null } ) );
-		}
+		return new Promise( function(resolve, reject) {
+			resolve(0);
+		});
 	}
 
 	update() {
-		if ( Keyboard.keyHit( KeyCode.SPACE ) ) {
+		if ( this.state == LevelState.DEATH_REPLAY ) {
+			this.deathUpdate();
+
+		// text boxes
+		//} else {
+
+		// regular gameplay
+		} else if ( this.state == LevelState.DEATH_MENU ) {
+			if ( Keyboard.keyHit( KeyCode.Z ) ) document.dispatchEvent( new CustomEvent( 'restart' ) );
+			if ( Keyboard.keyHit( KeyCode.R ) ) document.dispatchEvent( new CustomEvent( 'rewind' ) );
+
+		} else {
+			if ( Keyboard.keyHit( KeyCode.SPACE ) ) {
+				if ( this.paused ) {
+					this.paused = false;
+				} else {
+					this.paused = true;
+				}
+			}
+
 			if ( this.paused ) {
-				this.paused = false;
+				this.oldTime = new Date().getTime();
 			} else {
-				this.paused = true;
+				this.defaultUpdate();
 			}
 		}
 
-		// paused
-		if ( this.paused ) {
-			this.oldTime = new Date().getTime();
-
-			return;
-		}
-
 		// some animation is playing
-		if ( this.updateQueue.length > 0 ) {
+		/*if ( this.updateQueue.length > 0 ) {
 			let finished = this.updateQueue[0].func();
 
 			if ( finished ) {
@@ -383,11 +394,7 @@ export class Level extends Scene {
 				}
 				this.updateQueue = [];
 			}
-
-		// regular gameplay
-		} else {
-			this.defaultUpdate();
-		}
+		}*/
 	}
 
 	defaultUpdate() {
@@ -395,6 +402,7 @@ export class Level extends Scene {
 
 		if ( this.oldTime == 0 ) this.oldTime = now;
 		let elapsed = now - this.oldTime;
+		this.elapsedTotal += elapsed;
 
 		this.oldTime = now;
 
@@ -537,90 +545,10 @@ export class Level extends Scene {
 			}
 		}
 
-		let stepTotal = 0.0;
-		let lastTotal = 0.0;
-		this.player.blockedDirs = [];
-		let contacted: Entity = null;
-		let shapes = [];
+		let result = solveCollisionsFor( this.player, this.em.entities, COL.ENEMY_BODY, frameStep );
 
-		while ( stepTotal < frameStep ) {
-			let step = frameStep - stepTotal;
-			let solidContacts = [];
-
-			while ( step > 0.05 ) {
-				solidContacts = [];
-				contacted = null;
-
-				// TODO: rank contacts
-				for ( let otherEntity of this.em.entities ) {
-					if ( !this.player.canBeHitBy( otherEntity ) ) continue;
-
-					let contacts = this.player.overlaps( otherEntity, stepTotal + step );
-					
-					if ( contacts.length > 0 ) {
-						contacted = otherEntity;
-					}
-
-					for ( let contact of contacts ) {
-						if ( contact.otherSub.collisionGroup == COL.ENEMY_BODY ) {
-							 solidContacts.push( contact );
-						}
-					}
-				}
-
-				if ( solidContacts.length > 0) {
-					step /= 2;
-				} else {
-					break;
-				}
-			}
-
-			// debug draw {
-				//context.clearRect( 0, 0, canvas.width, canvas.height );
-
-				shapes.push( ...this.player.getShapes( stepTotal + step ) );
-				if ( contacted ) shapes.push( ...contacted.getShapes( stepTotal + step ) );
-				
-				for ( let shape of shapes ) {
-					shape.stroke( context );
-				}
-			// }
-
-			for ( let contact of solidContacts ) {
-				if ( contact.normal.dot( this.grav ) < 0 ) this.player.collideDown = true;
-
-				this.player.blockedDirs.push( contact.normal.copy() );
-				
-				// player hits something, cancel player velocity in object direction
-				let ndot = this.player.vel.dot( contact.normal );
-				let before = this.player.vel.copy();
-
-				if ( ndot < 0 ) {
-					let advance = stepTotal;// - lastTotal;
-					if ( advance < 0.05 ) advance = 0; // at wall, running into wall, don't move at all
-
-					this.player.pos.add( this.player.vel.times( advance ) );
-					this.player.vel.sub( contact.normal.times( ndot )).scale( 1 - advance );
-
-					lastTotal = stepTotal; // not sure if this is necessary
-				}
-
-				// object pushes player
-				let v1 = this.player.vel.unit();
-				let v2 = contact.vel.unit();
-				let vdot = v1.dot( v2 );
-				if ( vdot < 0 ) vdot = 0;
-
-				let push = contact.vel.copy();
-				push.sub( v2.times( vdot ) );
-
-				let ahead = this.player.pos.minus( contact.point ).dot( push ) > 0;
-				if ( ahead ) {
-					this.player.vel.add( push.times( frameStep - stepTotal ) );
-				}
-			}
-
-			stepTotal += step;
+		if ( this.player.health <= 0 || result.crushed ) {
+			this.killPlayer();
 		}
 
 		this.em.update( frameStep, elapsed );
@@ -665,7 +593,7 @@ export class Level extends Scene {
 		}
 
 		if ( coins.length == 0 && oldCoinCount > coins.length ) {
-			document.dispatchEvent( new CustomEvent( "complete", {} ) );
+			document.dispatchEvent( new CustomEvent( 'complete', {} ) );
 		}
 
 		let boundary = 400;
@@ -678,13 +606,72 @@ export class Level extends Scene {
 					 entity.pos.y > this.grid.vTiles * this.grid.tileWidth + boundary ) {
 
 					if ( entity == this.player ) {
-						document.dispatchEvent( new CustomEvent( "death", {} ) );	
+						document.dispatchEvent( new CustomEvent( 'death', {} ) );
 					} else if ( entity instanceof Bullet ) {
 						entity.removeThis = true;
 					}
 				}
 			}
 		}
+	}
+
+	deathUpdate() {
+		let now = new Date().getTime();
+
+		if ( this.oldTime == 0 ) this.oldTime = now;
+		let elapsed = now - this.oldTime;
+
+		this.oldTime = now;
+
+		let frameStep = 1.0;//elapsed / 60;
+
+		this.anim.update( frameStep, elapsed );
+	}
+
+	killPlayer() {
+
+		// rearrange replayImages so index 0 is the earliest
+		if ( this.replayImages.length == this.replayCount ) {
+			let toEnd = this.replayImages.slice( this.replayIndex );
+			this.replayImages = toEnd.concat( this.replayImages.slice( 0, this.replayIndex ) );
+		}
+
+		this.replayIndex = 0;
+		this.replayAlpha = 0.0;
+
+		this.anim.clear();
+
+		// change state
+		this.anim.pushFrame( new AnimFrame( {
+			'state': { value: LevelState.DEATH_MENU, expireOnReach: true }
+		} ) );
+
+		// fade out
+		/*this.anim.pushFrame( new AnimFrame( {
+			'replayAlpha': { value: 0.0, expireOnReach: true } 
+		} ) );*/
+
+		// wait
+		this.anim.pushFrame( new AnimFrame( {
+			'replayIndex': { value: this.replayImages.length - 1, expireOnCount: 1000 } 
+		} ) );
+
+		// replay death
+		for ( let i = this.replayImages.length - 1; i >= 0; i-- ) {
+			this.anim.pushFrame( new AnimFrame( {
+				'replayIndex': { value: i, expireOnCount: MILLIS_PER_FRAME * 2 } 
+			} ) );
+		}
+
+		// fade in
+		this.anim.pushFrame( new AnimFrame( {
+			'replayAlpha': { value: 1.0, expireOnReach: true } 
+		} ) );
+
+		// change state
+		this.anim.pushFrame( new AnimFrame( {
+			'state': { value: LevelState.DEATH_REPLAY, expireOnReach: true }
+		} ) );
 	}
 
 	updateCursor( pos: Vec2 ) {
@@ -774,6 +761,78 @@ export class Level extends Scene {
 	/* Drawing */
 
 	draw( context: CanvasRenderingContext2D ) {
+		if ( this.state == LevelState.DEATH_REPLAY ) {
+			this.deathDraw( context );
+			this.defaultDraw( context );
+
+		} else if ( this.state == LevelState.DEATH_MENU ) {
+			this.deathDraw( context );
+			this.defaultDraw( context );
+
+			whiteText( context, 'Press R to go back 10 seconds or Z to restart level', 100, 200 );
+
+		} else {
+			this.em.shade();
+
+			this.appendReplayFrame( context );
+
+			this.defaultDraw( context );
+			this.drawTextboxOverlay( context );
+
+			if ( this.paused ) {
+				this.drawPauseOverlay( context );
+			}
+		}
+	}
+
+	appendReplayFrame( context: CanvasRenderingContext2D ) {
+		let shapes = this.grid.shapes.concat();
+		for ( let entity of this.em.entities ) {
+			if ( entity != this.player ) {
+				shapes.push( ...entity.getShapes( 0.0 ) );
+			}
+		}
+
+		context.save();
+			context.translate( 200, 200 );
+			context.scale( 2, 2 );
+			context.translate( -this.player.pos.x, -this.player.pos.y );
+
+			for ( let entity of this.em.entities ) {
+				let shapes = entity.getShapes( 0.0 );
+
+				for ( let shape of shapes ) {
+					shape.stroke( context );
+				}
+			}
+		context.restore();
+
+		context.save();
+			context.translate( 200, 200 );
+
+			context.globalCompositeOperation = 'destination-in';
+			context.fillStyle = 'white';
+			context.beginPath();
+			context.arc( 0, 0, this.ir, 0, Math.PI * 2 );
+			context.fill();
+			context.globalCompositeOperation = 'source-over';
+
+			context.globalAlpha = 0.6;
+			context.fillStyle = 'white';
+			context.beginPath();
+			context.arc( 0, 0, this.ir, 0, Math.PI * 2 );
+			context.fill();
+			context.globalAlpha = 1.0;
+
+			this.replayImages[this.replayIndex] = context.getImageData( 0, 0, 400, 400 );
+			this.replayIndex += 1;
+			this.replayIndex %= this.replayCount;
+		context.restore();
+
+		context.clearRect( 0, 0, 400, 400 );
+	}
+
+	defaultDraw( context: CanvasRenderingContext2D ) {
 
 		/* Prepare Scene */
 
@@ -782,30 +841,12 @@ export class Level extends Scene {
 		let ir = this.ir;
 		let or = this.or;
 
-		let count = this.sliceCount;
 		let slices: Array<number> = [];
-		let cursorDir = this.cursorPos.minus( new Vec2( 200, 200 ) ).normalize();
-		let defaultSlice = Math.PI * 2 / count;
+		let defaultSlice = Math.PI * 2 / this.sliceCount;
 
-		for ( let i = 0; i < count; i++ ) {
-			let angle = defaultSlice * i;
-
-			let dir = new Vec2( Math.cos( angle ), Math.sin( angle ) );
-
-			if ( true || dir.dot( cursorDir ) > 0.7 ) {
-				slices.push( defaultSlice / 4 );
-				slices.push( defaultSlice / 4 );
-				slices.push( defaultSlice / 4 );
-				slices.push( defaultSlice / 4 );				
-			} else if ( dir.dot( cursorDir ) > 0 ) {
-				slices.push( defaultSlice / 2 );
-				slices.push( defaultSlice / 2 );
-			} else {
-				slices.push( defaultSlice );
-			}
+		for ( let i = 0; i < this.sliceCount; i++ ) {
+			slices.push( defaultSlice );
 		}
-
-		let angle = 0;
 
 		let shapes = this.grid.shapes.concat();
 		for ( let entity of this.em.entities ) {
@@ -817,8 +858,6 @@ export class Level extends Scene {
 		/* Draw Scene */
 
 		// draw 2D
-		this.em.shade();
-
 		if ( Debug.flags.DRAW_NORMAL ) {
 			context.save();
 				context.translate( -this.player.pos.x + 200, -this.player.pos.y + 200 );
@@ -842,8 +881,8 @@ export class Level extends Scene {
 				or = ir + this.haloWidth;
 
 				let gradient = context.createRadialGradient(0, 0, ir, 0, 0, or);
-				gradient.addColorStop(0, "hsl( 210, 100%, 90% )");
-				gradient.addColorStop(1, "white");
+				gradient.addColorStop(0, 'hsl( 210, 100%, 90% )');
+				gradient.addColorStop(1, 'white');
 
 				let boss = this.em.entities.filter( x => x instanceof Boss )[0];
 
@@ -869,9 +908,9 @@ export class Level extends Scene {
 				}
 			context.restore();
 		}
+	}
 
-		/* Text Box */
-
+	drawTextboxOverlay( context: CanvasRenderingContext2D ) {
 		this.textBox.draw( context );
 
 		if ( this.text != '' ) {
@@ -883,7 +922,7 @@ export class Level extends Scene {
 								  this.textBox.height - 10 );
 			}
 
-			context.font = "10px Arial";
+			context.font = '10px Arial';
 			context.fillStyle = 'black';
 
 			let y = 15;
@@ -926,19 +965,32 @@ export class Level extends Scene {
 			context.fillStyle = 'white';
 			context.fillText( 'Z: skip', 400 - 35,
 				   			  400 - 6 );
+		}		
+	}
+
+	drawPauseOverlay( context: CanvasRenderingContext2D ) {
+		context.fillStyle = 'hsl( 0, 0%, 90%)';
+		context.font = '24px Arial';
+
+		let text = 'P A U S E';
+		let meas = context.measureText( text );
+		let w = meas.width;
+		let h = meas.actualBoundingBoxAscent + meas.actualBoundingBoxDescent;
+		
+		context.fillText( text, 200 - w / 2, 200 + h / 2 );
+	}
+
+	deathDraw( context: CanvasRenderingContext2D ) { 
+		if ( this.replayIndex < this.replayImages.length ) {
+			context.putImageData( this.replayImages[this.replayIndex], 0, 0 );	
 		}
 
-		/* Pause Overlay */
-		if ( this.paused ) {
-			context.fillStyle = 'hsl( 0, 0%, 90%)';
-			context.font = "24px Arial";
-
-			let text = 'P A U S E';
-			let meas = context.measureText( text );
-			let w = meas.width;
-			let h = meas.actualBoundingBoxAscent + meas.actualBoundingBoxDescent;
-			
-			context.fillText( text, 200 - w / 2, 200 + h / 2 );
-		}
+		// easier to overlay white than change image's alpha layer
+		context.globalAlpha = 1 - this.replayAlpha;
+			context.fillStyle = 'white';
+			context.beginPath();
+			context.arc( 200, 200, this.ir, 0, Math.PI * 2 );
+			context.fill();
+		context.globalAlpha = 1.0;
 	}
 }

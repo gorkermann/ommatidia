@@ -409,7 +409,7 @@ export class RollBoss extends Boss {
 					this.state = BossState.EXPLODE;
 				}
 
-				let str = 'RollBoss state: ' + this.health;
+				let str = 'RollBoss health: ' + this.health;
 				for ( let gun of this.guns ) {
 					str += ' ' + gun.health;
 				}

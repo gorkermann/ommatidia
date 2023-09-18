@@ -1,3 +1,4 @@
+import { Chrono } from './lib/juego/Anim.js'
 import { CommandRef, MOD } from './lib/juego/CommandRef.js'
 import { Controller } from './lib/juego/Controller.js'
 import { Entity } from './lib/juego/Entity.js'
@@ -39,12 +40,14 @@ export class GameControllerDom extends Controller {
 	canvas: HTMLCanvasElement = null;
 	context: CanvasRenderingContext2D = null;
 
-	levels: Array<Level> = [];
-	levelIndex = 0;
+	levelIndex: number = 0;
 
 	floaterScene: FloaterScene;
-	startTime: number = 0;
 	hue: number = Math.random() * 360;
+
+	recentStates: Array<any> = [];
+	saveStateInterval: number = 1000;
+	lastStateTime: number = 0; // milliseconds of play time since scene started
 
 	constructor() {
 		super( gameCommands );
@@ -54,38 +57,45 @@ export class GameControllerDom extends Controller {
 		this.floaterScene = new FloaterScene( this.canvas );
 		this.title.floaters = this.floaterScene.floaters;
 
-		for ( let i = 0; i < levelDataList.length; i++ ) {
-			this.levels.push( new Level( 'level' + i, levelDataList[i] ) );
-		}
-
 		this.initKeyboard();
 
 		this.manager.useCanvas( this.canvas );
 
-		document.addEventListener( "start", ( e: any ) => { 
+		document.addEventListener( 'start', ( e: any ) => { 
 			this.levelIndex = 0;
 
-			this.manager.loadScene( this.levels[0] );
+			this.startLevel();
 		} );
 
-		document.addEventListener( "startBoss", ( e: any ) => { 
+		document.addEventListener( 'startBoss', ( e: any ) => { 
 			this.levelIndex = 9;
 
-			this.manager.loadScene( this.levels[9] );
+			this.startLevel();
 		} );
 
-		document.addEventListener( "restart", ( e: any ) => {
-			this.manager.loadScene( this.levels[this.levelIndex] );
+		document.addEventListener( 'restart', ( e: any ) => {
+			this.startLevel();
 		} );
 
-		document.addEventListener( "death", ( e: any ) => {
+		document.addEventListener( 'rewind', ( e: any ) => {
+			if ( this.recentStates.length == 0 ) {
+				this.startLevel();
+
+			} else {
+				let json = this.recentStates[0];
+
+				this.loadLevelFromJSON( json );
+			}
+		} );
+
+		document.addEventListener( 'death', ( e: any ) => {
 			this.manager.loadScene( this.deathScene );
 		} );
 
-		document.addEventListener( "complete", ( e: any ) => { 
+		document.addEventListener( 'complete', ( e: any ) => { 
 			this.levelIndex += 1;
 
-			if ( this.levelIndex < this.levels.length ) {
+			if ( this.levelIndex < levelDataList.length ) {
 				let context = this.canvas.getContext( '2d' );
 
 				context.clearRect( 0, 0, this.canvas.width, this.canvas.height );
@@ -96,7 +106,7 @@ export class GameControllerDom extends Controller {
 
 				oldImages.push( new FadingImage( image ) );
 
-				this.manager.loadScene( this.levels[this.levelIndex] );
+				this.startLevel();
 
 			} else {
 				oldImages = [];
@@ -106,8 +116,17 @@ export class GameControllerDom extends Controller {
 		} );
 	}
 
+	startLevel() {
+		let level = new Level( 'level' + this.levelIndex, levelDataList[this.levelIndex] );
+
+		this.recentStates = [];
+		this.lastStateTime = 0;
+
+		this.manager.loadScene( level );
+	}
+
 	initKeyboard() {
-		document.addEventListener( "keydown", ( e: KeyboardEvent ) => {
+		document.addEventListener( 'keydown', ( e: KeyboardEvent ) => {
 
 			// Select input mode
 			let foundCommand = false;
@@ -128,16 +147,90 @@ export class GameControllerDom extends Controller {
 		} );	
 	}
 
-	update() {
-		if ( Keyboard.keyHit( KeyCode.E ) ) {
-			document.dispatchEvent( new CustomEvent( "complete" ) );
+	getJSON(): any {
+		let toaster = new tp.Toaster( constructors, nameMap );
+		let scene = this.manager.currentScene;
+
+		let output = null;
+
+		if ( scene instanceof Level ) {
+			let flatLevel = tp.toJSON( scene, toaster );
+
+			if ( toaster.errors.length > 0 ) {
+				for ( let error of toaster.errors ) {
+					console.error( error );
+				}
+			} else {
+				output = flatLevel;
+			}
+
+		} else {
+			console.warn( 'GameControllerDom.getJSON: Unhandled Scene type ' + 
+				scene.constructor.name );
 		}
 
-		this.floaterScene.update();
+		toaster.cleanAddrIndex();
 
+		output['levelIndex'] = this.levelIndex;
+
+		return output;
+	}
+
+	loadLevelFromJSON( json: any ) {
+		let toaster = new tp.Toaster( constructors, nameMap );
+
+		let level = tp.fromJSON( json, toaster );
+		tp.resolveList( [level], toaster );
+		
+		for ( let error of toaster.errors ) {
+			console.error( error );
+		}
+
+		for ( let entity of level['__entities'] ) {
+			entity.init();
+			level.em.insert( entity );
+		}
+
+		delete level['__entities'];
+
+		if ( 'levelIndex' in json ) {
+			this.levelIndex = json['levelIndex'];
+		}
+
+		if ( this.manager.currentScene !== null ) {
+			this.manager.currentScene.sleep();
+		}
+		this.manager.currentScene = level as Level;
+
+		this.recentStates = this.recentStates.slice( 0, 1 );
+		this.lastStateTime = ( this.manager.currentScene as Level ).elapsedTotal;
+	}
+
+	update() {
 		if ( this.manager.currentScene === null ) {
 			this.manager.loadScene( this.title );
 		}
+
+		// save recent game states
+		if ( this.manager.currentScene instanceof Level && 
+			 this.manager.currentScene.elapsedTotal - this.lastStateTime > this.saveStateInterval ) {
+			let json = this.getJSON();
+
+			if ( json ) {
+				this.recentStates.push( json );
+
+				console.log( 'pushed state at ' + this.manager.currentScene.elapsedTotal );
+			}
+
+			// keep only the 10 most recent states
+			if ( this.recentStates.length > 10 ) {
+				this.recentStates = this.recentStates.slice( this.recentStates.length - 10 );
+			}
+
+			this.lastStateTime = this.manager.currentScene.elapsedTotal;
+		}
+
+		this.floaterScene.update();
 
 		this.manager.update();
 

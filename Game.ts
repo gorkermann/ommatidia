@@ -61,19 +61,24 @@ document.addEventListener( "keyup", function( e: any ) {
 let frameTime = 0;
 
 let update = function() {
+
+	// set tab title
 	let now = new Date().getTime();
 	let fps = 1000 / ( now - frameTime );
 
 	document.getElementsByTagName( 'title' )[0].innerHTML = Math.floor( fps * 1000 ) / 1000 + '';
 	frameTime = now;
 
+	// debug commands
 	if ( Keyboard.keyHit( KeyCode.D ) ) Debug.toggleFlag( 'DRAW_NORMAL' );
-	if ( Keyboard.keyHit( KeyCode.R ) ) Debug.toggleFlag( 'DRAW_RAYS' );
+	if ( Keyboard.keyHit( KeyCode.Y ) ) Debug.toggleFlag( 'DRAW_RAYS' );
+	if ( Keyboard.keyHit( KeyCode.E ) ) document.dispatchEvent( new CustomEvent( "complete" ) );
 
 	if ( Keyboard.keyHit( KeyCode.BSLASH ) ) {
 		let put_a_breakpoint_here = 0;
 	}
 
+	// game stuff
 	ctlr.update();
 	ctlr.draw();
 
