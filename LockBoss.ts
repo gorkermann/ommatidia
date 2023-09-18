@@ -256,6 +256,8 @@ export class LockJaw extends CenteredEntity {
 
 	/* property overrides */
 
+	flavorName: string = 'JAWS of the LOCK CORE';
+
 	isGhost = true;
 
 	material = new Material( 210, 1.0, 0.3 );
@@ -532,6 +534,8 @@ export class LockBarrage extends CenteredEntity {
 
 	/* property overrides */
 
+	flavorName: string = 'BARRAGE of the LOCK CORE';
+
 	isGhost = true;
 
 	material = new Material( 210, 1.0, 0.5 );
@@ -624,11 +628,7 @@ export class LockBarrage extends CenteredEntity {
 // vertical 10x1 smasher that has one bulb on the end, too long and fast to get across,
 // opens to two 5x1s when bulb is gone
 
-enum LockBossState {
-	STATE_1 = BossState.EXPLODE + 1
-}
-
-type State = BossState | LockBossState;
+type State = BossState;
 
 enum WaveType {
 	WALL = 0,
@@ -662,6 +662,8 @@ export class LockBoss extends Boss {
 	barrageSpeedMax: number = 20;
 
 	/* property overrides */
+
+	flavorName = 'LOCK CORE';
 
 	health = 80;
 

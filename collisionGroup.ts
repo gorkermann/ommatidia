@@ -1,5 +1,7 @@
 export let MILLIS_PER_FRAME = 60;
 
+export let REWIND_SECS = 5;
+
 export let COL = {
 	USE_ROOT: 0,
 	PLAYER_BODY: 1,

@@ -11,6 +11,7 @@ import { Level } from './Level.js'
 import { constructors, nameMap } from './objDef.js'
 import { store } from './store.js'
 
+import { REWIND_SECS } from './collisionGroup.js'
 import { gameCommands } from './gameCommands.js'
 import { levelDataList } from './levels.js'
 import { DeathScene } from './DeathScene.js'
@@ -30,6 +31,9 @@ class FadingImage {
 
 let oldImages: Array<FadingImage> = [];
 
+type LoadLevelOptions = {
+	forceEraseHistory?: boolean
+}
 
 export class GameControllerDom extends Controller {
 	manager: SessionManager = new SessionManager();
@@ -78,7 +82,7 @@ export class GameControllerDom extends Controller {
 		} );
 
 		document.addEventListener( 'rewind', ( e: any ) => {
-			if ( this.recentStates.length == 0 ) {
+			if ( this.recentStates.length < REWIND_SECS ) {
 				this.startLevel();
 
 			} else {
@@ -176,7 +180,7 @@ export class GameControllerDom extends Controller {
 		return output;
 	}
 
-	loadLevelFromJSON( json: any ) {
+	loadLevelFromJSON( json: any, options: LoadLevelOptions={} ) {
 		let toaster = new tp.Toaster( constructors, nameMap );
 
 		let level = tp.fromJSON( json, toaster );
@@ -193,17 +197,25 @@ export class GameControllerDom extends Controller {
 
 		delete level['__entities'];
 
-		if ( 'levelIndex' in json ) {
-			this.levelIndex = json['levelIndex'];
-		}
-
 		if ( this.manager.currentScene !== null ) {
 			this.manager.currentScene.sleep();
 		}
 		this.manager.currentScene = level as Level;
 
-		this.recentStates = this.recentStates.slice( 0, 1 );
-		this.lastStateTime = ( this.manager.currentScene as Level ).elapsedTotal;
+		let sameLevel = false;
+		if ( 'levelIndex' in json ) {
+			sameLevel = ( json['levelIndex'] == this.levelIndex );
+
+			this.levelIndex = json['levelIndex'];
+		}
+
+		if ( sameLevel && !options.forceEraseHistory ) {
+			this.recentStates = this.recentStates.slice( 0, 1 );
+			this.lastStateTime = ( this.manager.currentScene as Level ).elapsedTotal;
+		} else {
+			this.recentStates = [];
+			this.lastStateTime = 0;
+		}
 	}
 
 	update() {
@@ -214,6 +226,7 @@ export class GameControllerDom extends Controller {
 		// save recent game states
 		if ( this.manager.currentScene instanceof Level && 
 			 this.manager.currentScene.elapsedTotal - this.lastStateTime > this.saveStateInterval ) {
+
 			let json = this.getJSON();
 
 			if ( json ) {
@@ -222,9 +235,9 @@ export class GameControllerDom extends Controller {
 				console.log( 'pushed state at ' + this.manager.currentScene.elapsedTotal );
 			}
 
-			// keep only the 10 most recent states
-			if ( this.recentStates.length > 10 ) {
-				this.recentStates = this.recentStates.slice( this.recentStates.length - 10 );
+			// keep only the most recent states
+			if ( this.recentStates.length > REWIND_SECS ) {
+				this.recentStates = this.recentStates.slice( -REWIND_SECS );
 			}
 
 			this.lastStateTime = this.manager.currentScene.elapsedTotal;

@@ -54,7 +54,7 @@ for ( let i in codeByDigit ) {
 
 		let json = JSON.parse( store['state_' + i] );
 
-		this.loadLevelFromJSON( json );
+		this.loadLevelFromJSON( json, { forceEraseHistory: true } );
 
 		console.log( 'Loaded state from slot ' + i );
 	}

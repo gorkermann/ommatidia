@@ -94,6 +94,7 @@ export class Gun extends CenteredEntity {
 	}
 }
 
+// IDEAS
 // four more guns on middle rollers
 
 // center gun beam attack
@@ -126,11 +127,7 @@ class Trigger {
 	}
 }
 
-enum RollBossState {
-	STATE1 = BossState.EXPLODE + 1
-}
-
-type State = BossState | RollBossState;
+type State = BossState;
 
 export class RollBoss extends Boss {
 	axis = new CenteredEntity( new Vec2( 0, 0 ), 0, 0 );
@@ -168,6 +165,8 @@ export class RollBoss extends Boss {
 
 	/* property overrides */
 
+	flavorName = 'ROLL CORE';
+
 	health = 20;
 
 	material = new Material( 60, 1.0, 0.5 );
@@ -176,7 +175,7 @@ export class RollBoss extends Boss {
 	collisionMask = COL.PLAYER_BULLET;
 
 	counts: Dict<Chrono> = { ...this.counts,
-		'fire': new Chrono( 0, 1000 ),
+		'fire': new Chrono( 3000, 2000 ),
 		'lockOn': new Chrono( 10000, 10000 ),
 	}
 
@@ -185,7 +184,7 @@ export class RollBoss extends Boss {
 		'extension': new AnimField( this, 'extension', 1 ),
 		'fireGun': new AnimField( this, 'fireGun' ),
 		'invuln': new AnimField( this, 'invuln' ),
-		'fireInt': new AnimField( this.counts['fire'], 'interval', 1000 ),
+		'fireInt': new AnimField( this.counts['fire'], 'interval', 0 ),
 		'tracking': new AnimField( this, 'tracking' )
 	},
 	new AnimFrame( {
@@ -193,7 +192,7 @@ export class RollBoss extends Boss {
 		'extension': { value: 0 },
 		'fireGun': { value: true },
 		'invuln': { value: false },
-		'fireInt': { value: 1000 },
+		'fireInt': { value: 2000 },
 		'tracking': { value: false }
 	} ) );
 
@@ -274,6 +273,8 @@ export class RollBoss extends Boss {
 					'invuln': { value: true, expireOnCount: 2000 }
 				} ) );
 
+				this.counts['fire'].reset();
+
 			} else {
 				this.increaseSpeed();
 			}
@@ -305,10 +306,9 @@ export class RollBoss extends Boss {
 		) );
 
 		this.triggers.push( new Trigger(
-			() => this.guns.length < 2,
+			() => this.guns.length == 0,
 			() => {
 				this.shiftRollers = true;
-				this.increaseSpeed();
 				this.anim.clear();
 			},
 			'RollBoss: core exposed'
@@ -335,6 +335,7 @@ export class RollBoss extends Boss {
 	increaseSpeed() {
 		let speed = this.anim.stack[0].targets['angleVel'].value as number;
 		if ( speed == 0 ) speed = this.angleVelBase;
+		if ( this.angleVel * speed < 0 ) speed *= -1; 
 
 		( this.anim.stack[0].targets['angleVel'].value as number ) = speed * this.angleVelFactor;
 	}
@@ -513,7 +514,7 @@ export class RollBoss extends Boss {
 								overrideRate: decel, // decelerate quickly
 								expireOnCount: 5000
 							},
-							'fireInt': { value: 750 },
+							'fireInt': { value: 1000 },
 							'tracking': { value: true }
 						} ) );
 
@@ -521,8 +522,9 @@ export class RollBoss extends Boss {
 					}
 				}
 
-				gun.flashMaterial.lum = this.counts['fire'].count / this.counts['fire'].interval;
+				gun.flashMaterial.lum = 1 - this.counts['fire'].count / this.counts['fire'].interval;
 				if ( gun.flashMaterial.lum > 1.0 ) gun.flashMaterial.lum = 1.0;
+				if ( gun.flashMaterial.lum < 0.0 ) gun.flashMaterial.lum = 0.0;
 
 				if ( this.counts['fire'].count <= 0 ) {
 					//for ( let spread = 0; spread < 3; spread++ ) {

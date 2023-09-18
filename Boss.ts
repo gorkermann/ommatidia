@@ -10,6 +10,7 @@ import { Explosion } from './Explosion.js'
 export enum BossState {
 	DEFAULT = 0,
 	EXPLODE,
+	DEAD,
 }
 
 export class Boss extends CenteredEntity {
@@ -123,7 +124,7 @@ export class Boss extends CenteredEntity {
 
 		if ( this.state == BossState.EXPLODE ) {
 			this.explodeLogic( step, elapsed );
-		} else {
+		} else if ( this.state == BossState.DEFAULT ) {
 			this.defaultLogic( step, elapsed );
 		}
 	}
@@ -181,11 +182,15 @@ export class Boss extends CenteredEntity {
 			this.alpha -= 0.1;
 		
 			if ( this.alpha <= 0 ) {
-				document.dispatchEvent( new CustomEvent( "complete", {} ) );
+				this.state = BossState.DEAD;
 			}
 
 			this.counts['explode'].reset();
 		}
+	}
+
+	preventSuccess(): boolean {
+		return this.state != BossState.DEAD;
 	}
 
 	shade() {

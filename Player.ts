@@ -13,6 +13,7 @@ export class Player extends Entity {
 	blockedDirs: Array<Vec2> = [];
 
 	health = 1;
+	causeOfDeath: string = '';
 
 	constructor( pos: Vec2 ) {
 		super( pos, 16, 16 );
@@ -23,8 +24,12 @@ export class Player extends Entity {
 			this.health -= 1;
 			if ( this.health > 0 ) otherEntity.removeThis = true;
 
+			this.causeOfDeath = 'You have been run through by a LASER BURST from the ROLL CORE';
+
 		} else if ( otherEntity instanceof Gutter ) {
 			this.health -= 1;
+
+			this.causeOfDeath = 'You have been incinerated by the GUTTER';
 		}
 	}
 

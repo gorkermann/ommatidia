@@ -21,7 +21,7 @@ import { Boss } from './Boss.js'
 import { Bullet } from './Bullet.js'
 import { RandomPoly } from './CenteredEntity.js'
 import { Coin } from './Coin.js'
-import { COL, MILLIS_PER_FRAME } from './collisionGroup.js'
+import { COL, MILLIS_PER_FRAME, REWIND_SECS } from './collisionGroup.js'
 import { Player } from './Player.js'
 import { constructors, nameMap } from './objDef.js'
 import { renderFromEye, renderRays, whiteText } from './render.js'
@@ -48,6 +48,7 @@ class QueueFunc {
 
 let MODE_GRAVITY = 0;
 let MODE_SQUARE = 1;
+let MODE_FREE = 2;
 
 ///////////
 // LEVEL //
@@ -57,10 +58,22 @@ let MODE_SQUARE = 1;
 	Scene holding a player area 
 */
 
+let tempCanvas = document.createElement( 'canvas' ) as HTMLCanvasElement;
+tempCanvas.width = 400;
+tempCanvas.height = 400;
+
+let deathReplayScale = 2.0;
+
+type ReplayImage = {
+	image: ImageData,
+	playerPos: Vec2
+}
+
 enum LevelState {
 	DEFAULT = 0,
-	DEATH_REPLAY = 1,
-	DEATH_MENU = 2,
+	DEATH_REPLAY,
+	DEATH_MENU,
+	SUCCESS_MENU,
 }
 
 export class Level extends Scene {
@@ -103,10 +116,13 @@ export class Level extends Scene {
 
 	state: LevelState = LevelState.DEFAULT;
 
-	replayImages: Array<ImageData> = [];
-	replayCount = 10;
-	replayIndex = 0;
-	replayAlpha = 1.0;
+	replayImages: Array<ReplayImage> = [];
+	replayCount: number = 10;
+	replayIndex: number = 0;
+	replayAlpha: number = 1.0;
+
+	newMsg: string = '';
+	messageQueue: Array<string> = [];
 
 	anim = new Anim( {
 		'healthBar': new AnimField( this, 'healthBar', 3 ),
@@ -115,7 +131,8 @@ export class Level extends Scene {
 		'ir': new AnimField( this, 'ir', 40 ),
 		'replayIndex': new AnimField( this, 'replayIndex', 1 ),
 		'replayAlpha': new AnimField( this, 'replayAlpha', 0.1 ),
-		'state': new AnimField( this, 'state', 0 )
+		'state': new AnimField( this, 'state', 0 ),
+		'newMsg': new AnimField( this, 'newMsg', 2 )
 	},
 	new AnimFrame( {
 		'healthBar': { value: 0 },
@@ -125,7 +142,7 @@ export class Level extends Scene {
 		'replayAlpha': { value: 1.0 }
 	} ) );
 
-	discardFields = ['em', 'textBox', 'textBoxHeight', 'text', 'textIndex', 'speaker',
+	discardFields: Array<string> = ['em', 'textBox', 'textBoxHeight', 'text', 'textIndex', 'speaker',
 					 'updateQueue', 'boundKeyHandler', 'cursorPos', 'sliceCount', 'oldTime',
 					 'replayImages', 'replayCount', 'replayIndex', 'replayAlpha'];
 	//saveFields = ['grid', 'player', 'controlMode', 'grav', 'data', 'bossHealthMax'];
@@ -348,17 +365,38 @@ export class Level extends Scene {
 		});
 	}
 
+	postMessage( msg: string ) {
+		this.messageQueue.unshift( msg );
+		this.messageQueue = this.messageQueue.slice( 0, 2 );
+	}
+
 	update() {
+		let now = new Date().getTime();
+
+		if ( this.oldTime == 0 ) this.oldTime = now;
+		let elapsed = now - this.oldTime;
+		this.oldTime = now;
+
+		let frameStep = 1.0;//elapsed / 60;
+
+		this.anim.update( frameStep, elapsed );
+
+
 		if ( this.state == LevelState.DEATH_REPLAY ) {
-			this.deathUpdate();
+			//this.deathUpdate();
 
 		// text boxes
 		//} else {
 
 		// regular gameplay
 		} else if ( this.state == LevelState.DEATH_MENU ) {
-			if ( Keyboard.keyHit( KeyCode.Z ) ) document.dispatchEvent( new CustomEvent( 'restart' ) );
-			if ( Keyboard.keyHit( KeyCode.R ) ) document.dispatchEvent( new CustomEvent( 'rewind' ) );
+			//this.deathUpdate();
+
+			if ( Keyboard.keyHit( KeyCode.R ) ) document.dispatchEvent( new CustomEvent( 'restart' ) );
+			if ( Keyboard.keyHit( KeyCode.Z ) ) document.dispatchEvent( new CustomEvent( 'rewind' ) );
+
+		} else if ( this.state == LevelState.SUCCESS_MENU ) {
+			if ( Keyboard.keyHit( KeyCode.Z ) ) document.dispatchEvent( new CustomEvent( 'complete' ) );
 
 		} else {
 			if ( Keyboard.keyHit( KeyCode.SPACE ) ) {
@@ -372,7 +410,7 @@ export class Level extends Scene {
 			if ( this.paused ) {
 				this.oldTime = new Date().getTime();
 			} else {
-				this.defaultUpdate();
+				this.defaultUpdate( frameStep, elapsed );
 			}
 		}
 
@@ -397,18 +435,8 @@ export class Level extends Scene {
 		}*/
 	}
 
-	defaultUpdate() {
-		let now = new Date().getTime();
-
-		if ( this.oldTime == 0 ) this.oldTime = now;
-		let elapsed = now - this.oldTime;
+	defaultUpdate( frameStep: number, elapsed: number ) {
 		this.elapsedTotal += elapsed;
-
-		this.oldTime = now;
-
-		let frameStep = 1.0;//elapsed / 60;
-
-		this.anim.update( frameStep, elapsed );
 
 		if ( Keyboard.keyHit( KeyCode.A ) ) {
 			if ( this.controlMode == MODE_GRAVITY ) {
@@ -475,25 +503,27 @@ export class Level extends Scene {
 			this.player.vel.scale( 5 );
 			this.player.vel.rotate( this.player.angle );
 
-			if ( Keyboard.keyHeld( KeyCode.Z ) ) {
-				this.player.angleVel = -0.1;
-			}
-
-			if ( Keyboard.keyHeld( KeyCode.C ) ) {
-				this.player.angleVel = 0.1;
-			}
-
 			if ( Keyboard.keyHit( KeyCode.X ) ) {
 				let bullet = new Bullet( 
 						this.player.pos.copy().plus( new Vec2( 0, -this.player.height ) ),
 						new Vec2( 0, -10 ).rotate( this.player.angle ) );
 				
 				bullet.material.hue = 90;
+				bullet.material.alpha = 0.5;
 
 				this.player.spawnEntity( bullet );
 
 				bullet.collisionGroup = COL.PLAYER_BULLET;
 				bullet.collisionMask = 0x00;
+			}
+
+		} else if ( this.controlMode == MODE_FREE ) {
+			if ( Keyboard.keyHeld( KeyCode.Z ) ) {
+				this.player.angleVel = -0.1;
+			}
+
+			if ( Keyboard.keyHeld( KeyCode.C ) ) {
+				this.player.angleVel = 0.1;
 			}
 		}
 
@@ -547,11 +577,17 @@ export class Level extends Scene {
 
 		let result = solveCollisionsFor( this.player, this.em.entities, COL.ENEMY_BODY, frameStep );
 
+		this.em.update( frameStep, elapsed );
+
 		if ( this.player.health <= 0 || result.crushed ) {
+			if ( result.crushed ) {
+				this.player.causeOfDeath = 'You have been crushed by the ' + result.crusher.flavorName;
+			}
+		
 			this.killPlayer();
 		}
 
-		this.em.update( frameStep, elapsed );
+		this.checkForSuccess();
 
 		for ( let entity of this.em.entities ) {
 			if ( entity instanceof Coin ) {
@@ -615,7 +651,7 @@ export class Level extends Scene {
 		}
 	}
 
-	deathUpdate() {
+	/*deathUpdate() {
 		let now = new Date().getTime();
 
 		if ( this.oldTime == 0 ) this.oldTime = now;
@@ -626,20 +662,21 @@ export class Level extends Scene {
 		let frameStep = 1.0;//elapsed / 60;
 
 		this.anim.update( frameStep, elapsed );
-	}
+	}*/
 
 	killPlayer() {
-
-		// rearrange replayImages so index 0 is the earliest
-		if ( this.replayImages.length == this.replayCount ) {
-			let toEnd = this.replayImages.slice( this.replayIndex );
-			this.replayImages = toEnd.concat( this.replayImages.slice( 0, this.replayIndex ) );
-		}
-
 		this.replayIndex = 0;
 		this.replayAlpha = 0.0;
 
 		this.anim.clear();
+
+		this.anim.pushFrame( new AnimFrame( {
+			'newMsg': { value: 'Press Z to go back ' + REWIND_SECS + ' seconds or R to restart level\n', expireOnReach: true }
+		} ) );
+
+		this.anim.pushFrame( new AnimFrame( {
+			'newMsg': { value: this.player.causeOfDeath + '\n', expireOnReach: true }
+		} ) );
 
 		// change state
 		this.anim.pushFrame( new AnimFrame( {
@@ -672,6 +709,38 @@ export class Level extends Scene {
 		this.anim.pushFrame( new AnimFrame( {
 			'state': { value: LevelState.DEATH_REPLAY, expireOnReach: true }
 		} ) );
+	}
+
+	checkForSuccess() {
+		if ( this.state != LevelState.DEFAULT ) return;
+
+		let success = true;
+		let defeatedNames = [];
+		for ( let entity of this.em.entities ) {
+			if ( entity instanceof Boss ) {
+				if ( entity.preventSuccess() ) {
+					success = false;
+				} else {
+					defeatedNames.push( entity.flavorName );
+				}
+			}
+		}
+
+		if ( success ) {
+			this.anim.clear();
+
+			this.anim.pushFrame( new AnimFrame( {
+				'newMsg': { value: 'Press Z to proceed\n', expireOnReach: true }
+			} ) );
+
+			this.anim.pushFrame( new AnimFrame( {
+				'newMsg': { value: 'You have defeated ' + defeatedNames.join( ', ' ) + '\n', expireOnReach: true }
+			} ) );
+
+			this.anim.pushFrame( new AnimFrame( {
+				'state': { value: LevelState.SUCCESS_MENU, expireOnReach: true }
+			} ) );
+		}
 	}
 
 	updateCursor( pos: Vec2 ) {
@@ -769,8 +838,6 @@ export class Level extends Scene {
 			this.deathDraw( context );
 			this.defaultDraw( context );
 
-			whiteText( context, 'Press R to go back 10 seconds or Z to restart level', 100, 200 );
-
 		} else {
 			this.em.shade();
 
@@ -783,19 +850,28 @@ export class Level extends Scene {
 				this.drawPauseOverlay( context );
 			}
 		}
+
+		if ( this.newMsg.indexOf( '\n' ) >= 0 ) {
+			this.postMessage( this.newMsg );
+			this.newMsg = '';
+		}
+
+		let y = 400 - 4 - 13;
+		if ( this.newMsg.length > 0 ) {
+			whiteText( context, this.newMsg, 4, y );
+			y -= 13;
+		}
+
+		for ( let msg of this.messageQueue ) {
+			whiteText( context, msg, 4, y );
+			y -= 13;
+		}
 	}
 
 	appendReplayFrame( context: CanvasRenderingContext2D ) {
-		let shapes = this.grid.shapes.concat();
-		for ( let entity of this.em.entities ) {
-			if ( entity != this.player ) {
-				shapes.push( ...entity.getShapes( 0.0 ) );
-			}
-		}
-
 		context.save();
 			context.translate( 200, 200 );
-			context.scale( 2, 2 );
+			context.scale( deathReplayScale, deathReplayScale ); // option 1
 			context.translate( -this.player.pos.x, -this.player.pos.y );
 
 			for ( let entity of this.em.entities ) {
@@ -807,27 +883,14 @@ export class Level extends Scene {
 			}
 		context.restore();
 
-		context.save();
-			context.translate( 200, 200 );
+		this.replayImages.push( {
+			image: context.getImageData( 0, 0, 400, 400 ),
+			playerPos: this.player.pos.copy()
+		} );
 
-			context.globalCompositeOperation = 'destination-in';
-			context.fillStyle = 'white';
-			context.beginPath();
-			context.arc( 0, 0, this.ir, 0, Math.PI * 2 );
-			context.fill();
-			context.globalCompositeOperation = 'source-over';
-
-			context.globalAlpha = 0.6;
-			context.fillStyle = 'white';
-			context.beginPath();
-			context.arc( 0, 0, this.ir, 0, Math.PI * 2 );
-			context.fill();
-			context.globalAlpha = 1.0;
-
-			this.replayImages[this.replayIndex] = context.getImageData( 0, 0, 400, 400 );
-			this.replayIndex += 1;
-			this.replayIndex %= this.replayCount;
-		context.restore();
+		if ( this.replayImages.length > this.replayCount ) {
+			this.replayImages = this.replayImages.slice( -this.replayCount );
+		}
 
 		context.clearRect( 0, 0, 400, 400 );
 	}
@@ -980,17 +1043,46 @@ export class Level extends Scene {
 		context.fillText( text, 200 - w / 2, 200 + h / 2 );
 	}
 
-	deathDraw( context: CanvasRenderingContext2D ) { 
+	deathDraw( context: CanvasRenderingContext2D ) {
+		let finalPos = this.replayImages.slice( -1 )[0].playerPos;
+
 		if ( this.replayIndex < this.replayImages.length ) {
-			context.putImageData( this.replayImages[this.replayIndex], 0, 0 );	
+			let offset = this.replayImages[this.replayIndex].playerPos.minus( finalPos );
+
+			/* option 2 
+
+			let context2 = tempCanvas.getContext( '2d' );
+			context2.clearRect( 0, 0, tempCanvas.width, tempCanvas.height );
+			context2.putImageData( this.replayImages[this.replayIndex].image, 0, 0 );
+
+			context.save();
+				context.translate( 200, 200 );
+				context.scale( deathReplayScale, deathReplayScale );
+				
+				context.drawImage( tempCanvas, offset.x - 200, offset.y - 200 );
+			context.restore();*/
+
+			context.putImageData( this.replayImages[this.replayIndex].image, offset.x, offset.y );
 		}
 
-		// easier to overlay white than change image's alpha layer
-		context.globalAlpha = 1 - this.replayAlpha;
+		context.save();
+			context.translate( 200, 200 );
+
+			context.globalCompositeOperation = 'destination-in';
 			context.fillStyle = 'white';
 			context.beginPath();
-			context.arc( 200, 200, this.ir, 0, Math.PI * 2 );
+			context.arc( 0, 0, this.ir, 0, Math.PI * 2 );
 			context.fill();
-		context.globalAlpha = 1.0;
+			context.globalCompositeOperation = 'source-over';
+
+			// easier to overlay white than change image's alpha layer
+			context.globalAlpha = 0.7 + 0.3 * ( 1 - this.replayAlpha );
+			context.fillStyle = 'white';
+			context.beginPath();
+			context.arc( 0, 0, this.ir, 0, Math.PI * 2 );
+			context.fill();
+			context.globalAlpha = 1.0;
+
+		context.restore();
 	}
 }
