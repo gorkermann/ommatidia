@@ -4,6 +4,8 @@ import { Material, toFillStyle} from './lib/juego/Material.js'
 import { RayHit, closestTo } from "./lib/juego/RayHit.js"
 import { Shape } from './lib/juego/Shape.js'
 
+import { MILLIS_PER_FRAME } from './collisionGroup.js'
+
 function shapecast( line: Line, shapes: Array<Shape> ): Array<RayHit> {
 	let closestRayHits: Array<RayHit> = [];
 
@@ -99,8 +101,10 @@ export function renderRays( context: CanvasRenderingContext2D,
 
 let warnCos = -Math.cos( Math.PI * 15 / 180 );
 let warnRadius = 200; // pixels
+let warnTime = 5000; // milliseconds
 let binSize = 40;
 let minPeriod = 400; // milliseconds
+let zeroVector = new Vec2( 0, 0 );
 
 function highlightCorners( hit: RayHit, prevHit: RayHit, nextHit: RayHit ) {
 	let score = 0.0;
@@ -126,15 +130,20 @@ function highlightCorners( hit: RayHit, prevHit: RayHit, nextHit: RayHit ) {
 function approachFlash( hit: RayHit, angle: number, hitDist: number ) {
 	let dir = new Vec2( Math.cos( angle ), Math.sin( angle ) );
 
-		if ( hit.vel && // shape is moving 
+		if ( hit.vel && !hit.vel.equals( zeroVector ) && // shape is moving 
 			 hit.vel.unit().dot( dir ) < warnCos && // shape is moving toward viewer
 			 hitDist < warnRadius ) { // shape is close
 
-		let period = ( Math.floor( hitDist / binSize ) + 1 ) * minPeriod;
-		let warn = ( ( new Date().getTime() % period ) / period ) * Math.PI * 2;
+		let timeToImpact = hitDist / hit.vel.length() * MILLIS_PER_FRAME;
 
-		hit.material.hue += Math.sin( warn ) * 16 - 8;
-		hit.material.lum += Math.sin( warn ) / 10;
+		if ( timeToImpact < warnTime ) {
+			//let period = ( Math.floor( hitDist / binSize ) + 1 ) * minPeriod;
+			let period = ( Math.floor( timeToImpact / 1000 ) + 1 ) * minPeriod;
+			let warn = ( ( new Date().getTime() % period ) / period ) * Math.PI * 2;
+
+			hit.material.hue += Math.sin( warn ) * 16 - 8;
+			hit.material.lum += Math.sin( warn ) / 10;
+		}
 	}
 }
 
