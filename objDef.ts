@@ -5,6 +5,7 @@ import { Line } from './lib/juego/Line.js'
 import { Material } from './lib/juego/Material.js'
 import { Region } from './lib/juego/Region.js'
 import { Shape } from './lib/juego/Shape.js'
+import { Sound } from './lib/juego/Sound.js'
 import { TileArray } from './lib/juego/TileArray.js'
 import { Vec2 } from './lib/juego/Vec2.js'
 
@@ -14,7 +15,7 @@ import { Coin } from './Coin.js'
 import { Explosion } from './Explosion.js'
 import { Level } from './Level.js'
 import { Player } from './Player.js'
-import { RollBoss, Gun, Barrier } from './RollBoss.js'
+import { Attack, RollBoss, Gun, Barrier, Balloon, Roller } from './RollBoss.js'
 import { LockBoss, LockBossBarrier, LockWall, LockBulb,
 		 LockJaw, LockBarrage, LockRing } from './LockBoss.js'
  
@@ -44,6 +45,7 @@ classMap['AnimField'] = AnimField;
 classMap['AnimFrame'] = AnimFrame;
 classMap['Chrono'] = Chrono;
 classMap['PhysField'] = PhysField;
+classMap['Sound'] = Sound;
 
 classMap['Level'] = Level;
 classMap['Player'] = Player;
@@ -62,14 +64,15 @@ classMap['LockBulb'] = LockBulb;
 classMap['LockJaw'] = LockJaw;
 classMap['LockBarrage'] = LockBarrage;
 classMap['LockRing'] = LockRing;
+classMap['Balloon'] = Balloon;
+classMap['Roller'] = Roller;
+classMap['Attack'] = Attack;
 
 // list of constructor functions
 // (need to access static props, not sure how to define this as a type in TS, so type is vague)
 
 // if a class is not in this list, it is instantiated as new Class()
 export let constructors : { [key: string]: () => Object } = {};
-
-constructors['RollBoss'] = () => new RollBoss( new Vec2(), false, false );
 
 for ( let className in classMap ) {
 	if ( !( className in constructors ) ) {

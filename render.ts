@@ -103,7 +103,7 @@ let warnCos = -Math.cos( Math.PI * 15 / 180 );
 let warnRadius = 200; // pixels
 let warnTime = 5000; // milliseconds
 let binSize = 40;
-let minPeriod = 400; // milliseconds
+let minPeriod = 200; // milliseconds
 let zeroVector = new Vec2( 0, 0 );
 
 function highlightCorners( hit: RayHit, prevHit: RayHit, nextHit: RayHit ) {
@@ -127,14 +127,16 @@ function highlightCorners( hit: RayHit, prevHit: RayHit, nextHit: RayHit ) {
 	//hit.material.lum *= ( 1 - score * 0.6 );
 }
 
-function approachFlash( hit: RayHit, angle: number, hitDist: number ) {
+function approachFlash( eyeVel: Vec2, hit: RayHit, angle: number, hitDist: number ) {
 	let dir = new Vec2( Math.cos( angle ), Math.sin( angle ) );
 
-		if ( hit.vel && !hit.vel.equals( zeroVector ) && // shape is moving 
-			 hit.vel.unit().dot( dir ) < warnCos && // shape is moving toward viewer
-			 hitDist < warnRadius ) { // shape is close
+	let vel = hit.vel.minus( eyeVel );
 
-		let timeToImpact = hitDist / hit.vel.length() * MILLIS_PER_FRAME;
+	if ( vel && !hit.vel.equals( zeroVector ) && // shape is moving 
+		 vel.unit().dot( dir ) < warnCos && // shape is moving toward viewer
+		 hitDist < warnRadius ) { // shape is close
+
+		let timeToImpact = hitDist / vel.length() * MILLIS_PER_FRAME;
 
 		if ( timeToImpact < warnTime ) {
 			//let period = ( Math.floor( hitDist / binSize ) + 1 ) * minPeriod;
@@ -150,6 +152,7 @@ function approachFlash( hit: RayHit, angle: number, hitDist: number ) {
 export function renderFromEye( context: CanvasRenderingContext2D, 
 							   shapes: Array<Shape>,
 							   origin: Vec2,
+							   vel: Vec2,
 							   slices: Array<number>,
 							   or: number, ir: number ) {
 	
@@ -180,7 +183,7 @@ export function renderFromEye( context: CanvasRenderingContext2D,
 		let nextInfo = sliceInfos[(i + 1) % sliceInfos.length];
 
 		highlightCorners( hits[0], ( prevInfo ? prevInfo.hits[0] : null ), ( nextInfo ? nextInfo.hits[0] : null ))
-		approachFlash( hits[0], angle, hitDist );
+		approachFlash( vel, hits[0], angle, hitDist );
 
 		let blended = { h: 0, s: 0, l: 1.0, a: 1.0 }; // l=1.0 for white background
 		for ( let j = opaqueIndex; j >= 0; j-- ) {

@@ -1,7 +1,7 @@
 import { Anim, AnimField, AnimFrame } from './lib/juego/Anim.js'
 import { solveCollisionsFor } from './lib/juego/collisionSolver.js'
 import { Contact } from './lib/juego/Contact.js'
-import { Entity, TopLeftEntity } from './lib/juego/Entity.js'
+import { Entity, TopLeftEntity, cullList } from './lib/juego/Entity.js'
 import { EntityManager } from './lib/juego/EntityManager.js'
 import { GridArea } from './lib/juego/GridArea.js'
 import { Keyboard, KeyCode } from './lib/juego/keyboard.js'
@@ -12,6 +12,7 @@ import { RayHit } from './lib/juego/RayHit.js'
 import { Scene } from './lib/juego/Scene.js'
 import { ScrollBox } from './lib/juego/ScrollBox.js'
 import { Shape } from './lib/juego/Shape.js'
+import { Sound } from './lib/juego/Sound.js'
 import { TileArray } from './lib/juego/TileArray.js'
 import { Vec2 } from './lib/juego/Vec2.js'
 
@@ -124,6 +125,15 @@ export class Level extends Scene {
 	newMsg: string = '';
 	messageQueue: Array<string> = [];
 
+	sounds: Array<Sound> = [];
+
+	messageAnim = new Anim( {
+		'newMsg': new AnimField( this, 'newMsg', 2 )
+	},
+	new AnimFrame( {
+
+	} ) ); 
+
 	anim = new Anim( {
 		'healthBar': new AnimField( this, 'healthBar', 3 ),
 		'haloWidth': new AnimField( this, 'haloWidth', 5 ),
@@ -132,7 +142,6 @@ export class Level extends Scene {
 		'replayIndex': new AnimField( this, 'replayIndex', 1 ),
 		'replayAlpha': new AnimField( this, 'replayAlpha', 0.1 ),
 		'state': new AnimField( this, 'state', 0 ),
-		'newMsg': new AnimField( this, 'newMsg', 2 )
 	},
 	new AnimFrame( {
 		'healthBar': { value: 0 },
@@ -220,6 +229,12 @@ export class Level extends Scene {
 						this.em.insert( boss );
 
 						this.healthBarMax = boss.getHealth();
+
+						while ( boss.messages.length > 0 ) {
+							this.messageAnim.pushFrame( new AnimFrame( {
+								'newMsg': { value: boss.messages.pop(), expireOnReach: true }
+							} ) );
+						}
 
 						this.anim.pushFrame( new AnimFrame( {
 							'healthBar': {
@@ -380,18 +395,12 @@ export class Level extends Scene {
 		let frameStep = 1.0;//elapsed / 60;
 
 		this.anim.update( frameStep, elapsed );
-
+		this.messageAnim.update( frameStep, elapsed );
 
 		if ( this.state == LevelState.DEATH_REPLAY ) {
-			//this.deathUpdate();
+			// do nothing, anim only
 
-		// text boxes
-		//} else {
-
-		// regular gameplay
 		} else if ( this.state == LevelState.DEATH_MENU ) {
-			//this.deathUpdate();
-
 			if ( Keyboard.keyHit( KeyCode.R ) ) document.dispatchEvent( new CustomEvent( 'restart' ) );
 			if ( Keyboard.keyHit( KeyCode.Z ) ) document.dispatchEvent( new CustomEvent( 'rewind' ) );
 
@@ -402,8 +411,16 @@ export class Level extends Scene {
 			if ( Keyboard.keyHit( KeyCode.SPACE ) ) {
 				if ( this.paused ) {
 					this.paused = false;
+
+					for ( let sound of this.sounds ) {
+					//	sound.play();
+					}
 				} else {
 					this.paused = true;
+
+					for ( let sound of this.sounds ) {
+					//	sound.pause();
+					}
 				}
 			}
 
@@ -435,8 +452,43 @@ export class Level extends Scene {
 		}*/
 	}
 
+	updateSounds() {
+		for ( let entity of this.em.entities ) {
+			if ( !( entity instanceof Boss )) continue;
+
+			for ( let source of entity.sounds ) {
+				this.updateSound( source );
+			}
+		}
+
+		for ( let sound of this.sounds ) {
+			this.updateSound( sound );
+		}
+	}
+
+	updateSound( source: Sound ) {
+		let dist = 0;
+
+		if ( source.pos ) {
+			dist = this.player.pos.distTo( source.pos );
+		}
+
+		let vol = source.distScale / ( dist ** 2 + 1 );
+		source.audio.volume = Math.min( vol, 1.0 );
+
+		let atStart = source.audio.currentTime == 0 || source.audio.ended;
+
+		if ( atStart && source.count > 0 ) {
+			source.audio.play();
+
+			if ( !source.audio.loop ) source.count -= 1;
+		}
+	}
+
 	defaultUpdate( frameStep: number, elapsed: number ) {
 		this.elapsedTotal += elapsed;
+
+		this.updateSounds();
 
 		if ( Keyboard.keyHit( KeyCode.A ) ) {
 			if ( this.controlMode == MODE_GRAVITY ) {
@@ -515,6 +567,8 @@ export class Level extends Scene {
 
 				bullet.collisionGroup = COL.PLAYER_BULLET;
 				bullet.collisionMask = 0x00;
+
+				this.sounds.push( new Sound( './sfx/player_laser.wav' ) );
 			}
 
 		} else if ( this.controlMode == MODE_FREE ) {
@@ -551,7 +605,7 @@ export class Level extends Scene {
 
 		for ( let entity of this.em.entities ) {
 			for ( let otherEntity of this.em.entities ) {
-				if ( !entity.canBeHitBy( otherEntity ) ) continue;
+				//if ( !entity.canBeHitBy( otherEntity ) ) continue;
 
 				let contacts = entity.overlaps( otherEntity, frameStep );
 
@@ -572,6 +626,12 @@ export class Level extends Scene {
 
 			if ( entity instanceof Boss ) {
 				entity.watch( this.player.pos );
+
+				while ( entity.messages.length > 0 ) {
+					this.messageAnim.pushFrame( new AnimFrame( {
+						'newMsg': { value: entity.messages.pop(), expireOnReach: true }
+					} ) );
+				}
 			}
 		}
 
@@ -651,30 +711,17 @@ export class Level extends Scene {
 		}
 	}
 
-	/*deathUpdate() {
-		let now = new Date().getTime();
-
-		if ( this.oldTime == 0 ) this.oldTime = now;
-		let elapsed = now - this.oldTime;
-
-		this.oldTime = now;
-
-		let frameStep = 1.0;//elapsed / 60;
-
-		this.anim.update( frameStep, elapsed );
-	}*/
-
 	killPlayer() {
 		this.replayIndex = 0;
 		this.replayAlpha = 0.0;
 
 		this.anim.clear();
 
-		this.anim.pushFrame( new AnimFrame( {
+		this.messageAnim.pushFrame( new AnimFrame( {
 			'newMsg': { value: 'Press Z to go back ' + REWIND_SECS + ' seconds or R to restart level\n', expireOnReach: true }
 		} ) );
 
-		this.anim.pushFrame( new AnimFrame( {
+		this.messageAnim.pushFrame( new AnimFrame( {
 			'newMsg': { value: this.player.causeOfDeath + '\n', expireOnReach: true }
 		} ) );
 
@@ -729,12 +776,12 @@ export class Level extends Scene {
 		if ( success ) {
 			this.anim.clear();
 
-			this.anim.pushFrame( new AnimFrame( {
+			this.messageAnim.pushFrame( new AnimFrame( {
 				'newMsg': { value: 'Press Z to proceed\n', expireOnReach: true }
 			} ) );
 
-			this.anim.pushFrame( new AnimFrame( {
-				'newMsg': { value: 'You have defeated ' + defeatedNames.join( ', ' ) + '\n', expireOnReach: true }
+			this.messageAnim.pushFrame( new AnimFrame( {
+				'newMsg': { value: 'You have defeated the ' + defeatedNames.join( ', ' ) + '\n', expireOnReach: true }
 			} ) );
 
 			this.anim.pushFrame( new AnimFrame( {
@@ -938,7 +985,7 @@ export class Level extends Scene {
 				context.translate( 200, 200 );
 				context.rotate( -this.player.angle );
 
-				renderFromEye( context, shapes, origin, slices, or, ir );
+				renderFromEye( context, shapes, origin, this.player.vel, slices, or, ir );
 
 				ir = or + 2;
 				or = ir + this.haloWidth;
@@ -1044,9 +1091,9 @@ export class Level extends Scene {
 	}
 
 	deathDraw( context: CanvasRenderingContext2D ) {
-		let finalPos = this.replayImages.slice( -1 )[0].playerPos;
-
 		if ( this.replayIndex < this.replayImages.length ) {
+			let finalPos = this.replayImages.slice( -1 )[0].playerPos;
+
 			let offset = this.replayImages[this.replayIndex].playerPos.minus( finalPos );
 
 			/* option 2 

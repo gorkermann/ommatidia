@@ -47,7 +47,7 @@ export class TitleScene extends Scene {
 				shapes.push( shape );
 			}
 
-			renderFromEye( context, shapes, new Vec2( 200, 200 ), slices, 180, 120 );
+			renderFromEye( context, shapes, new Vec2( 200, 200 ), new Vec2(), slices, 180, 120 );
 
 			context.globalAlpha = 1.0;
 			context.fillStyle = 'black';

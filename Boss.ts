@@ -2,6 +2,7 @@ import { Chrono, Anim, AnimField, AnimFrame } from './lib/juego/Anim.js'
 import { Material } from './lib/juego/Material.js'
 import { Vec2 } from './lib/juego/Vec2.js'
 import { Shape } from './lib/juego/Shape.js'
+import { Sound } from './lib/juego/Sound.js'
 import { Dict } from './lib/juego/util.js'
 
 import { CenteredEntity } from './CenteredEntity.js'
@@ -11,6 +12,7 @@ export enum BossState {
 	DEFAULT = 0,
 	EXPLODE,
 	DEAD,
+	SLEEP,
 }
 
 export class Boss extends CenteredEntity {
@@ -26,6 +28,8 @@ export class Boss extends CenteredEntity {
 	pupilMaterial = new Material( 0, 0.0, 0.0 );
 
 	state: number = BossState.DEFAULT;
+
+	messages: Array<string> = [];
 
 	blink: number = 0.0; // 0.0 - 1.0;
 	eyeStrain: number = 0.0;
@@ -47,6 +51,8 @@ export class Boss extends CenteredEntity {
 		'eyeStrain': { value: 0.0 },
 		'eyeAngle': { value: 0.0 },
 	} ) );
+
+	sounds: Array<Sound> = [];
 
 	constructor( pos: Vec2, width: number, height: number ) {
 		super( pos, width, height );
