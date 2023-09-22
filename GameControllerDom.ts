@@ -82,7 +82,7 @@ export class GameControllerDom extends Controller {
 		} );
 
 		document.addEventListener( 'rewind', ( e: any ) => {
-			if ( this.recentStates.length < REWIND_SECS ) {
+			if ( this.recentStates.length == 0 ) {
 				this.startLevel();
 
 			} else {
@@ -175,7 +175,9 @@ export class GameControllerDom extends Controller {
 
 		toaster.cleanAddrIndex();
 
-		output['levelIndex'] = this.levelIndex;
+		if ( output ) {
+			output['levelIndex'] = this.levelIndex;
+		}
 
 		return output;
 	}
