@@ -35,22 +35,6 @@ export class CenteredEntity extends Entity {
 
 		return this.applyTransform( new Vec2( x, y ), 0.0 );
 	}
-
-	draw( context: CanvasRenderingContext2D ) {
-		context.fillStyle = this.material.getFillStyle();
-		context.strokeStyle = 'black';
-		context.lineWidth = 1;
-
-		let shapes = this.getShapes( 0.0 );
-
-		for ( let shape of shapes ) {
-			if ( this.drawWireframe ) {
-				shape.stroke( context );
-			} else {
-				shape.fill( context );
-			}
-		}
-	}
 }
 
 export class RandomPoly extends CenteredEntity {

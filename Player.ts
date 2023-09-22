@@ -33,6 +33,16 @@ export class Player extends Entity {
 		}
 	}
 
+	getOwnShapes(): Array<Shape> {
+		let shape = Shape.makeCircle( 
+				new Vec2( 0, 0 ), this.width, 8, 0.5 );
+
+		shape.material = this.material;
+		shape.parent = this;
+
+		return [shape];		
+	}
+
 	draw( context: CanvasRenderingContext2D ) {
 		super.draw( context );
 

@@ -1,4 +1,4 @@
-import { Chrono, Anim, AnimField, PhysField, AnimFrame, MilliCountdown } from './lib/juego/Anim.js'
+import { Chrono, Anim, AnimField, PhysField, AnimFrame, MilliCountdown, SpinDir } from './lib/juego/Anim.js'
 import { Entity, cullList, TransformOrder } from './lib/juego/Entity.js'
 import { Contact } from './lib/juego/Contact.js'
 import { Material } from './lib/juego/Material.js'  
@@ -12,6 +12,8 @@ import { CenteredEntity } from './CenteredEntity.js'
 import { COL, MILLIS_PER_FRAME } from './collisionGroup.js'
 import { Explosion } from './Explosion.js'
 import { Bullet, Gutter } from './Bullet.js'
+
+import * as Debug from './Debug.js'
 
 export class Barrier extends CenteredEntity {
 	altMaterial = new Material( 210, 1.0, 0.9 );
@@ -273,17 +275,26 @@ let attacks = [
 		'gutter',
 		[{ anyOf: ['top-skin', 'bot-skin'] },
 		 { noneOf: ['top-fat', 'bot-fat'] }]
+	),
+	new Attack(
+		'whirl',
+		[{ anyOf: ['top-skin', 'bot-skin'] },
+		 { noneOf: ['top-fat', 'bot-fat'] }]
 	),	
 	new Attack(
 		'x_sweep',
 		[{ anyOf: ['top-skin', 'bot-skin'] },
 		 { noneOf: ['top-fat', 'bot-fat'] }]
-	),/*
+	),
 	new Attack(
 		'slam',
-		[{ noneOf: ['top-fat', 'bot-fat', 'top-skin', 'bot-skin'] }]
-	),*/
+		[{ noneOf: ['top-fat', 'bot-fat'] }]
+	),
 ]
+
+let attackNames = attacks.map( x => x.name );
+Debug.fields['ROLL_ATK'].default = attackNames.join( ',' );
+Debug.validators['ROLL_ATK'] = Debug.arrayOfStrings( attackNames );
 
 let rollerLength = 80;
 
@@ -488,9 +499,12 @@ export class RollBoss extends Boss {
 	}
 
 	getBody(): Array<CenteredEntity> {
-		return ( [this] as Array<CenteredEntity> )
-			   .concat( this.tops )
-			   .concat( this.bottoms )
+		let result: Array<CenteredEntity> = [this];
+
+		result = result.concat( this.tops.map( x => x.block ) );
+		result = result.concat( this.bottoms.map( x => x.block ) );
+
+		return result;
 	}
 
  	/*increaseSpeed() {
@@ -629,9 +643,12 @@ export class RollBoss extends Boss {
 		// flags
 
 		let present = this.guns.map( x => x.name );
-		if ( this.attack && !this.attack.canEnter( present ) ) {
-			console.log( 'Retreating from attack ' + this.attack.name );
-			this.anim.clear( { withoutTag: 'exit' } );
+
+		if ( !Debug.flags.FORCE_BOSS_ATK ) {
+			if ( this.attack && !this.attack.canEnter( present ) ) {
+				console.log( 'Retreating from attack ' + this.attack.name );
+				this.anim.clear( { withoutTag: 'exit' } );
+			}
 		}
 
 		/* begin attack */
@@ -658,6 +675,20 @@ export class RollBoss extends Boss {
 
 			let index = Math.floor( Math.random() * possibleAttacks.length )
 			this.attack = possibleAttacks[index];
+
+			if ( Debug.flags.FORCE_BOSS_ATK ) {
+				let names = Debug.fields.ROLL_ATK.value.split( ',' );
+				let debugAttacks = attacks.filter( x => names.includes( x.name ) );
+
+				if ( debugAttacks.length > 0 ) {
+					let index = Math.floor( Math.random() * debugAttacks.length )
+					this.attack = debugAttacks[index];
+
+				} else {
+					console.warn( 'RollBoss.defaultUpdate: no valid attacks from debug' );
+				}
+			}
+
 			console.log( 'Beginning attack ' + this.attack.name + ' (' + possibleAttacks.map( x => x.name ) + ')' );
 
 			// 'slam',
@@ -775,6 +806,39 @@ export class RollBoss extends Boss {
 
 				this.anim.pushFrame( startFrame );
 
+			// whirl
+			} else if ( this.attack.name == 'whirl' ) {
+
+				let spinRate = 0.06;
+				let target = Math.PI * 2 * ( Math.random() > 0.5 ? -1 : 1 );
+
+				// exit
+				this.anim.pushFrame( new AnimFrame( {
+					'top0-block-angle': { value: 0, expireOnReach: true, overrideRate: 0.2 },
+					'bottom0-block-angle': { value: 0, overrideRate: 0.2 },
+
+					'top0-angle': { value: Math.PI / 2, expireOnReach: true, overrideRate: spinRate },
+					'bottom0-angle': { value: Math.PI / 2, overrideRate: spinRate }
+				} ), { tag: 'exit' } );
+
+				// attack
+				this.anim.pushFrame( new AnimFrame( {
+					'top0-angle': { value: start + target, expireOnReach: true, overrideRate: spinRate, isSpin: true },
+					'bottom0-angle': { value: start + target, overrideRate: spinRate, isSpin: true }
+				} ) );
+
+				this.anim.pushFrame( new AnimFrame( {
+					'fireSkin': { value: true, expireOnReach: true },
+				} ) );
+
+				// prepare
+				this.anim.pushFrame( new AnimFrame( {
+					'top0-block-angle': { value: Math.PI / 2, expireOnReach: true, overrideRate: 0.2 },
+					'bottom0-block-angle': { value: -Math.PI / 2, overrideRate: 0.2 }
+				} ) );
+
+				this.anim.pushFrame( startFrame );
+
 			// x_sweep
 			} else if ( this.attack.name == 'x_sweep' ) {
 				let jawAngle = ( 0.1 + Math.random() * 0.7 ) * Math.PI / 2;
@@ -809,6 +873,53 @@ export class RollBoss extends Boss {
 				} ) );
 
 				this.anim.pushFrame( startFrame );
+			
+			// slam
+			} else if ( this.attack.name == 'slam' ) {
+				let targetAngle = this.watchTarget.angle();
+				let targetPos = new Vec2( 0, this.watchTarget.length() );
+
+				// exit
+				this.anim.pushFrame( new AnimFrame( {
+					'top1-pos': { value: this.tops[1].pos.copy(), expireOnReach: true, overrideRate: 10 },
+					'bottom1-pos': { value: this.bottoms[1].pos.copy(), overrideRate: 10 },
+
+					//'top1-block-angle': { value: 0, expireOnReach: true, overrideRate: 0.2 },
+					//'bottom1-block-angle': { value: 0, overrideRate: 0.2 }
+				} ), { tag: 'exit' } );
+
+				this.anim.pushFrame( new AnimFrame( {
+					'top-arm-angle': { value: targetAngle - Math.PI / 2 + 0.2, expireOnReach: true, overrideRate: 0.1, spinDir: SpinDir.CCW },
+					'bottom-arm-angle': { value: targetAngle + Math.PI / 2 - 0.2, expireOnReach: true, overrideRate: 0.1, spinDir: SpinDir.CW },
+				} ), { tag: 'exit' } );
+
+				// attack
+				this.anim.pushFrame( new AnimFrame( {
+					'top-arm-angle': { value: targetAngle + Math.PI / 2 - 0.1, expireOnReach: true, overrideRate: 0.2, spinDir: SpinDir.CW },
+					'bottom-arm-angle': { value: targetAngle - Math.PI / 2 + 0.1, expireOnReach: true, overrideRate: 0.2, spinDir: SpinDir.CCW },
+				} ) );
+
+				this.anim.pushFrame( new AnimFrame( {
+					'top-arm-angle': { value: targetAngle, expireOnReach: true, overrideRate: 0.05, spinDir: SpinDir.CW },
+					'bottom-arm-angle': { value: targetAngle, expireOnReach: true, overrideRate: 0.05, spinDir: SpinDir.CCW },
+				} ) );
+
+				// aim
+				this.anim.pushFrame( new AnimFrame( {
+					'top1-pos': { value: targetPos.times( -1 ) , expireOnReach: true, overrideRate: 10 },
+					'bottom1-pos': { value: targetPos, overrideRate: 10 },
+
+					//'top1-block-angle': { value: Math.PI, expireOnReach: true, overrideRate: 0.2 },
+					//'bottom1-block-angle': { value: -Math.PI, overrideRate: 0.2 }
+				} ) );
+
+				this.anim.pushFrame( new AnimFrame( {
+					'top-arm-angle': { value: targetAngle - Math.PI / 2 + 0.2, expireOnReach: true, overrideRate: 0.1 },
+					'bottom-arm-angle': { value: targetAngle + Math.PI / 2 - 0.2, expireOnReach: true, overrideRate: 0.1 },
+
+					'fireFat': { value: false },
+					'fireSkin': { value: false },
+				} ) );
 			}
 		}
 
