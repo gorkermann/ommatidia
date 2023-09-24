@@ -121,12 +121,19 @@ export class GameControllerDom extends Controller {
 	}
 
 	startLevel() {
-		let level = new Level( 'level' + this.levelIndex, levelDataList[this.levelIndex] );
+		try {
+			let level = new Level( 'level' + this.levelIndex, levelDataList[this.levelIndex] );
 
-		this.recentStates = [];
-		this.lastStateTime = 0;
+			this.recentStates = [];
+			this.lastStateTime = 0;
 
-		this.manager.loadScene( level );
+			this.manager.loadScene( level );
+
+		} catch ( e ) {
+			this.manager.currentScene = null;
+
+			throw e;
+		}
 	}
 
 	initKeyboard() {
@@ -190,6 +197,7 @@ export class GameControllerDom extends Controller {
 		
 		for ( let error of toaster.errors ) {
 			console.error( error );
+			return;
 		}
 
 		for ( let entity of level['__entities'] ) {
