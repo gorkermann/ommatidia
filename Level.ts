@@ -404,6 +404,12 @@ export class Level extends Scene {
 			if ( Keyboard.keyHit( KeyCode.R ) ) document.dispatchEvent( new CustomEvent( 'restart' ) );
 			if ( Keyboard.keyHit( KeyCode.Z ) ) document.dispatchEvent( new CustomEvent( 'rewind' ) );
 
+			if ( Keyboard.keyHit( KeyCode.LEFT ) ) this.replayIndex -= 1;
+			if ( Keyboard.keyHit( KeyCode.RIGHT ) ) this.replayIndex += 1;
+
+			if ( this.replayIndex < 0 ) this.replayIndex = 0;
+			if ( this.replayIndex > this.replayImages.length - 1 ) this.replayIndex = 0;
+
 		} else if ( this.state == LevelState.SUCCESS_MENU ) {
 			if ( Keyboard.keyHit( KeyCode.Z ) ) document.dispatchEvent( new CustomEvent( 'complete' ) );
 
@@ -560,8 +566,10 @@ export class Level extends Scene {
 						this.player.pos.copy().plus( new Vec2( 0, -this.player.height ) ),
 						new Vec2( 0, -10 ).rotate( this.player.angle ) );
 				
-				bullet.material.hue = 90;
-				bullet.material.alpha = 0.5;
+				bullet.material.hue = 45;
+				bullet.material.sat = 1.0;
+				bullet.material.lum = 0.8;
+				bullet.material.alpha = 0.3;
 
 				this.player.spawnEntity( bullet );
 
@@ -997,7 +1005,7 @@ export class Level extends Scene {
 				let boss = this.em.entities.filter( x => x instanceof Boss )[0];
 
 				if ( boss && boss instanceof Boss ) {
-					this.anim.stack[0].targets['healthBar'].value = boss.getHealth();
+					this.anim.default.targets['healthBar'].value = boss.getHealth();
 
 					if ( this.healthBarMax > 0 ) {
 						let segments = this.healthBarMax;

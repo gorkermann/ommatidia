@@ -61,6 +61,7 @@ export class LockBossBarrier extends CenteredEntity {
 
 		shape.material = this.material;
 		shape.parent = this;
+		shape.hollow = true;
 
 		if ( this.altMaterial ) {
 			for ( let i = 1; i < shape.edges.length; i += 2 ) {
@@ -333,7 +334,7 @@ export class LockJaw extends CenteredEntity {
 	update( step: number, elapsed: number ) {
 		this.advance( step );
 
-		if ( this.anim.stack.length <= 1 ) {
+		if ( this.anim.isDone() ) {
 			this.anim.pushFrame( new AnimFrame( {
 				'bottomPos': { 
 					value: this.bottom.pos.copy(), 
