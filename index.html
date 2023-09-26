@@ -1,16 +1,96 @@
 <script type="module" src="./build/Game.js"></script>
 
 <style>
+	body {
+		background: black;
+		font-family: monospace;
+	}
+
+	table {
+		margin: 0 auto;
+		width: 100%;
+	}
+
+	#drawarea {
+		height: 100%;
+	}
+
+	#canvas {
+
+	}
+
+	#optionpanel {
+		color: white;
+		width: 80%;
+		margin: 0 auto;
+	}
+
+	#debugpanel {
+		color: white;
+		overflow-y: scroll;
+		height: 400px; /* can't stretch to 100% screen height for some reason */
+	}
+
 	.invalid {
 		color: red;
+	}
+
+	.hidden {
+		display: none;
 	}
 </style>
 
 <title></title>
 
-<canvas id="canvas" width="400" height="400"></canvas>
-<div>
-<div id="debug"></div>
-<div id="debugtext"> </div>
-<div id="entities"> </div>
-</div>
+<body>
+	<div id="drawarea">
+		<table> <tr>
+			<td id="leftpane" style="width: 20%"> 
+				<div id="optionpanel" class="hidden">
+					CONTROLS
+					<div id="controls" style="margin-top: 30px">
+						<div>X - shoot</div>
+						<div>ARROWS - move</div>
+						<div>SPACE - pause</div>
+						<div>Z - rewind (on death)</div>
+						<div>R - restart (on death)</div>
+					</div>
+
+					<div id="viewoptions" style="margin-top: 30px">
+						OPTIONS
+
+						<div style="margin-top: 30px">
+							Saturation
+						</div>
+						<input type="range" id="sat-factor" min="1" max="200" step="1" /> <span>200</span>
+						<div>
+							Saturation Curve
+						</div>
+						<input type="range" id="sat-power" min="0" max="2" step="0.25" /> <span>2</span>
+
+						<div style="margin-top: 30px">
+							Brightness
+						</div>
+						<input type="range" id="lum-factor" min="1" max="300" step="1" /> <span>300</span>
+						<div>
+							Brightness Curve
+						</div>
+						<input type="range" id="lum-power" min="0" max="2" step="0.25" /> <span>2</span>
+					</div>
+				</div>
+			</td>
+
+			<td style="width: 60%; text-align: center">
+				<canvas id="canvas" width="400" height="400"></canvas>
+			</td> 
+
+			<td id="rightpane" style="width: 20%">
+				<div id="debugpanel" class="hidden">
+					<div id="debug"></div>
+					<div id="debugtext"> </div>
+					<div id="entities"> </div>
+				</div>
+			</td>
+		</tr> </table>
+	</div>
+</body>

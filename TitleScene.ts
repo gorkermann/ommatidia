@@ -14,24 +14,45 @@ export class TitleScene extends Scene {
 
 	floaters: Array<Entity> = [];
 	titleDrift: number = 0;
+	origin = new Vec2( 0, 0 );
 
 	constructor() {
 		super( "Title" );
 	}
 
 	update() {
-		if ( Keyboard.keyHit( KeyCode.Z ) ) document.dispatchEvent( new CustomEvent( "start" ) );
-		if ( Keyboard.keyHit( KeyCode.X ) ) document.dispatchEvent( new CustomEvent( "startBoss" ) );
+		//if ( Keyboard.keyHit( KeyCode.Z ) ) document.dispatchEvent( new CustomEvent( "start" ) );
+		if ( Keyboard.keyHit( KeyCode.Z ) ) document.dispatchEvent( new CustomEvent( "startBoss" ) );
+
+		if ( Keyboard.keyHeld( KeyCode.LEFT ) ) {
+			this.origin.add( new Vec2( -5, 0 ) );
+		}
+
+		if ( Keyboard.keyHeld( KeyCode.RIGHT ) ) {
+			this.origin.add( new Vec2( 5, 0 ) );
+		}
+		
+		// up/down
+		if ( Keyboard.keyHeld( KeyCode.UP ) ) {
+			this.origin.add( new Vec2( 0, -5 ) );
+		}
+
+		if ( Keyboard.keyHeld( KeyCode.DOWN ) ) {
+			this.origin.add( new Vec2( 0, 5 ) );
+		}		
 	}
 
 	draw( context: CanvasRenderingContext2D ) {
-		let rStep = 20;
+		let rStep = 20 * this.camera.viewportW / 400;
 		let slice = Math.PI * 2 / 180;
 
 		context.globalAlpha = 1.0;
 
+		let ir = 120 * this.camera.viewportW / 400;
+		let or = 180 * this.camera.viewportH / 400;
+
 		context.save();
-		context.translate( 200, 200 );
+		this.camera.moveContext( context );
 
 			let slices = [];
 			slices[179] = 0;
@@ -47,10 +68,14 @@ export class TitleScene extends Scene {
 				shapes.push( shape );
 			}
 
-			renderFromEye( context, shapes, new Vec2( 200, 200 ), new Vec2(), slices, 180, 120 );
+			renderFromEye( context, 
+						   shapes, 
+						   this.origin,
+						   new Vec2(),
+						   slices, or, ir );
 
 			context.globalAlpha = 1.0;
-			context.fillStyle = 'black';
+			context.fillStyle = 'white';
 			let angle = Math.PI * 2 * (9/16) + this.titleDrift;
 
 			this.titleDrift -= 0.0000;
@@ -58,7 +83,7 @@ export class TitleScene extends Scene {
 			for ( let i = 0; i < titleData[0].length; i++ ) {
 				angle += slice / 2;
 
-				let or = 190;
+				let or = 190 * this.camera.viewportW / 400;
 				let ir;
 
 				for ( let j = 0; j < titleData.length; j++ ) {
@@ -83,7 +108,12 @@ export class TitleScene extends Scene {
 
 		context.globalAlpha = 1.0;
 
-		whiteText( context, "Use the arrow keys to move and jump. Press Z to start", 5, 380 );
-		whiteText( context, "Graham Smith 2023", 300, 380 );
+		let y = this.camera.viewportH;
+
+		whiteText( context, "Use the arrow keys to move. Press X to shoot", 5, y - 60 );
+		whiteText( context, "Press space to pause", 5, y - 40 );
+		whiteText( context, "Press Z to start", 5, y - 20 );
+
+		whiteText( context, "Graham Smith 2023", this.camera.viewportW - 5, y - 20, true );
 	}
 }

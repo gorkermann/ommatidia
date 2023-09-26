@@ -22,7 +22,7 @@ function annotate( context: CanvasRenderingContext2D, v: Vec2 ) {
 }
 
 window.onload = function() {
-	console.log( "init" );
+	console.log( 'init' );
 
 	ctlr = new GameControllerDom();
 
@@ -50,12 +50,22 @@ window.onload = function() {
 	setInterval( update, MILLIS_PER_FRAME );
 }
 
-document.addEventListener( "keydown", function( e: any ) {
+document.addEventListener( 'keydown', function( e: any ) {
 	Keyboard.downHandler( e );
 } );
 
-document.addEventListener( "keyup", function( e: any ) {
+document.addEventListener( 'keyup', function( e: any ) {
 	Keyboard.upHandler( e );
+} );
+
+let debugPanel = document.getElementById( 'debugpanel' );
+
+debugPanel.addEventListener( 'keydown', function( e: any ) {
+	e.stopPropagation();
+} );
+
+debugPanel.addEventListener( 'keyup', function( e: any ) {
+	e.stopPropagation();
 } );
 
 let frameTime = 0;
@@ -70,12 +80,25 @@ let update = function() {
 	frameTime = now;
 
 	// debug commands
-	if ( Keyboard.keyHit( KeyCode.D ) ) Debug.toggleFlag( 'DRAW_NORMAL' );
-	if ( Keyboard.keyHit( KeyCode.Y ) ) Debug.toggleFlag( 'DRAW_RAYS' );
-	if ( Keyboard.keyHit( KeyCode.E ) ) document.dispatchEvent( new CustomEvent( "complete" ) );
+	if ( Keyboard.keyHit( KeyCode.P ) ) Debug.toggleFlag( 'DEBUG_MODE' );
 
-	if ( Keyboard.keyHit( KeyCode.BSLASH ) ) {
-		let put_a_breakpoint_here = 0;
+	if ( Debug.flags.DEBUG_MODE ) {
+		if ( Keyboard.keyHit( KeyCode.D ) ) Debug.toggleFlag( 'DRAW_NORMAL' );
+		if ( Keyboard.keyHit( KeyCode.Y ) ) Debug.toggleFlag( 'DRAW_RAYS' );
+		if ( Keyboard.keyHit( KeyCode.E ) ) document.dispatchEvent( new CustomEvent( 'complete' ) );
+
+		if ( Keyboard.keyHit( KeyCode.BSLASH ) ) {
+			let put_a_breakpoint_here = 0;
+		}
+	
+		if ( debugPanel.classList.contains( 'hidden' ) ) {
+			debugPanel.classList.remove( 'hidden' );
+		}
+
+	} else {
+		if ( !debugPanel.classList.contains( 'hidden' ) ) {
+			debugPanel.classList.add( 'hidden' );
+		}
 	}
 
 	// game stuff

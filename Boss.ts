@@ -24,7 +24,7 @@ export class Boss extends CenteredEntity {
 	alpha: number = 1.0;
 
 	coreMaterial = new Material( 30, 1.0, 0.5 );
-	whiteMaterial = new Material( 0, 1.0, 1.0 );
+	whiteMaterial = new Material( 0, 0.0, 1.0 );
 	pupilMaterial = new Material( 0, 0.0, 0.0 );
 
 	state: number = BossState.DEFAULT;
@@ -44,7 +44,7 @@ export class Boss extends CenteredEntity {
 	eyeAnim = new Anim( {
 		'blink': new AnimField( this, 'blink', 0.2 ),
 		'eyeStrain': new AnimField( this, 'eyeStrain', 0.5 ),
-		'eyeAngle': new AnimField( this, 'eyeAngle', 0.1 ),
+		'eyeAngle': new AnimField( this, 'eyeAngle', 0.1, { isAngle: true } ),
 	},
 	new AnimFrame( {
 		'blink': { value: 0.0 },
@@ -211,12 +211,17 @@ export class Boss extends CenteredEntity {
 
 		if ( this.blink < 0 ) {
 			this.pupilMaterial.skewL = Math.sin( Math.PI * ( now % 200 ) / 200 );
-			this.whiteMaterial.skewL = -0.2 * Math.sin( Math.PI * ( now % 133 ) / 133 );
+
 			this.whiteMaterial.skewH = 30 * Math.sin( Math.PI * ( now % 200 ) / 200 );
+			this.whiteMaterial.skewS = 1.0;
+			this.whiteMaterial.skewL = -0.2 * Math.sin( Math.PI * ( now % 133 ) / 133 );
+			
 		} else {
-			this.pupilMaterial.skewL = 0;
-			this.whiteMaterial.skewL = 0;
-			this.whiteMaterial.skewH = 0;
+			this.pupilMaterial.skewL = 0.0;
+			
+			this.whiteMaterial.skewH = 0.0;
+			this.whiteMaterial.skewS = 0.0;
+			this.whiteMaterial.skewL = 0.0;
 		}
 
 		super.shade();

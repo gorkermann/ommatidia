@@ -23,9 +23,10 @@ let subW = Math.floor( fieldWidth / wallUnit );
 
 export class LockBossBarrier extends CenteredEntity {
 
-	// overrides
-	material = new Material( 210, 0.0, 0.85 );
-	altMaterial = new Material( 210, 0.0, 0.75 );
+	/* property overrides */
+	
+	material = new Material( 210, 0.3, 0.7 );
+	altMaterial = new Material( 210, 0.3, 0.9 );
 	drawWireframe = true;
 
 	constructor( pos: Vec2=new Vec2(), width: number=0, height: number=0 ) {
@@ -89,8 +90,8 @@ export class LockBulb extends CenteredEntity {
 	constructor( pos: Vec2=new Vec2() ) {
 		super( pos, wallUnit * 0.8, wallUnit * 0.8 );
 
-		this.material = new Material( 50, 1.0, 0.5 );
-		this.altMaterial = new Material( 50, 1.0, 0.5 );
+		this.material = new Material( 45, 0.0, 0.5 );
+		this.altMaterial = new Material( 45, 1.0, 0.5 );
 	}
 
 	getOwnShapes(): Array<Shape> {
@@ -436,6 +437,8 @@ export class LockRing extends CenteredEntity {
 		let index = Math.floor( Math.random() * this.moons.length );
 		for ( let i = 0; i < bulbCount; i++ ) {
 			let bulb = new LockBulb( new Vec2( -wallUnit / 2, 0 ) );
+			bulb.transformOrder = TransformOrder.ROTATE_THEN_TRANSLATE;
+			bulb.angle = Math.PI / 2;
 			bulb.collisionGroup = COL.ENEMY_BODY;
 			bulb.collisionMask = COL.PLAYER_BULLET;
 
@@ -631,20 +634,40 @@ export class LockBarrage extends CenteredEntity {
 
 type State = BossState;
 
-enum WaveType {
+/*enum WaveType {
 	WALL = 0,
 	JAW,
 	RING,
 	BARRAGE,
 	length
-}
+}*/
+
+let waves = {
+	'wall': {
+
+	},
+	'jaw': {
+
+	},
+	'ring': {
+
+	},
+	'barrage': {
+
+	}
+};
+
+type WaveType = keyof typeof waves;
+let waveTypes: Array<WaveType> = Object.keys( waves ) as Array<WaveType>;
+
+Debug.fields['LOCK_ATK'].default = waveTypes.join( ',' );
+Debug.validators['LOCK_ATK'] = Debug.arrayOfStrings( waveTypes );
 
 // TODO: clear wall wave if boss takes damage 
 export class LockBoss extends Boss {
 	waves: Array<LockWall | LockJaw | LockRing | LockBarrage> = []; 
 
-	waveQueue: Array<WaveType> = [WaveType.WALL, WaveType.WALL, WaveType.JAW, WaveType.BARRAGE,
-								  WaveType.WALL, WaveType.JAW, WaveType.BARRAGE, WaveType.RING];
+	waveQueue: Array<WaveType> = ['wall', 'wall', 'jaw', 'barrage', 'wall', 'jaw', 'barrage', 'ring'];
 
 	wallSpeed: number = 0.5;
 	wallSpeedRise: number = 0.5;
@@ -698,6 +721,12 @@ export class LockBoss extends Boss {
 		this.addSub( gutter );
 
 		this.maxHealth = this.getHealth();
+
+		this.messages.push( 'You are in a long narrow chamber.\n' );
+		this.messages.push( 'An intense heat emanates from below.\n' );
+		this.messages.push( 'Above, the LOCK CORE looks on.\n' );
+		this.messages.push( 'Beware, traveler!\n' );
+		this.messages.push( 'Many have perished before its diabolical doors!\n' );
 	}
 
 	defaultLogic( step: number, elapsed: number ) {
@@ -711,13 +740,28 @@ export class LockBoss extends Boss {
 		// create a wave when the wave counter trips
 		if ( this.counts['createWave'].count <= 0 ) {
 			let type: WaveType;
+			let attackName: string;
 
-			if ( this.waveQueue.length > 0 ) type = this.waveQueue.shift();
-			else type = Math.floor( Math.random() * WaveType.length );
+			if ( Debug.flags.FORCE_BOSS_ATK ) {
+				let names = Debug.fields.LOCK_ATK.value.split( ',' );
+				let debugAttacks = waveTypes.filter( x => names.includes( x ) );
 
+				if ( debugAttacks.length > 0 ) {
+					let index = Math.floor( Math.random() * debugAttacks.length )
+					type = debugAttacks[index];
+
+				} else {
+					console.warn( 'LockBoss.defaultLogic: no valid attacks from debug' );
+				}
+			
+			} else {
+				if ( this.waveQueue.length > 0 ) type = this.waveQueue.shift();
+				else type = waveTypes[Math.floor( Math.random() * waveTypes.length )];
+			}
+			
 			let pos = this.pos.copy().plus( new Vec2( 0, this.height / 2 + wallUnit / 2 ) );
 
-			if ( type == WaveType.WALL ) {
+			if ( type == 'wall' ) {
 				let wall = new LockWall( pos, this.wallSpeed );
 
 				this.wallSpeed += this.wallSpeedRise;
@@ -726,7 +770,7 @@ export class LockBoss extends Boss {
 				this.waves.push( wall );
 				this.spawnEntity( wall );
 				
-			} else if ( type == WaveType.JAW ) {
+			} else if ( type == 'jaw' ) {
 				let wall = new LockJaw( pos, this.jawSpeed );
 
 				this.jawSpeed += this.jawSpeedRise;
@@ -735,7 +779,7 @@ export class LockBoss extends Boss {
 				this.waves.push( wall );
 				this.spawnEntity( wall );
 			
-			} else if ( type == WaveType.RING ) {
+			} else if ( type == 'ring' ) {
 				let wall = new LockRing( pos.minus( new Vec2( 0, fieldWidth / 2 ) ), this.ringSpeed );
 
 				this.ringSpeed += this.ringSpeedRise;
@@ -744,7 +788,7 @@ export class LockBoss extends Boss {
 				this.waves.push( wall );
 				this.spawnEntity( wall );
 
-			} else if ( type == WaveType.BARRAGE ) {
+			} else if ( type == 'barrage' ) {
 				let wall = new LockBarrage( pos, this.barrageSpeed );
 
 				this.barrageSpeed += this.barrageSpeedRise;

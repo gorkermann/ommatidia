@@ -4,6 +4,7 @@ import { Debug as juegoDebug } from './lib/juego/Debug.js'
 import { store } from './store.js'
 
 export let flags: Dict<boolean> = {
+	DEBUG_MODE: false,
 	DRAW_NORMAL: false,
 	DRAW_RAYS: false,
 	LOG_ANIM: false,
@@ -33,7 +34,8 @@ export function arrayOfStrings( list: Array<string> ): ( x: DebugField ) => bool
 export let validators: Dict<( x: DebugField ) => boolean> = {};
 
 export let fields: Dict<DebugField> = {
-	ROLL_ATK: { value: '', default: 'the_default' }
+	ROLL_ATK: { value: '', default: 'default' },
+	LOCK_ATK: { value: '', default: 'default' }
 }
 
 for ( let flagName in juegoDebug ) {

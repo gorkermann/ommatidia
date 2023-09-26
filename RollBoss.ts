@@ -54,7 +54,7 @@ export class Barrier extends CenteredEntity {
 let gunHealth = 10;
 
 export class Gun extends CenteredEntity {
-	flashMaterial = new Material( 60, 1.0, 0.5 );
+	flashMaterial = new Material( 60, 0.2, 0.5 );
 	health = gunHealth;
 
 	ready: boolean = true;
@@ -81,7 +81,7 @@ export class Gun extends CenteredEntity {
 
 		this.angle = angle;
 
-		this.material = new Material( 60, 1.0, 0.5 );
+		this.material = new Material( 60, 0.0, 0.5 );
 	}
 
 	getDir(): Vec2 {
@@ -203,6 +203,7 @@ type BossFlags = {
 	gun_count: number
 	gun_half_count: number
 	health: number
+	current_attack_damage: number
 }
 
 function countIncluded<Type>( list: Array<Type>, otherList: Array<Type> ): number {
@@ -289,9 +290,21 @@ let attacks = [
 	),
 	new Attack(
 		'slam',
-		[]
+		[{ noneOf: ['top-fat', 'bot-fat'] }]
 	),
 ]
+
+function getAttack( name: string ): Attack {
+	for ( let attack of attacks ) {
+		if ( attack.name == name ) {
+			return attack
+		}
+	}
+
+	throw new Error( 'getAttack: No attack named ' + name );
+
+	return null;
+}
 
 let attackNames = attacks.map( x => x.name );
 Debug.fields['ROLL_ATK'].default = attackNames.join( ',' );
@@ -308,8 +321,8 @@ export class Roller extends CenteredEntity {
 		this.isGhost = true;
 
 		this.block = new CenteredEntity( new Vec2(), 20, rollerLength );
-		this.block.material = new Material( 0, 1.0, 0.5 );
-		this.block.altMaterial = new Material( 0, 1.0, 0.3 );
+		this.block.material = new Material( 0, 1.0, 0.3 );
+		this.block.altMaterial = new Material( 0, 1.0, 0.5 );
 		this.block.collisionGroup = COL.ENEMY_BODY;
 		this.block.collisionMask = COL.PLAYER_BULLET | COL.ENEMY_BULLET;
 		this.block.transformOrder = TransformOrder.ROTATE_THEN_TRANSLATE;
@@ -337,28 +350,19 @@ export class RollBoss extends Boss {
 
 	state: State = BossState.SLEEP;
 	attack: Attack = null;
+	counter: Attack = null;
 
 	invuln: boolean = false;
 	fireFat: boolean = false;
 	fireSkin: boolean = false;
 	staggerFat: boolean = false;
 
-	shiftRollers: boolean = false;
-
-	angleVelBase = 0.02;
-	angleVelFactor = 1.2;
-
-	extension: number = 0;
-
 	flags: BossFlags = {
 		gun_count: 0,
 		gun_half_count: 0,
-		health: 0
+		health: 0,
+		current_attack_damage: 0
 	};
-
-	oldSin = 0;
-
-	//tracking: boolean = false;
 
 	/* property overrides */
 
@@ -384,9 +388,6 @@ export class RollBoss extends Boss {
 	//extendedSound: Sound = new Sound( './sfx/roll_extended.wav' );
 
 	anim = new Anim( {
-		//'lasers-angle': new PhysField( this.laserAxis, 'angle', 'angleVel', 0.01, { isAngle: true } ),
-		//'axis-angle': new PhysField( this.axis, 'angle', 'angleVel', 0.005 ),
-		//'extension': new AnimField( this, 'extension', 1 ),
 		'skewL': new AnimField( this.material, 'skewL' ), // TODO: make this harder to unlink?
 		'invuln': new AnimField( this, 'invuln' ),
 		'state': new AnimField( this, 'state' ),
@@ -395,7 +396,6 @@ export class RollBoss extends Boss {
 		'staggerFat': new AnimField( this, 'staggerFat' )
 	},
 	new AnimFrame( {
-		//'extension': { value: 0 },
 		'skewL': { value: 0.0 },
 		'invuln': { value: false },
 		'fireFat': { value: false },
@@ -425,8 +425,8 @@ export class RollBoss extends Boss {
 			let roller = new Roller( new Vec2( 0, y ) );
 			roller.block.name = prefix + l + '-block';
 			this.anim.fields[prefix + l + '-block-mat-skewL'] = new AnimField( roller.block.material, 'skewL' ),
-			this.anim.fields[prefix + l + '-angle'] = ( new PhysField( roller, 'angle', 'angleVel', 0.02, { isAngle: true } ) );
-			this.anim.fields[prefix + l + '-block-angle'] = ( new PhysField( roller.block, 'angle', 'angleVel', 0.02, { isAngle: true } ) );
+			this.anim.fields[prefix + l + '-angle'] = ( new PhysField( roller, 'angle', 'angleVel', 0.05, { isAngle: true } ) );
+			this.anim.fields[prefix + l + '-block-angle'] = ( new PhysField( roller.block, 'angle', 'angleVel', 0.05, { isAngle: true } ) );
 			roller.angle = 0;
 			this.anim.default.targets[prefix + l + '-angle'] = { value: roller.angle };
 			this.anim.default.targets[prefix + l + '-block-angle'] = { value: 0 };
@@ -492,8 +492,10 @@ export class RollBoss extends Boss {
 		this.topSound = new Sound( './sfx/roll_arm_grind.wav', this.pos, { loop: true, distScale: 1000 } );
 		this.bottomSound = new Sound( './sfx/roll_arm_grind.wav', this.pos, { loop: true, distScale: 1000 } );
 
-		this.messages.push( 'You are in a vast circular chamber\n' );
-		this.messages.push( 'The ROLL CORE lies dormant before you\n' );
+		this.messages.push( 'You are in a vast circular chamber.\n' );
+		this.messages.push( 'The ROLL CORE lies dormant before you.\n' );
+		this.messages.push( 'Take heed, traveler!.\n' );
+		this.messages.push( 'Most only hear the clap of its terrible hands but once!\n' );
 
 		this.anim.pushFrame( new AnimFrame( {
 			'state': { value: BossState.DEFAULT, expireOnReach: true, readOnly: true }
@@ -650,18 +652,29 @@ export class RollBoss extends Boss {
 
 	staggerFatGuns() {
 		let fatGuns = this.guns.filter( x => x.name.includes( 'fat' ) );
-		if ( fatGuns.length > 0 ) {
-			for ( let i = 0; i < fatGuns.length; i++ ) {
-				fatGuns[i].anim.clear();
+		for ( let i = 0; i < fatGuns.length; i++ ) {
+			fatGuns[i].anim.clear();
 
-				if ( i > 0 ) {
-					fatGuns[i].anim.pushFrame( new AnimFrame( { 
-						'ready': { value: false, expireOnCount: i * fatGuns[i].fireInterval / fatGuns.length },
-						'flash': { value: 1.0, reachOnCount: i * fatGuns[i].fireInterval / fatGuns.length },
-					} ) );
-				}
+			if ( i > 0 ) {
+				fatGuns[i].anim.pushFrame( new AnimFrame( { 
+					'ready': { value: false, expireOnCount: i * fatGuns[i].fireInterval / fatGuns.length },
+					'flash': { value: 1.0, reachOnCount: i * fatGuns[i].fireInterval / fatGuns.length },
+				} ) );
 			}
 		}
+	}
+
+	setSkinInterval( interval: number ) {
+		for ( let gun of this.guns ) {
+			if ( gun.name.includes( 'skin' ) ) {
+				gun.fireInterval = interval;
+			}
+		}
+	}
+
+	retreat() {
+		console.log( 'Retreating from attack ' + this.attack.name );
+		this.anim.clear( { withoutTag: 'exit' } );
 	}
 
 	defaultLogic( step: number, elapsed: number ) {
@@ -675,42 +688,21 @@ export class RollBoss extends Boss {
 
 		if ( !Debug.flags.FORCE_BOSS_ATK ) {
 			if ( this.attack && !this.attack.canEnter( present ) ) {
-				console.log( 'Retreating from attack ' + this.attack.name );
-				this.anim.clear( { withoutTag: 'exit' } );
-			}
-
-			if ( this.watchTarget.length() < this.height / 2 + rollerLength && this.attack != attacks[6] ) {
-				console.log( 'Too close for comfort!' );
-				this.anim.clear( { withoutTag: 'exit' } );
+				this.retreat();
 			}
 		}
 
 		/* begin attack */
 
-
 		let health = this.getHealth();
 		if ( health < this.flags['health'] ) {
+			this.flags['current_attack_damage'] += this.flags['health'] - health;
 			this.flags['health'] = health;
 		}
 
-		if ( this.anim.isDone() ) {
+		if ( this.anim.isDone( [0] ) ) {
 
-			let possibleAttacks = attacks.filter( x => x.canEnter( present ) );
-
-			if ( this.attack && possibleAttacks.length > 1 ) {
-				possibleAttacks = possibleAttacks.filter( x => x != this.attack );
-			}
-
-			if ( possibleAttacks.length == 0 ) {
-				this.messages.push( 'The ROLL CORE surrenders!\n' );
-				this.state = BossState.DEAD;
-				return;
-			}
-
-			if ( !this.attack ) {
-				this.attack = attacks[2]; // guard
-
-			} else if ( Debug.flags.FORCE_BOSS_ATK ) {
+			if ( Debug.flags.FORCE_BOSS_ATK ) {
 				let names = Debug.fields.ROLL_ATK.value.split( ',' );
 				let debugAttacks = attacks.filter( x => names.includes( x.name ) );
 
@@ -719,19 +711,35 @@ export class RollBoss extends Boss {
 					this.attack = debugAttacks[index];
 
 				} else {
-					console.warn( 'RollBoss.defaultUpdate: no valid attacks from debug' );
+					console.warn( 'RollBoss.defaultLogic: no valid attacks from debug' );
 				}
+
+			} else if ( !this.attack ) {
+				this.attack = getAttack( 'horiz_seek' );
+
+			} else if ( this.counter ) {
+				this.attack = this.counter;
+				this.counter = null;
 
 			} else {
+				let possibleAttacks = attacks.filter( x => x.canEnter( present ) );
+
+				if ( this.attack && possibleAttacks.length > 1 ) {
+					possibleAttacks = possibleAttacks.filter( x => x != this.attack );
+				}
+
+				if ( possibleAttacks.length == 0 ) {
+					this.messages.push( 'The ROLL CORE surrenders!\n' );
+					this.state = BossState.DEAD;
+					return;
+				}
+
 				let index = Math.floor( Math.random() * possibleAttacks.length )
 				this.attack = possibleAttacks[index];
-
-				if ( this.watchTarget.length() < this.height / 2 + rollerLength ) {
-					this.attack = attacks[6]; // slam
-				}
 			}
 
-			console.log( 'Beginning attack ' + this.attack.name + ' (' + possibleAttacks.map( x => x.name ) + ')' );
+			console.log( 'Beginning attack ' + this.attack.name ); // + ' (' + possibleAttacks.map( x => x.name ) + ')' );
+			this.flags['current_attack_damage'] = 0;
 
 			let start = Math.PI / 2;
 			this.anim.clear( { withoutTag: 'exit' } );
@@ -747,7 +755,7 @@ export class RollBoss extends Boss {
 				this.staggerFatGuns();
 
 				this.anim.pushFrame( new AnimFrame( {
-					'fireFat': { value: true, expireOnCount: 4000 },
+					'fireFat': { value: true, expireOnCount: 10000 },
 				} ) );
 
 				this.anim.pushFrame( startFrame );
@@ -819,14 +827,21 @@ export class RollBoss extends Boss {
 				let spinRate = 0.06;
 				let target = Math.PI * 2 * ( Math.random() > 0.5 ? -1 : 1 );
 
+				let targetPos = new Vec2( 0, Math.max( this.watchTarget.length(), this.bottoms[1].pos.y ) );
+
 				// exit
 				this.anim.pushFrame( new AnimFrame( {
 					'top0-block-angle': { value: 0, expireOnReach: true, overrideRate: 0.2 },
 					'bottom0-block-angle': { value: 0, overrideRate: 0.2 },
 
+					'top1-pos': { value: this.tops[1].pos.copy(), expireOnReach: true, overrideRate: 10 },
+					'bottom1-pos': { value: this.bottoms[1].pos.copy(), overrideRate: 10 },
+
 					'top1-angle': { value: Math.PI / 2, expireOnReach: true, overrideRate: spinRate },
 					'bottom1-angle': { value: Math.PI / 2, overrideRate: spinRate }
-				} ), { tag: 'exit' } );
+				}, [
+					{ caller: this, funcName: 'setSkinInterval', args: [500] }
+				] ), { tag: 'exit' } );
 
 				// attack
 				this.anim.pushFrame( new AnimFrame( {
@@ -836,12 +851,17 @@ export class RollBoss extends Boss {
 
 				this.anim.pushFrame( new AnimFrame( {
 					'fireSkin': { value: true, expireOnReach: true },
-				} ) );
+				}, [
+					{ caller: this, funcName: 'setSkinInterval', args: [250] }
+				] ) );
 
 				// prepare
 				this.anim.pushFrame( new AnimFrame( {
 					'top0-block-angle': { value: Math.PI / 2, expireOnReach: true, overrideRate: 0.2 },
-					'bottom0-block-angle': { value: -Math.PI / 2, overrideRate: 0.2 }
+					'bottom0-block-angle': { value: -Math.PI / 2, overrideRate: 0.2 },
+
+					'top1-pos': { value: targetPos.times( -1 ) , expireOnReach: true, overrideRate: 10 },
+					'bottom1-pos': { value: targetPos, overrideRate: 10 },
 				} ) );
 
 				this.anim.pushFrame( startFrame );
@@ -849,7 +869,7 @@ export class RollBoss extends Boss {
 			// whirl
 			} else if ( this.attack.name == 'whirl' ) {
 
-				let spinRate = 0.06;
+				let spinRate = 0.05 + Math.random() * 0.01;
 				let target = Math.PI * 2 * ( Math.random() > 0.5 ? -1 : 1 );
 
 				// exit
@@ -859,7 +879,9 @@ export class RollBoss extends Boss {
 
 					'top0-angle': { value: Math.PI / 2, expireOnReach: true, overrideRate: spinRate },
 					'bottom0-angle': { value: Math.PI / 2, overrideRate: spinRate }
-				} ), { tag: 'exit' } );
+				}, [
+					{ caller: this, funcName: 'setSkinInterval', args: [500] }
+				] ), { tag: 'exit' } );
 
 				// attack
 				this.anim.pushFrame( new AnimFrame( {
@@ -869,7 +891,9 @@ export class RollBoss extends Boss {
 
 				this.anim.pushFrame( new AnimFrame( {
 					'fireSkin': { value: true, expireOnReach: true },
-				} ) );
+				}, [
+					{ caller: this, funcName: 'setSkinInterval', args: [150] }
+				] ) );
 
 				// prepare
 				this.anim.pushFrame( new AnimFrame( {
@@ -892,8 +916,8 @@ export class RollBoss extends Boss {
 
 				// attack
 				this.anim.pushFrame( new AnimFrame( {
-					'top0-angle': { value: Math.PI / 2 + jawAngle, expireOnReach: true },
-					'bottom0-angle': { value: Math.PI / 2 - jawAngle }
+					'top0-angle': { value: Math.PI / 2 + jawAngle, expireOnReach: true, overrideRate: 0.02 },
+					'bottom0-angle': { value: Math.PI / 2 - jawAngle, overrideRate: 0.02 }
 				} ) );
 
 				this.anim.pushFrame( new AnimFrame( {
@@ -924,19 +948,19 @@ export class RollBoss extends Boss {
 					'top1-pos': { value: this.tops[1].pos.copy(), expireOnReach: true, overrideRate: 10 },
 					'bottom1-pos': { value: this.bottoms[1].pos.copy(), overrideRate: 10 },
 
-					'top1-block-angle': { value: 0, expireOnReach: true, overrideRate: 0.2 },
-					'bottom1-block-angle': { value: 0, overrideRate: 0.2 }
+					//'top1-block-angle': { value: 0, expireOnReach: true, overrideRate: 0.2 },
+					//'bottom1-block-angle': { value: 0, overrideRate: 0.2 }
 				} ), { tag: 'exit' } );
 
 				this.anim.pushFrame( new AnimFrame( {
-					'top-arm-angle': { value: targetAngle - Math.PI / 2 + 0.2, expireOnReach: true, overrideRate: 0.1, spinDir: SpinDir.CCW },
-					'bottom-arm-angle': { value: targetAngle + Math.PI / 2 - 0.2, expireOnReach: true, overrideRate: 0.1, spinDir: SpinDir.CW },
+					'top-arm-angle': { value: targetAngle, expireOnReach: true, overrideRate: 0.1, spinDir: SpinDir.CCW },
+					'bottom-arm-angle': { value: targetAngle, expireOnReach: true, overrideRate: 0.1, spinDir: SpinDir.CW },
 				} ), { tag: 'exit' } );
 
 				// attack
 				this.anim.pushFrame( new AnimFrame( {
-					'top-arm-angle': { value: targetAngle + Math.PI / 2 - 0.1, expireOnReach: true, overrideRate: 0.2, spinDir: SpinDir.CW },
-					'bottom-arm-angle': { value: targetAngle - Math.PI / 2 + 0.1, expireOnReach: true, overrideRate: 0.2, spinDir: SpinDir.CCW },
+					'top-arm-angle': { value: targetAngle + Math.PI / 2 - 0.01, expireOnReach: true, overrideRate: 0.2, spinDir: SpinDir.CW },
+					'bottom-arm-angle': { value: targetAngle - Math.PI / 2 + 0.01, expireOnReach: true, overrideRate: 0.2, spinDir: SpinDir.CCW },
 				} ) );
 
 				this.anim.pushFrame( new AnimFrame( {
@@ -949,8 +973,8 @@ export class RollBoss extends Boss {
 					'top1-pos': { value: targetPos.times( -1 ) , expireOnReach: true, overrideRate: 10 },
 					'bottom1-pos': { value: targetPos, overrideRate: 10 },
 
-					'top1-block-angle': { value: Math.PI, expireOnReach: true, overrideRate: 0.2 },
-					'bottom1-block-angle': { value: -Math.PI, overrideRate: 0.2 }
+					//'top1-block-angle': { value: Math.PI, expireOnReach: true, overrideRate: 0.2 },
+					//'bottom1-block-angle': { value: -Math.PI, overrideRate: 0.2 }
 				} ) );
 
 				this.anim.pushFrame( new AnimFrame( {
@@ -964,6 +988,26 @@ export class RollBoss extends Boss {
 		}
 
 		/* update attack */
+		if ( this.attack ) {
+			if ( this.attack.name == 'gutter' ) {
+				if ( this.flags['current_attack_damage'] > 5 ) {
+					this.counter = getAttack( 'whirl' );
+					this.retreat();
+				}
+
+			} else if ( this.attack.name == 'horiz_seek' ) {
+				if ( this.flags['current_attack_damage'] > 5 ) {
+					this.counter = getAttack( 'guard' );
+					this.retreat();
+				}
+
+			} else if ( this.attack.name == 'tunnel_sweep' ) {
+				if ( this.flags['current_attack_damage'] > 5 ) {
+					this.retreat();
+				}
+			}
+		}
+
 		for ( let gun of this.guns ) {
 			if ( gun.name.includes( 'fat' ) && !this.fireFat ) continue;
 			if ( gun.name.includes( 'skin' ) && !this.fireSkin ) continue;

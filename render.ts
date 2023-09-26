@@ -1,13 +1,24 @@
 import { Vec2 } from './lib/juego/Vec2.js'
 import { Line } from './lib/juego/Line.js'
-import { Material, toFillStyle} from './lib/juego/Material.js'
+import { Material, RGBAtoFillStyle} from './lib/juego/Material.js'
 import { RayHit, closestTo } from "./lib/juego/RayHit.js"
 import { Shape } from './lib/juego/Shape.js'
+import { Dict } from './lib/juego/util.js'
 
-import { MILLIS_PER_FRAME } from './collisionGroup.js'
+import { COL, MILLIS_PER_FRAME } from './collisionGroup.js'
 
-function shapecast( line: Line, shapes: Array<Shape> ): Array<RayHit> {
-	let closestRayHits: Array<RayHit> = [];
+class ShapeHit extends RayHit {
+	shape: Shape;
+	dist: number;
+	incidentDot: number;
+
+	constructor( point: Vec2, normal: Vec2, material: Material ) {
+		super( point, normal, material );
+	}
+}
+
+function shapecast( line: Line, shapes: Array<Shape> ): Array<ShapeHit> {
+	let closestRayHits: Array<ShapeHit> = [];
 
 	for ( let shape of shapes ) {
 		if ( !shape.material ) continue;
@@ -15,12 +26,14 @@ function shapecast( line: Line, shapes: Array<Shape> ): Array<RayHit> {
 		let rayHits: Array<RayHit> = shape.rayIntersect( line );
 
 		if ( rayHits.length > 0 ) {
-			rayHits[0].vel = shape.getVel( rayHits[0].point );
+			let shapeHit = new ShapeHit( rayHits[0].point, rayHits[0].normal, rayHits[0].material );
+			shapeHit.vel = shape.getVel( shapeHit.point );
+			shapeHit.shape = shape;
+			shapeHit.incidentDot = line.p2.minus( line.p1 ).normalize().dot( shapeHit.normal );
 
-			closestRayHits.push( rayHits[0] );
+			closestRayHits.push( shapeHit );
 		}
 	}
-
 	
 	closestRayHits.sort( closestTo( line.p1 ) );
 
@@ -30,14 +43,12 @@ function shapecast( line: Line, shapes: Array<Shape> ): Array<RayHit> {
 class SliceInfo {
 	angle: number;
 	slice: number;
-	hits: Array<RayHit>; 
-	hitDist: number; // distance to first hit
+	hits: Array<ShapeHit>; 
 
-	constructor( angle: number, slice: number, hits: Array<RayHit>, hitDist: number ) {
+	constructor( angle: number, slice: number, hits: Array<ShapeHit> ) {
 		this.angle = angle;
 		this.slice = slice;
 		this.hits = hits;
-		this.hitDist = hitDist;
 	}
 }
 
@@ -55,9 +66,11 @@ function getHits( shapes: Array<Shape>,
 									   origin.x + Math.cos( angle ) * 1000, 
 									   origin.y + Math.sin( angle ) * 1000 ), shapes );
 		if ( hits.length > 0 ) {
-			let hitDist = hits[0].point.minus( origin ).length();
+			for ( let hit of hits ) {
+				hit.dist = hit.point.minus( origin ).length();
+			}
 		
-			output.push( new SliceInfo( angle, slice, hits, hitDist ) );
+			output.push( new SliceInfo( angle, slice, hits ) );
 
 		} else {
 			output.push( null );
@@ -99,6 +112,74 @@ export function renderRays( context: CanvasRenderingContext2D,
 	}
 }
 
+type SliderVal = {
+	id: string,
+	val: number;
+}
+
+let vals: Dict<SliderVal> = {
+	satFactor: {
+		id: 'sat-factor',
+		val: 65,
+	},
+	satPower: {
+		id: 'sat-power',
+		val: 1,
+	},
+	lumFactor: {
+		id: 'lum-factor',
+		val: 160,
+	},
+	lumPower: {
+		id: 'lum-power',
+		val: 1,
+	},
+	shading: {
+		id: 'shading',
+		val: 0.75,
+	}
+}
+
+function highlightCorners( hit: ShapeHit, prevHit: ShapeHit, nextHit: ShapeHit, ) {
+	let score = 0.0;
+
+	// distance
+	if ( prevHit === null || nextHit === null ) {
+		score = 1.0;
+
+	} else if ( hit.dist - prevHit.dist > 10 ||
+				hit.dist - nextHit.dist > 10 ) {
+		score = 0.0;
+
+	} else if ( ( hit.dist - prevHit.dist < -10 && hit.shape != prevHit.shape ) ||
+				( hit.dist - nextHit.dist < -10 && hit.shape != nextHit.shape ) ) {
+		score = 1.0;
+	}
+
+	/*
+	// angle
+	let dot = prevHit ? prevHit.normal.dot( hit.normal ) : -1;
+	let nextDot = nextHit ? nextHit.normal.dot( hit.normal ) : -1;
+	if ( nextDot < dot ) dot = nextDot;
+
+	if ( dot <= 0 ) { // angles greater than 90 get a full score
+		//score *= 1.0;
+
+	} else if ( dot < 0.707 ) { // angles from 45-90 get proportionally brighter
+		//score *= ( 0.707 - dot ) / 0.707;
+	
+	} else { // angles less than 45 get nothing
+		score *= 0;
+	}*/
+
+	hit.material.hue += score * 10 * hit.material.alpha;
+
+	// specular highlight
+	if ( hit.incidentDot < 0 ) {
+	//	hit.material.lum *= 1 - vals.shading.val * hit.incidentDot;
+	}
+}
+
 let warnCos = -Math.cos( Math.PI * 15 / 180 );
 let warnRadius = 200; // pixels
 let warnTime = 5000; // milliseconds
@@ -106,28 +187,10 @@ let binSize = 40;
 let minPeriod = 200; // milliseconds
 let zeroVector = new Vec2( 0, 0 );
 
-function highlightCorners( hit: RayHit, prevHit: RayHit, nextHit: RayHit ) {
-	let score = 0.0;
+function approachFlash( eyeVel: Vec2, hit: ShapeHit, angle: number, hitDist: number ) {
+	if ( hit.shape && hit.shape.parent && 
+		 hit.shape.parent.collisionGroup != COL.ENEMY_BULLET ) return;
 
-	if ( prevHit === null || nextHit === null ) {
-		score = 1.0;
-	} else {
-		let dot = prevHit.normal.dot( hit.normal );
-		let nextDot = nextHit.normal.dot( hit.normal );
-		if ( nextDot < dot ) dot = nextDot;
-
-		if ( dot <= 0 ) {
-			score = 1.0;
-		} else if ( dot < 0.866 ) {
-			score = ( 0.866 - dot ) / 0.866;
-		}
-	}
-
-	hit.material.hue += score * 10;
-	//hit.material.lum *= ( 1 - score * 0.6 );
-}
-
-function approachFlash( eyeVel: Vec2, hit: RayHit, angle: number, hitDist: number ) {
 	let dir = new Vec2( Math.cos( angle ), Math.sin( angle ) );
 
 	let vel = hit.vel.minus( eyeVel );
@@ -149,6 +212,26 @@ function approachFlash( eyeVel: Vec2, hit: RayHit, angle: number, hitDist: numbe
 	}
 }
 
+/*let satFactorVal;
+let lumFactorVal;
+
+function updateFactorVals() {
+	satFactorVal = satFactor ** ( satPower / 0.5 );
+	lumFactorVal = lumFactor ** ( lumPower / 0.5 );
+}*/
+
+for ( let valName in vals ) {
+	let slider = document.getElementById( vals[valName].id ) as HTMLInputElement;
+	if ( !slider ) continue;
+
+	slider.value = vals[valName].val.toString();
+
+	slider.onchange = function( e: any ) {
+		let inputVal = parseFloat( e.currentTarget.value );
+		if ( !isNaN( inputVal ) ) vals[valName].val = inputVal;
+	}
+}
+
 export function renderFromEye( context: CanvasRenderingContext2D, 
 							   shapes: Array<Shape>,
 							   origin: Vec2,
@@ -157,13 +240,14 @@ export function renderFromEye( context: CanvasRenderingContext2D,
 							   or: number, ir: number ) {
 	
 	let sliceInfos = getHits( shapes, origin, slices );
+	let blended;
 
 	for ( let i = 0; i < sliceInfos.length; i++ ) {
 		if ( !sliceInfos[i] ) continue;
 
 		let angle = sliceInfos[i].angle;
 		let slice = sliceInfos[i].slice;
-		let hitDist = sliceInfos[i].hitDist;
+		let hitDist = sliceInfos[i].hits[0].dist;
 
 		let hits = sliceInfos[i].hits;
 
@@ -175,7 +259,7 @@ export function renderFromEye( context: CanvasRenderingContext2D,
 			}
 		}
 
-		context.globalAlpha = 1 / ( Math.sqrt( hitDist ) / 3 );
+		//context.globalAlpha = 1 / ( Math.sqrt( hitDist ) / 10 );
 		//context.globalAlpha = 1 / ( hitDist / 20 );
 
 		// highlight corners and edges of shapes
@@ -185,17 +269,28 @@ export function renderFromEye( context: CanvasRenderingContext2D,
 		highlightCorners( hits[0], ( prevInfo ? prevInfo.hits[0] : null ), ( nextInfo ? nextInfo.hits[0] : null ))
 		approachFlash( vel, hits[0], angle, hitDist );
 
-		let blended = { h: 0, s: 0, l: 1.0, a: 1.0 }; // l=1.0 for white background
+		blended = { r: 0, g: 0, b: 0, a: 1.0 }; // background color
+
 		for ( let j = opaqueIndex; j >= 0; j-- ) {
-			hits[j].material.blendWith( blended );
+			hits[j].material.sat *= Math.min( vals.satFactor.val / ( hits[j].dist ** vals.satPower.val ), 1.0 ); 
+			hits[j].material.lum *= Math.min( vals.lumFactor.val / ( hits[j].dist ** vals.lumPower.val ), 1.0 );
+			let color = hits[j].material.getRGBA();
+
+			blended.r = color.r * color.a + blended.r * ( 1 - color.a );
+			blended.g = color.g * color.a + blended.g * ( 1 - color.a );
+			blended.b = color.b * color.a + blended.b * ( 1 - color.a );
+ 			//hits[j].material.blendWith( blended );
 		}
 
 		// draw the segment
-		context.fillStyle = toFillStyle( blended );
+		//blended.s *= Math.min( vals.satFactor.val / ( hitDist ** vals.satPower.val ), 1.0 ); 
+		//blended.l *= blended.a * Math.min( vals.lumFactor.val / ( hitDist ** vals.lumPower.val ), 1.0 );
+		blended.a = 1.0;
+		context.fillStyle = RGBAtoFillStyle( blended );
 
 		context.beginPath();
-		context.moveTo( Math.cos( angle - slice / 2 ) * ir, Math.sin( angle - slice / 2 ) * ir );
-		context.lineTo( Math.cos( angle - slice / 2 ) * or, Math.sin( angle - slice / 2 ) * or );
+		context.moveTo( Math.cos( angle - slice ) * ir, Math.sin( angle - slice ) * ir );
+		context.lineTo( Math.cos( angle - slice ) * or, Math.sin( angle - slice ) * or );
 		context.lineTo( Math.cos( angle + slice / 2 ) * or, Math.sin( angle + slice / 2 ) * or );
 		context.lineTo( Math.cos( angle + slice / 2 ) * ir, Math.sin( angle + slice / 2 ) * ir );
 		context.fill();
@@ -312,15 +407,19 @@ export function getDownsampled( canvas: HTMLCanvasElement,
 	}
 }
 
-export function whiteText( context: CanvasRenderingContext2D, text: string, posX: number, posY: number ) {
-	context.font = "10px Arial";
+export function whiteText( context: CanvasRenderingContext2D, text: string, posX: number, posY: number, rightAlign: boolean=false ) {
+	context.font = "14px Monospace";
 
 	let w = context.measureText( text ).width;
+	let x = posX;
+	if ( rightAlign ) {
+		x = posX - w - 2;
+	}
 
 	context.fillStyle = 'black';
-	context.fillRect( posX, posY, w + 2, 13 );
+	context.fillRect( x, posY, w + 2, 20 );
 	context.fillStyle = 'white';
-	context.fillText( text, posX + 1, posY + 13 - 3 );
+	context.fillText( text, x + 1, posY + 20 - 5 );
 }
 
 /*

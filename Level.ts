@@ -59,9 +59,11 @@ let MODE_FREE = 2;
 	Scene holding a player area 
 */
 
-let tempCanvas = document.createElement( 'canvas' ) as HTMLCanvasElement;
+/*let tempCanvas = document.createElement( 'canvas' ) as HTMLCanvasElement;
 tempCanvas.width = 400;
-tempCanvas.height = 400;
+tempCanvas.height = 400;*/
+
+let DEFAULT_WIDTH = 400;
 
 let deathReplayScale = 2.0;
 
@@ -77,6 +79,13 @@ enum LevelState {
 	SUCCESS_MENU,
 }
 
+let playerBulletMaterial = new Material( 45, 0.0, 1.0 );
+playerBulletMaterial.alpha = 0.3;
+
+let playerMaterial = new Material( 0, 0, 1.0 );
+
+let optionPanel = document.getElementById( 'optionpanel' ) as HTMLDivElement;
+
 export class Level extends Scene {
 	em: EntityManager = new EntityManager();
 	grid: GridArea = new GridArea();
@@ -88,7 +97,7 @@ export class Level extends Scene {
 	data: any;
 	
 	// text box
-	textBox: Entity = new TopLeftEntity( new Vec2( 0, 300 ), 400, 0 );
+	textBox: Entity = new TopLeftEntity( new Vec2( 0, 300 ), DEFAULT_WIDTH, 0 );
 	textBoxHeight: number = 50;//Quant = new Quant( 0, 0, 50, 2 );
 
 	text: string = '';
@@ -103,7 +112,7 @@ export class Level extends Scene {
 	
 	cursorPos: Vec2 = new Vec2( 0, 0 );
 	
-	sliceCount: number = 180;
+	sliceCount: number = 360;
 
 	healthBar: number = 0;
 	healthBarMax: number = 0;
@@ -208,6 +217,7 @@ export class Level extends Scene {
 					this.player = new Player( pos.copy() );
 					this.player.collisionGroup = COL.PLAYER_BODY;
 					this.player.collisionMask = COL.ENEMY_BODY | COL.ENEMY_BULLET | COL.LEVEL | COL.ITEM;
+					this.player.material = playerMaterial.copy();
 					this.em.insert( this.player );
 
 				} else if ( index == 3 ) {
@@ -280,9 +290,7 @@ export class Level extends Scene {
 						}
 					}
 
-					for ( let entity of planets ) {
-						this.em.insert( entity );
-					}
+					this.em.insertList( planets );
 				}
 			}
 		}
@@ -408,7 +416,7 @@ export class Level extends Scene {
 			if ( Keyboard.keyHit( KeyCode.RIGHT ) ) this.replayIndex += 1;
 
 			if ( this.replayIndex < 0 ) this.replayIndex = 0;
-			if ( this.replayIndex > this.replayImages.length - 1 ) this.replayIndex = 0;
+			if ( this.replayIndex > this.replayImages.length - 1 ) this.replayIndex = this.replayImages.length - 1;
 
 		} else if ( this.state == LevelState.SUCCESS_MENU ) {
 			if ( Keyboard.keyHit( KeyCode.Z ) ) document.dispatchEvent( new CustomEvent( 'complete' ) );
@@ -417,12 +425,14 @@ export class Level extends Scene {
 			if ( Keyboard.keyHit( KeyCode.SPACE ) ) {
 				if ( this.paused ) {
 					this.paused = false;
+					optionPanel.classList.add( 'hidden' );
 
 					for ( let sound of this.sounds ) {
 					//	sound.play();
 					}
 				} else {
 					this.paused = true;
+					optionPanel.classList.remove( 'hidden' );
 
 					for ( let sound of this.sounds ) {
 					//	sound.pause();
@@ -566,10 +576,7 @@ export class Level extends Scene {
 						this.player.pos.copy().plus( new Vec2( 0, -this.player.height ) ),
 						new Vec2( 0, -10 ).rotate( this.player.angle ) );
 				
-				bullet.material.hue = 45;
-				bullet.material.sat = 1.0;
-				bullet.material.lum = 0.8;
-				bullet.material.alpha = 0.3;
+				bullet.material = playerBulletMaterial.copy();
 
 				this.player.spawnEntity( bullet );
 
@@ -611,10 +618,17 @@ export class Level extends Scene {
 			}
 		// }
 
-		for ( let entity of this.em.entities ) {
-			for ( let otherEntity of this.em.entities ) {
-				//if ( !entity.canBeHitBy( otherEntity ) ) continue;
+		let treeGroup: Array<number> = this.em.entities.map( x => x.treeCollisionGroup() );
+		let treeMask: Array<number> = this.em.entities.map( x => x.treeCollisionMask() );
 
+		for ( let i = 0; i < this.em.entities.length; i++ ) {
+			let entity = this.em.entities[i];
+
+			for ( let j = 0; j < this.em.entities.length; j++ ) {
+				if ( i == j ) continue;
+				if ( ( treeMask[i] & treeGroup[j] ) == 0 ) continue;
+
+				let otherEntity = this.em.entities[j];
 				let contacts = entity.overlaps( otherEntity, frameStep );
 
 				if ( contacts.length > 0 ) {
@@ -896,7 +910,9 @@ export class Level extends Scene {
 		} else {
 			this.em.shade();
 
-			this.appendReplayFrame( context );
+			if ( !this.paused ) {
+				this.appendReplayFrame( context );
+			}
 
 			this.defaultDraw( context );
 			this.drawTextboxOverlay( context );
@@ -911,21 +927,21 @@ export class Level extends Scene {
 			this.newMsg = '';
 		}
 
-		let y = 400 - 4 - 13;
+		let y = this.camera.viewportH - 20;
 		if ( this.newMsg.length > 0 ) {
 			whiteText( context, this.newMsg, 4, y );
-			y -= 13;
+			y -= 20;
 		}
 
 		for ( let msg of this.messageQueue ) {
 			whiteText( context, msg, 4, y );
-			y -= 13;
+			y -= 20;
 		}
 	}
 
 	appendReplayFrame( context: CanvasRenderingContext2D ) {
 		context.save();
-			context.translate( 200, 200 );
+			context.translate( this.camera.viewportW / 2, this.camera.viewportH / 2 );
 			context.scale( deathReplayScale, deathReplayScale ); // option 1
 			context.translate( -this.player.pos.x, -this.player.pos.y );
 
@@ -939,7 +955,7 @@ export class Level extends Scene {
 		context.restore();
 
 		this.replayImages.push( {
-			image: context.getImageData( 0, 0, 400, 400 ),
+			image: context.getImageData( 0, 0, this.camera.viewportW, this.camera.viewportH ),
 			playerPos: this.player.pos.copy()
 		} );
 
@@ -947,7 +963,7 @@ export class Level extends Scene {
 			this.replayImages = this.replayImages.slice( -this.replayCount );
 		}
 
-		context.clearRect( 0, 0, 400, 400 );
+		context.clearRect( 0, 0, this.camera.viewportW, this.camera.viewportH );
 	}
 
 	defaultDraw( context: CanvasRenderingContext2D ) {
@@ -956,8 +972,9 @@ export class Level extends Scene {
 
 		let origin = this.player.pos.copy();
 
-		let ir = this.ir;
-		let or = this.or;
+		let ir = this.ir * this.camera.viewportW / 400;
+		let or = this.or * this.camera.viewportW / 400;
+		let haloW = this.haloWidth * this.camera.viewportW / 400;
 
 		let slices: Array<number> = [];
 		let defaultSlice = Math.PI * 2 / this.sliceCount;
@@ -978,7 +995,8 @@ export class Level extends Scene {
 		// draw 2D
 		if ( Debug.flags.DRAW_NORMAL ) {
 			context.save();
-				context.translate( -this.player.pos.x + 200, -this.player.pos.y + 200 );
+				this.camera.moveContext( context );
+				context.translate( -this.player.pos.x, -this.player.pos.y );
 				this.grid.draw( context );	
 				this.em.draw( context );
 			
@@ -990,7 +1008,7 @@ export class Level extends Scene {
 		// draw from eye
 		} else {
 			context.save();
-				context.translate( 200, 200 );
+				this.camera.moveContext( context );
 				context.rotate( -this.player.angle );
 
 				renderFromEye( context, shapes, origin, this.player.vel, slices, or, ir );
@@ -1000,7 +1018,7 @@ export class Level extends Scene {
 
 				let gradient = context.createRadialGradient(0, 0, ir, 0, 0, or);
 				gradient.addColorStop(0, 'hsl( 210, 100%, 90% )');
-				gradient.addColorStop(1, 'white');
+				gradient.addColorStop(1, 'hsla( 0, 0%, 100%, 0% )');
 
 				let boss = this.em.entities.filter( x => x instanceof Boss )[0];
 
@@ -1014,14 +1032,21 @@ export class Level extends Scene {
 						let sweep = this.healthBar * slice;
 						context.fillStyle = gradient;
 						
-						for ( let angle = -Math.PI / 2; angle < -Math.PI / 2 + sweep; angle += slice ) {
+						/*for ( let angle = -Math.PI / 2; angle < -Math.PI / 2 + sweep; angle += slice ) {
 							context.beginPath();
 							context.moveTo( Math.cos( angle ) * ir, Math.sin( angle ) * ir );
 							context.lineTo( Math.cos( angle ) * or, Math.sin( angle ) * or );
-							context.lineTo( Math.cos( angle + slice ) * or, Math.sin( angle + slice ) * or );
-							context.lineTo( Math.cos( angle + slice ) * ir, Math.sin( angle + slice ) * ir );
+							context.lineTo( Math.cos( angle + slice * 1.16 ) * or, Math.sin( angle + slice * 1.16 ) * or );
+							context.lineTo( Math.cos( angle + slice * 1.16 ) * ir, Math.sin( angle + slice * 1.16 ) * ir );
 							context.fill();
-						}
+						}*/
+						context.beginPath();
+						context.moveTo( Math.cos( -Math.PI / 2 ) * ir, Math.sin( -Math.PI / 2 ) * ir );
+						context.lineTo( Math.cos( -Math.PI / 2 ) * or, Math.sin( -Math.PI / 2 ) * or );
+						context.arc( 0, 0, or, -Math.PI / 2, -Math.PI / 2 + sweep );
+						context.lineTo( Math.cos( -Math.PI / 2 + sweep ) * ir, Math.sin( -Math.PI / 2 + sweep ) * ir );
+						context.arc( 0, 0, ir, -Math.PI / 2 + sweep, -Math.PI / 2, true );
+						context.fill();
 					}
 				}
 			context.restore();
@@ -1095,7 +1120,7 @@ export class Level extends Scene {
 		let w = meas.width;
 		let h = meas.actualBoundingBoxAscent + meas.actualBoundingBoxDescent;
 		
-		context.fillText( text, 200 - w / 2, 200 + h / 2 );
+		context.fillText( text, this.camera.viewportW / 2 - w / 2, this.camera.viewportH / 2 + h / 2 );
 	}
 
 	deathDraw( context: CanvasRenderingContext2D ) {
@@ -1111,22 +1136,24 @@ export class Level extends Scene {
 			context2.putImageData( this.replayImages[this.replayIndex].image, 0, 0 );
 
 			context.save();
-				context.translate( 200, 200 );
+				this.camera.moveContext( context );
 				context.scale( deathReplayScale, deathReplayScale );
 				
-				context.drawImage( tempCanvas, offset.x - 200, offset.y - 200 );
+				context.drawImage( tempCanvas, offset.x - this.camera.viewportW / 2, offset.y - this.camera.viewportH / 2 );
 			context.restore();*/
 
 			context.putImageData( this.replayImages[this.replayIndex].image, offset.x, offset.y );
 		}
 
+		let ir = this.ir * this.camera.viewportW / 400;
+
 		context.save();
-			context.translate( 200, 200 );
+			this.camera.moveContext( context );
 
 			context.globalCompositeOperation = 'destination-in';
 			context.fillStyle = 'white';
 			context.beginPath();
-			context.arc( 0, 0, this.ir, 0, Math.PI * 2 );
+			context.arc( 0, 0, ir, 0, Math.PI * 2 );
 			context.fill();
 			context.globalCompositeOperation = 'source-over';
 
@@ -1134,7 +1161,7 @@ export class Level extends Scene {
 			context.globalAlpha = 0.7 + 0.3 * ( 1 - this.replayAlpha );
 			context.fillStyle = 'white';
 			context.beginPath();
-			context.arc( 0, 0, this.ir, 0, Math.PI * 2 );
+			context.arc( 0, 0, ir, 0, Math.PI * 2 );
 			context.fill();
 			context.globalAlpha = 1.0;
 

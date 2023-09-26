@@ -1,4 +1,5 @@
 import { Chrono } from './lib/juego/Anim.js'
+import { Camera } from './lib/juego/Camera.js'
 import { CommandRef, MOD } from './lib/juego/CommandRef.js'
 import { Controller } from './lib/juego/Controller.js'
 import { Entity } from './lib/juego/Entity.js'
@@ -53,12 +54,18 @@ export class GameControllerDom extends Controller {
 	saveStateInterval: number = 1000;
 	lastStateTime: number = 0; // milliseconds of play time since scene started
 
+	camera: Camera = new Camera();
+
 	constructor() {
 		super( gameCommands );
 
-		this.canvas = document.getElementById( 'canvas' ) as HTMLCanvasElement;
+		this.initCanvas();
+
+		this.title.useCamera( this.camera );
 
 		this.floaterScene = new FloaterScene( this.canvas );
+		this.floaterScene.useCamera( this.camera );
+
 		this.title.floaters = this.floaterScene.floaters;
 
 		this.initKeyboard();
@@ -120,6 +127,15 @@ export class GameControllerDom extends Controller {
 		} );
 	}
 
+	initCanvas() {
+		this.canvas = document.getElementById( 'canvas' ) as HTMLCanvasElement;
+		this.resize();
+
+		window.addEventListener( 'resize', ( e ) => {
+			this.resize();
+		} );
+	}
+
 	startLevel() {
 		try {
 			let level = new Level( 'level' + this.levelIndex, levelDataList[this.levelIndex] );
@@ -128,6 +144,7 @@ export class GameControllerDom extends Controller {
 			this.lastStateTime = 0;
 
 			this.manager.loadScene( level );
+			this.manager.currentScene.useCamera( this.camera );
 
 		} catch ( e ) {
 			this.manager.currentScene = null;
@@ -211,6 +228,7 @@ export class GameControllerDom extends Controller {
 			this.manager.currentScene.sleep();
 		}
 		this.manager.currentScene = level as Level;
+		this.manager.currentScene.useCamera( this.camera );
 
 		let sameLevel = false;
 		if ( 'levelIndex' in json ) {
@@ -260,19 +278,40 @@ export class GameControllerDom extends Controller {
 		this.manager.mouse.update( this.canvas );
 	}
 
+	resize() {
+		let drawarea = document.getElementById( 'drawarea' );
+
+		let h = drawarea.getBoundingClientRect().height;
+		this.canvas.height = h;
+
+		if ( h > 400 ) {
+			this.canvas.height = h;
+		} else {
+			this.canvas.height = 400;
+		}
+
+		this.canvas.width = this.canvas.height;
+
+		this.camera.setViewport( this.canvas.width, this.canvas.height );
+	}
+
 	draw( context?: CanvasRenderingContext2D ) {
 		if ( !context ) {
 			context = this.canvas.getContext( '2d' );
-
-			context.clearRect( 0, 0, this.canvas.width, this.canvas.height );
 		}
+
+		context.clearRect( 0, 0, this.canvas.width, this.canvas.height );
 
 		if ( !this.manager.currentScene ) return;
 
 		// background
 		if ( this.manager.currentScene == this.title || 
 			 this.manager.currentScene == this.deathScene ) {
-			this.floaterScene.draw( context );
+
+			context.save();
+				context.translate( -this.title.origin.x, -this.title.origin.y );
+				this.floaterScene.draw( context );
+			context.restore();
 		}
 
 		// current scene

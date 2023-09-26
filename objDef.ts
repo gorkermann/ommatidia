@@ -1,4 +1,5 @@
 import { Chrono, Anim, AnimField, AnimFrame, PhysField } from './lib/juego/Anim.js'
+import { Camera } from './lib/juego/Camera.js'
 import { Entity } from './lib/juego/Entity.js'
 import { GridArea } from './lib/juego/GridArea.js'
 import { Line } from './lib/juego/Line.js'
@@ -46,6 +47,7 @@ classMap['AnimFrame'] = AnimFrame;
 classMap['Chrono'] = Chrono;
 classMap['PhysField'] = PhysField;
 classMap['Sound'] = Sound;
+classMap['Camera'] = Camera;
 
 classMap['Level'] = Level;
 classMap['Player'] = Player;

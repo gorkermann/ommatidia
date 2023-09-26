@@ -23,14 +23,15 @@ export class FloaterScene extends Scene {
 	}
 
 	update() {
+		let origin = new Vec2( 0, 0 );
+
 		if ( new Date().getTime() - this.startTime > 1000 && this.floaters.length < 10 ) {
 			this.startTime = new Date().getTime();
 
 			let angle = Math.random() * Math.PI * 2;
 			let speed = Math.random() * 5 + 1;
-			let origin = new Vec2( 200, 200 );
 
-			let floater = new Entity( origin.plus( Vec2.fromPolar( angle, 400 ) ),
+			let floater = new Entity( origin.plus( Vec2.fromPolar( angle, this.camera.viewportW ) ),
 									  Math.random() * 80 + 10, Math.random() * 80 + 10 );
 
 			if ( this.floaters.length > 0 ) {
@@ -40,6 +41,7 @@ export class FloaterScene extends Scene {
 
 			floater.vel = new Vec2( -Math.cos( angle ) * speed, -Math.sin( angle ) * speed );
 			floater.material = new Material( this.hue, 1.0, 0.5 );
+			floater.material.alpha = 0.9;
 
 			this.hue += Math.random() * 3 + 3;
 
@@ -51,8 +53,13 @@ export class FloaterScene extends Scene {
 		}
 
 		for ( let i = this.floaters.length - 1; i >= 0; i-- ) {
-			if ( new Vec2( this.floaters[i].pos.x - 200, this.floaters[i].pos.y - 200 ).length() > 500 ) {
-				this.floaters.splice( i, 1 );
+			if ( new Vec2( this.floaters[i].pos.x - origin.x,
+						   this.floaters[i].pos.y - origin.y ).length() > this.camera.viewportW * 1.2 ) {
+				this.floaters[i].material.alpha -= 0.1;
+
+				if ( this.floaters[i].material.alpha <= 0 ) {
+					this.floaters.splice( i, 1 );	
+				}
 			} 
 		}
 	}
@@ -60,19 +67,21 @@ export class FloaterScene extends Scene {
 	draw( context: CanvasRenderingContext2D ) {
 		if ( !this.canvas ) return;
 
-		context.globalAlpha = 0.1;
+		context.save();
+			this.camera.moveContext( context );
 
-		context.clearRect( 0, 0, this.canvas.width, this.canvas.height );
+			context.globalAlpha = 0.1;
 
-		for ( let floater of this.floaters ) {
-			floater.draw( context );
-		}
+			for ( let floater of this.floaters ) {
+				floater.draw( context );
+			}
 
-		if ( !upsampled ) upsampled = context.createImageData( this.canvas.width, this.canvas.height );
+			/*if ( !upsampled ) upsampled = context.createImageData( this.canvas.width, this.canvas.height );
 
-		getDownsampled( this.canvas, context, 16, upsampled );
-		context.putImageData( upsampled, 0, 0 );
+			getDownsampled( this.canvas, context, 16, upsampled );
+			context.putImageData( upsampled, 0, 0 );*/
 
-		context.globalAlpha = 1.0;
+			context.globalAlpha = 1.0;
+		context.restore();
 	}
 }
