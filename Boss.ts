@@ -34,6 +34,7 @@ export class Boss extends CenteredEntity {
 	blink: number = 0.0; // 0.0 - 1.0;
 	eyeStrain: number = 0.0;
 	eyeAngle: number = 0;
+	canBlink: boolean = true;
 
 	counts: Dict<Chrono> = {
 		'attention': new Chrono( 0, 5000 ),
@@ -45,11 +46,13 @@ export class Boss extends CenteredEntity {
 		'blink': new AnimField( this, 'blink', 0.2 ),
 		'eyeStrain': new AnimField( this, 'eyeStrain', 0.5 ),
 		'eyeAngle': new AnimField( this, 'eyeAngle', 0.1, { isAngle: true } ),
+		'canBlink': new AnimField( this, 'canBlink' ),
 	},
 	new AnimFrame( {
 		'blink': { value: 0.0 },
 		'eyeStrain': { value: 0.0 },
 		'eyeAngle': { value: 0.0 },
+		'canBlink': { value: true },
 	} ) );
 
 	sounds: Array<Sound> = [];
@@ -65,7 +68,7 @@ export class Boss extends CenteredEntity {
 	getOwnShapes(): Array<Shape> {
 		let shapes = [];
 
-		let core = Shape.makeCircle( new Vec2( 0, 0 ), 39, 36 );
+		let core = Shape.makeCircle( new Vec2( 0, 0 ), 40, 36 );
 		core.material = this.coreMaterial;
 		core.parent = this;
 
@@ -94,7 +97,7 @@ export class Boss extends CenteredEntity {
 			let angle = ( mid - i ) / 36 * Math.PI * 2;
 			if ( i >= mid ) angle = ( mid - i ) / 36 * Math.PI * 2;
 
-			if ( i >= 8 && i <= 10 ) {
+			if ( i >= 8 && i <= 10 && this.eyeStrain > 0 ) {
 				core.points[i].rotate( angle * this.eyeStrain );
 			} else {
 				core.points[i].rotate( angle * this.blink );
@@ -136,7 +139,7 @@ export class Boss extends CenteredEntity {
 	}
 
 	animate( step: number, elapsed: number ) {
-		if ( this.counts['blink'].count <= 0 ) {
+		if ( this.counts['blink'].count <= 0 && this.canBlink ) {
 			this.eyeAnim.pushFrame( new AnimFrame( {
 				'blink': { value: 1.0, expireOnReach: true }
 			} ) );
@@ -144,7 +147,7 @@ export class Boss extends CenteredEntity {
 			this.counts['blink'].reset();
 		}
 
-		if ( this.watchTarget && this.counts['attention'].count <= 0 ) {
+		if ( this.watchTarget && this.counts['attention'].count <= 0 && this.canBlink ) {
 			this.eyeAnim.pushFrame( new AnimFrame( {
 				'eyeAngle': { value: this.watchTarget.angle() - Math.PI / 2, expireOnReach: true, setDefault: true }
 			} ) );
@@ -158,9 +161,16 @@ export class Boss extends CenteredEntity {
 	doEyeStrain() {
 		this.eyeAnim.clear();
 		this.eyeAnim.pushFrame( new AnimFrame( {
-			'blink': { value: -1, expireOnCount: 500, overrideRate: 0.5 },
-			'eyeStrain': { value: 0.5 }
+			'blink': { value: 0.0, expireOnReach: true },
 		} ) );
+		this.eyeAnim.pushFrame( new AnimFrame( {
+			'blink': { value: -1, expireOnCount: 500, overrideRate: 0.5 },
+			'eyeStrain': { value: 0.5 },
+			'canBlink': { value: false }
+		} ) );
+
+		this.counts['blink'].reset();
+		this.counts['attention'].reset();
 	}
 
 	doEyeDead() {

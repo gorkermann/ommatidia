@@ -25,7 +25,7 @@ import { Coin } from './Coin.js'
 import { COL, MILLIS_PER_FRAME, REWIND_SECS } from './collisionGroup.js'
 import { Player } from './Player.js'
 import { constructors, nameMap } from './objDef.js'
-import { renderFromEye, renderRays, whiteText } from './render.js'
+import { renderFromEye, renderRays, whiteText, vals } from './render.js'
 
 import { RollBoss, Barrier } from './RollBoss.js' 
 import { LockBoss } from './LockBoss.js'
@@ -65,7 +65,7 @@ tempCanvas.height = 400;*/
 
 let DEFAULT_WIDTH = 400;
 
-let deathReplayScale = 2.0;
+let deathReplayScale = 1.0;
 
 type ReplayImage = {
 	image: ImageData,
@@ -571,7 +571,7 @@ export class Level extends Scene {
 			this.player.vel.scale( 5 );
 			this.player.vel.rotate( this.player.angle );
 
-			if ( Keyboard.keyHit( KeyCode.X ) ) {
+			if ( Keyboard.getHits( KeyCode.X ) > 0 ) {
 				let bullet = new Bullet( 
 						this.player.pos.copy().plus( new Vec2( 0, -this.player.height ) ),
 						new Vec2( 0, -10 ).rotate( this.player.angle ) );
@@ -948,6 +948,14 @@ export class Level extends Scene {
 			for ( let entity of this.em.entities ) {
 				let shapes = entity.getShapes( 0.0 );
 
+				context.globalAlpha = 0.3;
+				for ( let shape of shapes ) {
+					if ( shape.hollow ) continue;
+
+					//shape.fill( context );
+				}
+				context.globalAlpha = 1.0;
+
 				for ( let shape of shapes ) {
 					shape.stroke( context );
 				}
@@ -964,6 +972,20 @@ export class Level extends Scene {
 		}
 
 		context.clearRect( 0, 0, this.camera.viewportW, this.camera.viewportH );
+
+		let ir = this.ir * this.camera.viewportW / 400;
+
+		context.save();
+			this.camera.moveContext( context );
+
+			context.globalCompositeOperation = 'destination-in';
+			context.fillStyle = 'white';
+			context.beginPath();
+			context.arc( 0, 0, ir, 0, Math.PI * 2 );
+			context.fill();
+			context.globalCompositeOperation = 'source-over';
+
+		context.restore();
 	}
 
 	defaultDraw( context: CanvasRenderingContext2D ) {
@@ -1008,48 +1030,64 @@ export class Level extends Scene {
 		// draw from eye
 		} else {
 			context.save();
-				this.camera.moveContext( context );
-				context.rotate( -this.player.angle );
+				context.translate( this.camera.viewportW / 2, this.camera.viewportH / 2 );
+				context.scale( deathReplayScale, deathReplayScale ); // option 1
+				context.translate( -this.player.pos.x, -this.player.pos.y );
 
-				renderFromEye( context, shapes, origin, this.player.vel, slices, or, ir );
+				for ( let entity of this.em.entities ) {
+					let shapes = entity.getShapes( 0.0 );
 
-				ir = or + 2;
-				or = ir + this.haloWidth;
-
-				let gradient = context.createRadialGradient(0, 0, ir, 0, 0, or);
-				gradient.addColorStop(0, 'hsl( 210, 100%, 90% )');
-				gradient.addColorStop(1, 'hsla( 0, 0%, 100%, 0% )');
-
-				let boss = this.em.entities.filter( x => x instanceof Boss )[0];
-
-				if ( boss && boss instanceof Boss ) {
-					this.anim.default.targets['healthBar'].value = boss.getHealth();
-
-					if ( this.healthBarMax > 0 ) {
-						let segments = this.healthBarMax;
-						let slice = Math.PI * 2 / segments;
-
-						let sweep = this.healthBar * slice;
-						context.fillStyle = gradient;
-						
-						/*for ( let angle = -Math.PI / 2; angle < -Math.PI / 2 + sweep; angle += slice ) {
-							context.beginPath();
-							context.moveTo( Math.cos( angle ) * ir, Math.sin( angle ) * ir );
-							context.lineTo( Math.cos( angle ) * or, Math.sin( angle ) * or );
-							context.lineTo( Math.cos( angle + slice * 1.16 ) * or, Math.sin( angle + slice * 1.16 ) * or );
-							context.lineTo( Math.cos( angle + slice * 1.16 ) * ir, Math.sin( angle + slice * 1.16 ) * ir );
-							context.fill();
-						}*/
-						context.beginPath();
-						context.moveTo( Math.cos( -Math.PI / 2 ) * ir, Math.sin( -Math.PI / 2 ) * ir );
-						context.lineTo( Math.cos( -Math.PI / 2 ) * or, Math.sin( -Math.PI / 2 ) * or );
-						context.arc( 0, 0, or, -Math.PI / 2, -Math.PI / 2 + sweep );
-						context.lineTo( Math.cos( -Math.PI / 2 + sweep ) * ir, Math.sin( -Math.PI / 2 + sweep ) * ir );
-						context.arc( 0, 0, ir, -Math.PI / 2 + sweep, -Math.PI / 2, true );
-						context.fill();
+					for ( let shape of shapes ) {
+						shape.sphericalStroke( context, this.player.pos, ir, vals.lens.val );
 					}
 				}
 			context.restore();
+
+			if ( Debug.flags.DRAW_FROM_EYE ) {
+				context.save();
+					this.camera.moveContext( context );
+					context.rotate( -this.player.angle );
+
+					renderFromEye( context, shapes, origin, this.player.vel, slices, or, ir );
+
+					ir = or + 2;
+					or = ir + this.haloWidth;
+
+					let gradient = context.createRadialGradient(0, 0, ir, 0, 0, or);
+					gradient.addColorStop(0, 'hsl( 210, 100%, 90% )');
+					gradient.addColorStop(1, 'hsla( 0, 0%, 100%, 0% )');
+
+					let boss = this.em.entities.filter( x => x instanceof Boss )[0];
+
+					if ( boss && boss instanceof Boss ) {
+						this.anim.default.targets['healthBar'].value = boss.getHealth();
+
+						if ( this.healthBarMax > 0 ) {
+							let segments = this.healthBarMax;
+							let slice = Math.PI * 2 / segments;
+
+							let sweep = this.healthBar * slice;
+							context.fillStyle = gradient;
+							
+							/*for ( let angle = -Math.PI / 2; angle < -Math.PI / 2 + sweep; angle += slice ) {
+								context.beginPath();
+								context.moveTo( Math.cos( angle ) * ir, Math.sin( angle ) * ir );
+								context.lineTo( Math.cos( angle ) * or, Math.sin( angle ) * or );
+								context.lineTo( Math.cos( angle + slice * 1.16 ) * or, Math.sin( angle + slice * 1.16 ) * or );
+								context.lineTo( Math.cos( angle + slice * 1.16 ) * ir, Math.sin( angle + slice * 1.16 ) * ir );
+								context.fill();
+							}*/
+							context.beginPath();
+							context.moveTo( Math.cos( -Math.PI / 2 ) * ir, Math.sin( -Math.PI / 2 ) * ir );
+							context.lineTo( Math.cos( -Math.PI / 2 ) * or, Math.sin( -Math.PI / 2 ) * or );
+							context.arc( 0, 0, or, -Math.PI / 2, -Math.PI / 2 + sweep );
+							context.lineTo( Math.cos( -Math.PI / 2 + sweep ) * ir, Math.sin( -Math.PI / 2 + sweep ) * ir );
+							context.arc( 0, 0, ir, -Math.PI / 2 + sweep, -Math.PI / 2, true );
+							context.fill();
+						}
+					}
+				context.restore();
+			}
 		}
 	}
 

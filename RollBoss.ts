@@ -17,6 +17,7 @@ import * as Debug from './Debug.js'
 
 export class Barrier extends CenteredEntity {
 	altMaterial = new Material( 210, 1.0, 0.9 );
+	redMaterial = new Material( 0, 1.0, 0.9 );
 
 	// overrides
 	material = new Material( 210, 1.0, 0.7 );
@@ -40,6 +41,8 @@ export class Barrier extends CenteredEntity {
 		
 			shape.normals[i].flip();
 		}
+
+		shape.edges[0].material = this.redMaterial;
 
 		return [shape];
 	}

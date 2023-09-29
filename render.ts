@@ -58,13 +58,33 @@ function getHits( shapes: Array<Shape>,
 	let output: Array<SliceInfo> = [];
 
 	let angle = 0;
+	let opaqueIndex = 0;
 
 	for ( let slice of slices ) {
 		angle += slice / 2;
 
-		let hits = shapecast( new Line( origin.x, origin.y,
-									   origin.x + Math.cos( angle ) * 1000, 
-									   origin.y + Math.sin( angle ) * 1000 ), shapes );
+		let hits = shapecast( new Line( origin.x, 
+										origin.y,
+									    origin.x + Math.cos( angle ) * 117.5 / 4, 
+									    origin.y + Math.sin( angle ) * 117.5 / 4 ), shapes );
+
+		opaqueIndex = -1;
+		for ( let j = 0; j < hits.length; j++ ) {
+			if ( hits[j].material.alpha == 1.0 ) {
+				opaqueIndex = j;
+				break;
+			}
+		}
+
+		//hits = [];
+
+		if ( opaqueIndex < 0 ) {
+			hits = shapecast( new Line( origin.x, 
+										origin.y,
+									    origin.x + Math.cos( angle ) * 1000, 
+									    origin.y + Math.sin( angle ) * 1000 ), shapes );
+		}
+
 		if ( hits.length > 0 ) {
 			for ( let hit of hits ) {
 				hit.dist = hit.point.minus( origin ).length();
@@ -117,7 +137,7 @@ type SliderVal = {
 	val: number;
 }
 
-let vals: Dict<SliderVal> = {
+export let vals: Dict<SliderVal> = {
 	satFactor: {
 		id: 'sat-factor',
 		val: 65,
@@ -137,6 +157,10 @@ let vals: Dict<SliderVal> = {
 	shading: {
 		id: 'shading',
 		val: 0.75,
+	},
+	lens: {
+		id: 'lens',
+		val: 2,
 	}
 }
 
@@ -286,13 +310,15 @@ export function renderFromEye( context: CanvasRenderingContext2D,
 		//blended.s *= Math.min( vals.satFactor.val / ( hitDist ** vals.satPower.val ), 1.0 ); 
 		//blended.l *= blended.a * Math.min( vals.lumFactor.val / ( hitDist ** vals.lumPower.val ), 1.0 );
 		blended.a = 1.0;
+		context.strokeStyle = RGBAtoFillStyle( blended );
 		context.fillStyle = RGBAtoFillStyle( blended );
 
 		context.beginPath();
-		context.moveTo( Math.cos( angle - slice ) * ir, Math.sin( angle - slice ) * ir );
-		context.lineTo( Math.cos( angle - slice ) * or, Math.sin( angle - slice ) * or );
+		context.moveTo( Math.cos( angle - slice / 2 ) * ir, Math.sin( angle - slice / 2 ) * ir );
+		context.lineTo( Math.cos( angle - slice / 2 ) * or, Math.sin( angle - slice / 2 ) * or );
 		context.lineTo( Math.cos( angle + slice / 2 ) * or, Math.sin( angle + slice / 2 ) * or );
 		context.lineTo( Math.cos( angle + slice / 2 ) * ir, Math.sin( angle + slice / 2 ) * ir );
+		context.closePath();
 		context.fill();
 		
 		context.globalAlpha = 1.0;

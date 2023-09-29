@@ -101,9 +101,9 @@ let update = function() {
 		}
 	}
 
-	// game stuff
+	// want as short a time as possible between input checks in ctlr.update() and Keyboard.updateState()
 	ctlr.update();
-	ctlr.draw();
-
 	Keyboard.updateState();
+
+	ctlr.draw();
 }
