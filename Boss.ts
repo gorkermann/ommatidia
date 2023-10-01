@@ -162,12 +162,13 @@ export class Boss extends CenteredEntity {
 		this.eyeAnim.clear();
 		this.eyeAnim.pushFrame( new AnimFrame( {
 			'blink': { value: 0.0, expireOnReach: true },
-		} ) );
+			//'eyeStrain': { value: 0.0 },
+		} ), { tag: 'exit' } );
 		this.eyeAnim.pushFrame( new AnimFrame( {
 			'blink': { value: -1, expireOnCount: 500, overrideRate: 0.5 },
 			'eyeStrain': { value: 0.5 },
 			'canBlink': { value: false }
-		} ) );
+		} ), { tag: 'exit' } );
 
 		this.counts['blink'].reset();
 		this.counts['attention'].reset();

@@ -7,10 +7,13 @@ export let flags: Dict<boolean> = {
 	DEBUG_MODE: false,
 	DRAW_NORMAL: false,
 	DRAW_FROM_EYE: true,
+	DRAW_SPHERICAL: false,
 	DRAW_RAYS: false,
 	LOG_ANIM: false,
 	SUPER_SHOT: false,
 	FORCE_BOSS_ATK: false,
+	HIGHLIGHT_CORNERS: false,
+	AUTO_BRIGHT_ADJUST: true,
 }
 
 type DebugField = {

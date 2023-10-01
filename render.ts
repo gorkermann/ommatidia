@@ -6,11 +6,13 @@ import { Shape } from './lib/juego/Shape.js'
 import { Dict } from './lib/juego/util.js'
 
 import { COL, MILLIS_PER_FRAME } from './collisionGroup.js'
+import * as Debug from './Debug.js'
 
 class ShapeHit extends RayHit {
 	shape: Shape;
 	dist: number;
 	incidentDot: number;
+	normalDist: number;
 
 	constructor( point: Vec2, normal: Vec2, material: Material ) {
 		super( point, normal, material );
@@ -28,14 +30,16 @@ function shapecast( line: Line, shapes: Array<Shape> ): Array<ShapeHit> {
 		if ( rayHits.length > 0 ) {
 			let shapeHit = new ShapeHit( rayHits[0].point, rayHits[0].normal, rayHits[0].material );
 			shapeHit.vel = shape.getVel( shapeHit.point );
+			shapeHit.dist = shapeHit.point.minus( line.p1 ).length();
 			shapeHit.shape = shape;
-			shapeHit.incidentDot = line.p2.minus( line.p1 ).normalize().dot( shapeHit.normal );
+			shapeHit.incidentDot = line.p2.minus( line.p1 ).unit().dot( shapeHit.normal );
+			shapeHit.normalDist = -shapeHit.incidentDot * shapeHit.dist;
 
 			closestRayHits.push( shapeHit );
 		}
 	}
-	
-	closestRayHits.sort( closestTo( line.p1 ) );
+
+	closestRayHits.sort( ( a: ShapeHit, b: ShapeHit ) => a.dist - b.dist );
 
 	return closestRayHits;	
 }
@@ -86,10 +90,6 @@ function getHits( shapes: Array<Shape>,
 		}
 
 		if ( hits.length > 0 ) {
-			for ( let hit of hits ) {
-				hit.dist = hit.point.minus( origin ).length();
-			}
-		
 			output.push( new SliceInfo( angle, slice, hits ) );
 
 		} else {
@@ -148,7 +148,7 @@ export let vals: Dict<SliderVal> = {
 	},
 	lumFactor: {
 		id: 'lum-factor',
-		val: 160,
+		val: 80,
 	},
 	lumPower: {
 		id: 'lum-power',
@@ -164,37 +164,38 @@ export let vals: Dict<SliderVal> = {
 	}
 }
 
+let sliceCount = 360;
+let theta = Math.PI * 2 / sliceCount;
+let cosSl = Math.cos( theta );
+let sinSl = Math.sin( theta );
+
 function highlightCorners( hit: ShapeHit, prevHit: ShapeHit, nextHit: ShapeHit, ) {
 	let score = 0.0;
 
 	// distance
 	if ( prevHit === null || nextHit === null ) {
 		score = 1.0;
+	} else {
+		let comps = [prevHit, nextHit];
 
-	} else if ( hit.dist - prevHit.dist > 10 ||
-				hit.dist - nextHit.dist > 10 ) {
-		score = 0.0;
+		// expected distance to next/prev hit, assuming it is on the same plane as the previous one
+		let sin = Math.sqrt( 1 - hit.incidentDot ** 2 );
+		let dMax = hit.normalDist / ( -hit.incidentDot * cosSl - sin * sinSl ); 
+		//let dMin = hit.dist * hit.normalDist / ( hit.normalDist * cosSl + x * sinSl ); 
 
-	} else if ( ( hit.dist - prevHit.dist < -10 && hit.shape != prevHit.shape ) ||
-				( hit.dist - nextHit.dist < -10 && hit.shape != nextHit.shape ) ) {
-		score = 1.0;
+		for ( let comp of comps ) {
+
+			// corner of a shape against some background (one edge visible)
+			if ( hit.shape != comp.shape && comp.dist > dMax + 1 ) {
+				score = 1.0;
+			}
+
+			// corner of a shape between (two edges visible)
+			if ( hit.shape == comp.shape && hit.normal.dot( comp.normal ) < 0.1 ) {
+				score = 1.0;
+			}
+		}
 	}
-
-	/*
-	// angle
-	let dot = prevHit ? prevHit.normal.dot( hit.normal ) : -1;
-	let nextDot = nextHit ? nextHit.normal.dot( hit.normal ) : -1;
-	if ( nextDot < dot ) dot = nextDot;
-
-	if ( dot <= 0 ) { // angles greater than 90 get a full score
-		//score *= 1.0;
-
-	} else if ( dot < 0.707 ) { // angles from 45-90 get proportionally brighter
-		//score *= ( 0.707 - dot ) / 0.707;
-	
-	} else { // angles less than 45 get nothing
-		score *= 0;
-	}*/
 
 	hit.material.hue += score * 10 * hit.material.alpha;
 
@@ -256,6 +257,8 @@ for ( let valName in vals ) {
 	}
 }
 
+let sliceWipe = 1;
+
 export function renderFromEye( context: CanvasRenderingContext2D, 
 							   shapes: Array<Shape>,
 							   origin: Vec2,
@@ -265,6 +268,31 @@ export function renderFromEye( context: CanvasRenderingContext2D,
 	
 	let sliceInfos = getHits( shapes, origin, slices );
 	let blended;
+	let maxDist = -1;
+
+	if ( Debug.flags.AUTO_BRIGHT_ADJUST ) {
+		for ( let i = 0; i < sliceInfos.length; i++ ) {
+			if ( !sliceInfos[i] ) continue;
+
+			let angle = sliceInfos[i].angle;
+			let slice = sliceInfos[i].slice;
+			let hitDist = sliceInfos[i].hits[0].dist;
+
+			let hits = sliceInfos[i].hits;
+
+			let opaqueIndex = hits.length - 1;
+			for ( let j = 0; j < hits.length; j++ ) {
+				if ( hits[j].material.alpha == 1.0 ) {
+					opaqueIndex = j;
+					break;
+				}
+			}
+
+			if ( hits[opaqueIndex].dist > maxDist ) {
+				maxDist = hits[opaqueIndex].dist;
+			}
+		}
+	}
 
 	for ( let i = 0; i < sliceInfos.length; i++ ) {
 		if ( !sliceInfos[i] ) continue;
@@ -290,14 +318,22 @@ export function renderFromEye( context: CanvasRenderingContext2D,
 		let prevInfo = sliceInfos[(i + sliceInfos.length - 1) % sliceInfos.length];
 		let nextInfo = sliceInfos[(i + 1) % sliceInfos.length];
 
-		highlightCorners( hits[0], ( prevInfo ? prevInfo.hits[0] : null ), ( nextInfo ? nextInfo.hits[0] : null ))
+		if ( Debug.flags.HIGHLIGHT_CORNERS ) {
+			highlightCorners( hits[0], ( prevInfo ? prevInfo.hits[0] : null ), ( nextInfo ? nextInfo.hits[0] : null ))
+		}
 		approachFlash( vel, hits[0], angle, hitDist );
 
 		blended = { r: 0, g: 0, b: 0, a: 1.0 }; // background color
 
 		for ( let j = opaqueIndex; j >= 0; j-- ) {
 			hits[j].material.sat *= Math.min( vals.satFactor.val / ( hits[j].dist ** vals.satPower.val ), 1.0 ); 
-			hits[j].material.lum *= Math.min( vals.lumFactor.val / ( hits[j].dist ** vals.lumPower.val ), 1.0 );
+
+			if ( Debug.flags.AUTO_BRIGHT_ADJUST ) {
+				hits[j].material.lum *= Math.min( ( maxDist / 4 ) / ( hits[j].dist ** vals.lumPower.val ), 1.0 );
+			} else {
+				hits[j].material.lum *= Math.min( vals.lumFactor.val / ( hits[j].dist ** vals.lumPower.val ), 1.0 );
+			}
+
 			let color = hits[j].material.getRGBA();
 
 			blended.r = color.r * color.a + blended.r * ( 1 - color.a );
@@ -314,8 +350,8 @@ export function renderFromEye( context: CanvasRenderingContext2D,
 		context.fillStyle = RGBAtoFillStyle( blended );
 
 		context.beginPath();
-		context.moveTo( Math.cos( angle - slice / 2 ) * ir, Math.sin( angle - slice / 2 ) * ir );
-		context.lineTo( Math.cos( angle - slice / 2 ) * or, Math.sin( angle - slice / 2 ) * or );
+		context.moveTo( Math.cos( angle - slice * sliceWipe ) * ir, Math.sin( angle - slice * sliceWipe ) * ir );
+		context.lineTo( Math.cos( angle - slice * sliceWipe ) * or, Math.sin( angle - slice * sliceWipe ) * or );
 		context.lineTo( Math.cos( angle + slice / 2 ) * or, Math.sin( angle + slice / 2 ) * or );
 		context.lineTo( Math.cos( angle + slice / 2 ) * ir, Math.sin( angle + slice / 2 ) * ir );
 		context.closePath();

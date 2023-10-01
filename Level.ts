@@ -20,13 +20,14 @@ import * as tp from './lib/toastpoint.js'
 
 import { Boss } from './Boss.js'
 import { Bullet } from './Bullet.js'
-import { RandomPoly } from './CenteredEntity.js'
+import { CenteredEntity, RandomPoly } from './CenteredEntity.js'
 import { Coin } from './Coin.js'
 import { COL, MILLIS_PER_FRAME, REWIND_SECS } from './collisionGroup.js'
 import { Player } from './Player.js'
 import { constructors, nameMap } from './objDef.js'
 import { renderFromEye, renderRays, whiteText, vals } from './render.js'
 
+import { Orbiter, Blocker } from './TutorialEntity.js'
 import { RollBoss, Barrier } from './RollBoss.js' 
 import { LockBoss } from './LockBoss.js'
 
@@ -65,7 +66,7 @@ tempCanvas.height = 400;*/
 
 let DEFAULT_WIDTH = 400;
 
-let deathReplayScale = 1.0;
+let deathReplayScale = 4.0;
 
 type ReplayImage = {
 	image: ImageData,
@@ -137,7 +138,7 @@ export class Level extends Scene {
 	sounds: Array<Sound> = [];
 
 	messageAnim = new Anim( {
-		'newMsg': new AnimField( this, 'newMsg', 2 )
+		'newMsg': new AnimField( this, 'newMsg', 1 )
 	},
 	new AnimFrame( {
 
@@ -202,16 +203,39 @@ export class Level extends Scene {
 		this.tryCount += 1;
 
 		Debug.setFlags( { 'DRAW_NORMAL': this.data.drawNormal } );
-		this.controlMode = this.data.controlMode;
+		this.controlMode = this.data.controlMode;	
 
-		let pos: Vec2 = new Vec2();		
+		let gridEnt = new Entity( new Vec2( 0, 0 ), 0, 0 );
+		gridEnt.isGhost = true;
+		gridEnt.collisionGroup = COL.LEVEL;
 
 		for (let c = 0; c <= this.grid.hTiles; c++ ) {
 			for (let r = 0; r <= this.grid.vTiles; r++ ) {
+				let index = this.grid.collisionLayer.get( r, c );
+
+				if ( index == 1 ) {
+					let block = new CenteredEntity(
+									new Vec2( c * this.grid.tileWidth, r * this.grid.tileHeight ),
+									this.grid.tileWidth,
+									this.grid.tileHeight );
+
+					block.material = new Material( this.data.hue, 1.0, 0.3 );
+					block.altMaterial = new Material( this.data.hue, 1.0, 0.5 );
+					gridEnt.addSub( block );
+				}
+			}
+		}
+
+		this.em.insert( gridEnt );
+
+		let pos: Vec2 = new Vec2();	
+
+		for ( let c = 0; c <= this.grid.hTiles; c++ ) {
+			for ( let r = 0; r <= this.grid.vTiles; r++ ) {
 				let index = this.grid.spawnLayer.get( r, c );
 
-				pos.setValues( ( c + 0.5 ) * this.grid.tileWidth, 
-							   ( r + 0.5 ) * this.grid.tileHeight );
+				pos.setValues( ( c + 0.0 ) * this.grid.tileWidth, 
+							   ( r + 0.0 ) * this.grid.tileHeight );
 
 				if ( index == 2 ) {
 					this.player = new Player( pos.copy() );
@@ -291,6 +315,13 @@ export class Level extends Scene {
 					}
 
 					this.em.insertList( planets );
+				} else if ( index == 10 ) {
+					let entity = new Orbiter( pos.plus( new Vec2( this.grid.tileWidth, this.grid.tileHeight ) ), this.grid.tileWidth );
+					this.em.insert( entity );
+
+				} else if ( index == 11 ) {
+					let entity = new Blocker( pos.copy() );
+					this.em.insert( entity );
 				}
 			}
 		}
@@ -596,9 +627,6 @@ export class Level extends Scene {
 			}
 		}
 
-		// collision
-		this.em.collide( this.grid );
-
 		// debug {
 			let canvas = ( window as any ).canvas;
 			let context = ( window as any ).context;
@@ -646,9 +674,9 @@ export class Level extends Scene {
 				}
 			}
 
-			if ( entity instanceof Boss ) {
-				entity.watch( this.player.pos );
+			entity.watch( this.player.pos );
 
+			if ( entity instanceof Boss ) {
 				while ( entity.messages.length > 0 ) {
 					this.messageAnim.pushFrame( new AnimFrame( {
 						'newMsg': { value: entity.messages.pop(), expireOnReach: true }
@@ -657,7 +685,7 @@ export class Level extends Scene {
 			}
 		}
 
-		let result = solveCollisionsFor( this.player, this.em.entities, COL.ENEMY_BODY, frameStep );
+		let result = solveCollisionsFor( this.player, this.em.entities, COL.ENEMY_BODY | COL.LEVEL, frameStep );
 
 		this.em.update( frameStep, elapsed );
 
@@ -785,6 +813,7 @@ export class Level extends Scene {
 
 		let success = true;
 		let defeatedNames = [];
+
 		for ( let entity of this.em.entities ) {
 			if ( entity instanceof Boss ) {
 				if ( entity.preventSuccess() ) {
@@ -792,6 +821,10 @@ export class Level extends Scene {
 				} else {
 					defeatedNames.push( entity.flavorName );
 				}
+			}
+
+			if ( entity instanceof Coin ) {
+				success = false;
 			}
 		}
 
@@ -1005,7 +1038,7 @@ export class Level extends Scene {
 			slices.push( defaultSlice );
 		}
 
-		let shapes = this.grid.shapes.concat();
+		let shapes = [];
 		for ( let entity of this.em.entities ) {
 			if ( entity != this.player ) {
 				shapes.push( ...entity.getShapes( 0.0 ) );
@@ -1019,7 +1052,6 @@ export class Level extends Scene {
 			context.save();
 				this.camera.moveContext( context );
 				context.translate( -this.player.pos.x, -this.player.pos.y );
-				this.grid.draw( context );	
 				this.em.draw( context );
 			
 				if ( Debug.flags.DRAW_RAYS ) {
@@ -1029,19 +1061,22 @@ export class Level extends Scene {
 
 		// draw from eye
 		} else {
-			context.save();
-				context.translate( this.camera.viewportW / 2, this.camera.viewportH / 2 );
-				context.scale( deathReplayScale, deathReplayScale ); // option 1
-				context.translate( -this.player.pos.x, -this.player.pos.y );
 
-				for ( let entity of this.em.entities ) {
-					let shapes = entity.getShapes( 0.0 );
+			if ( Debug.flags.DRAW_SPHERICAL ) {
+				context.save();
+					context.translate( this.camera.viewportW / 2, this.camera.viewportH / 2 );
+					context.scale( 1.0, 1.0 );
+					context.translate( -this.player.pos.x, -this.player.pos.y );
 
-					for ( let shape of shapes ) {
-						shape.sphericalStroke( context, this.player.pos, ir, vals.lens.val );
+					for ( let entity of this.em.entities ) {
+						let shapes = entity.getShapes( 0.0 );
+
+						for ( let shape of shapes ) {
+							shape.sphericalStroke( context, this.player.pos, ir, vals.lens.val );
+						}
 					}
-				}
-			context.restore();
+				context.restore();
+			}
 
 			if ( Debug.flags.DRAW_FROM_EYE ) {
 				context.save();

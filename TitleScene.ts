@@ -22,7 +22,7 @@ export class TitleScene extends Scene {
 
 	update() {
 		//if ( Keyboard.keyHit( KeyCode.Z ) ) document.dispatchEvent( new CustomEvent( "start" ) );
-		if ( Keyboard.keyHit( KeyCode.Z ) ) document.dispatchEvent( new CustomEvent( "startBoss" ) );
+		if ( Keyboard.keyHit( KeyCode.Z ) ) document.dispatchEvent( new CustomEvent( "start" ) );
 
 		if ( Keyboard.keyHeld( KeyCode.LEFT ) ) {
 			this.origin.add( new Vec2( -5, 0 ) );

@@ -733,7 +733,7 @@ export class LockBoss extends Boss {
 		// restart wave counter if there are no waves
 		if ( !this.counts['createWave'].active && this.waves.length == 0 ) {
 			this.counts['createWave'].active = true;
-			this.eyeAnim.clear();
+			this.eyeAnim.clear( { withoutTag: 'exit' } );
 			this.counts['attention'].count = 0;
 		}
 

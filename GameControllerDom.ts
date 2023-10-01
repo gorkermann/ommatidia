@@ -78,12 +78,6 @@ export class GameControllerDom extends Controller {
 			this.startLevel();
 		} );
 
-		document.addEventListener( 'startBoss', ( e: any ) => { 
-			this.levelIndex = 9;
-
-			this.startLevel();
-		} );
-
 		document.addEventListener( 'restart', ( e: any ) => {
 			this.startLevel();
 		} );
