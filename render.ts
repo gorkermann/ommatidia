@@ -140,20 +140,29 @@ type SliderVal = {
 export let vals: Dict<SliderVal> = {
 	satFactor: {
 		id: 'sat-factor',
-		val: 65,
+		val: 200,
 	},
 	satPower: {
 		id: 'sat-power',
-		val: 1,
+		val: 1.2,
 	},
+	satMin: {
+		id: 'sat-min',
+		val: 0.3,
+	},	
 	lumFactor: {
 		id: 'lum-factor',
-		val: 80,
+		val: 200,
 	},
 	lumPower: {
 		id: 'lum-power',
-		val: 1,
+		val: 1.2,
 	},
+	lumMin: {
+		id: 'lum-min',
+		val: 0.3,
+	},
+
 	shading: {
 		id: 'shading',
 		val: 0.75,
@@ -161,7 +170,7 @@ export let vals: Dict<SliderVal> = {
 	lens: {
 		id: 'lens',
 		val: 2,
-	}
+	},
 }
 
 let sliceCount = 360;
@@ -178,19 +187,24 @@ function highlightCorners( hit: ShapeHit, prevHit: ShapeHit, nextHit: ShapeHit, 
 	} else {
 		let comps = [prevHit, nextHit];
 
-		// expected distance to next/prev hit, assuming it is on the same plane as the previous one
+		// expected distance to next/prev hit, assuming it is on the same plane as the current one
 		let sin = Math.sqrt( 1 - hit.incidentDot ** 2 );
-		let dMax = hit.normalDist / ( -hit.incidentDot * cosSl - sin * sinSl ); 
-		//let dMin = hit.dist * hit.normalDist / ( hit.normalDist * cosSl + x * sinSl ); 
+		let dMax = hit.normalDist / ( -hit.incidentDot * cosSl - sin * sinSl );
+		let dMin = hit.normalDist / ( -hit.incidentDot * cosSl + sin * sinSl );
 
 		for ( let comp of comps ) {
 
-			// corner of a shape against some background (one edge visible)
+			// exterior corner of a shape against some background shape
 			if ( hit.shape != comp.shape && comp.dist > dMax + 1 ) {
 				score = 1.0;
 			}
 
-			// corner of a shape between (two edges visible)
+			// interior corner or flat made by two shapes
+			if ( hit.shape != comp.shape && hit.normal.dot( comp.normal ) > -0.1 ) {
+				score = 1.0;
+			}
+
+			// corner of a single shape between two faces
 			if ( hit.shape == comp.shape && hit.normal.dot( comp.normal ) < 0.1 ) {
 				score = 1.0;
 			}
@@ -269,6 +283,7 @@ export function renderFromEye( context: CanvasRenderingContext2D,
 	let sliceInfos = getHits( shapes, origin, slices );
 	let blended;
 	let maxDist = -1;
+	let lumFactor, satFactor: number;
 
 	if ( Debug.flags.AUTO_BRIGHT_ADJUST ) {
 		for ( let i = 0; i < sliceInfos.length; i++ ) {
@@ -326,12 +341,20 @@ export function renderFromEye( context: CanvasRenderingContext2D,
 		blended = { r: 0, g: 0, b: 0, a: 1.0 }; // background color
 
 		for ( let j = opaqueIndex; j >= 0; j-- ) {
-			hits[j].material.sat *= Math.min( vals.satFactor.val / ( hits[j].dist ** vals.satPower.val ), 1.0 ); 
+			//satFactor = Math.min( vals.satFactor.val / ( hits[j].dist ** vals.satPower.val ), 1.0 );
+			satFactor = Math.min( ( vals.satFactor.val - hits[j].dist ) / ( vals.satFactor.val - 10 ), 1.0 );
+			satFactor = Math.max( satFactor, vals.satMin.val );
 
+			hits[j].material.sat *= Math.max( hits[j].material.emit, satFactor );
+			
 			if ( Debug.flags.AUTO_BRIGHT_ADJUST ) {
 				hits[j].material.lum *= Math.min( ( maxDist / 4 ) / ( hits[j].dist ** vals.lumPower.val ), 1.0 );
 			} else {
-				hits[j].material.lum *= Math.min( vals.lumFactor.val / ( hits[j].dist ** vals.lumPower.val ), 1.0 );
+				//lumFactor = Math.min( vals.lumFactor.val / ( hits[j].dist ** vals.lumPower.val ), 1.0 );
+				lumFactor = Math.min( ( vals.lumFactor.val - hits[j].dist ) / ( vals.lumFactor.val - 10 ), 1.0 );
+				lumFactor = Math.max( lumFactor, vals.lumMin.val );
+
+				hits[j].material.lum *= Math.max( hits[j].material.emit, lumFactor );
 			}
 
 			let color = hits[j].material.getRGBA();

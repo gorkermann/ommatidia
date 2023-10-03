@@ -16,7 +16,7 @@ import { Coin } from './Coin.js'
 import { Explosion } from './Explosion.js'
 import { Level } from './Level.js'
 import { Player } from './Player.js'
-import { Orbiter, Blocker } from './TutorialEntity.js'
+import { Orbiter, Blocker, Elevator, Tumbler, Door} from './TutorialEntity.js'
 import { Attack, RollBoss, Gun, Barrier, Balloon, Roller } from './RollBoss.js'
 import { LockBoss, LockBossBarrier, LockWall, LockBulb,
 		 LockJaw, LockBarrage, LockRing } from './LockBoss.js'
@@ -72,6 +72,9 @@ classMap['Roller'] = Roller;
 classMap['Attack'] = Attack;
 classMap['Orbiter'] = Orbiter;
 classMap['Blocker'] = Blocker;
+classMap['Elevator'] = Elevator;
+classMap['Tumbler'] = Tumbler;
+classMap['Door'] = Door;
 
 // list of constructor functions
 // (need to access static props, not sure how to define this as a type in TS, so type is vague)

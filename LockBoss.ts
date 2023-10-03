@@ -146,7 +146,10 @@ export class LockWall extends CenteredEntity {
 		this.material.alpha = this.alpha;
 		this.altMaterial.alpha = this.alpha;
 
-		// at least 2 away from either edge, plus 0 to (subW - 4)
+		// index=0 is left wall
+		// index=subW is 1 away from right wall
+		
+		// opening should be at least 2 away from either edge
 		let openingIndex = 2 + Math.floor( Math.random() * ( subW - 3 ) );
 
 		let leftW = openingIndex * wallUnit;

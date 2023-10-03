@@ -3,6 +3,7 @@ import { Contact } from "./lib/juego/Contact.js"
 import { Shape } from "./lib/juego/Shape.js"
 import { Vec2 } from "./lib/juego/Vec2.js"
 
+import { Coin } from './Coin.js'
 import { Bullet, Gutter } from './Bullet.js'
 
 export class Player extends Entity {
@@ -30,6 +31,9 @@ export class Player extends Entity {
 			this.health -= 1;
 
 			this.causeOfDeath = 'You have been incinerated by the GUTTER';
+			
+		} else if ( otherEntity instanceof Coin ) {
+			otherEntity.removeThis = true;
 		}
 	}
 

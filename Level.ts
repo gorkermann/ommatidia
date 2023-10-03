@@ -27,9 +27,9 @@ import { Player } from './Player.js'
 import { constructors, nameMap } from './objDef.js'
 import { renderFromEye, renderRays, whiteText, vals } from './render.js'
 
-import { Orbiter, Blocker } from './TutorialEntity.js'
+import { Orbiter, Blocker, Elevator, Tumbler, Door } from './TutorialEntity.js'
 import { RollBoss, Barrier } from './RollBoss.js' 
-import { LockBoss } from './LockBoss.js'
+import { LockBoss, LockWall } from './LockBoss.js'
 
 import * as Debug from './Debug.js'
 
@@ -222,6 +222,16 @@ export class Level extends Scene {
 					block.material = new Material( this.data.hue, 1.0, 0.3 );
 					block.altMaterial = new Material( this.data.hue, 1.0, 0.5 );
 					gridEnt.addSub( block );
+
+				} else if ( index == 2 ) {
+					let block = new CenteredEntity(
+									new Vec2( c * this.grid.tileWidth, r * this.grid.tileHeight ),
+									this.grid.tileWidth,
+									this.grid.tileHeight );
+
+					block.material = new Material( this.data.hue + 30, 1.0, 0.3 );
+					block.altMaterial = new Material( this.data.hue + 30, 1.0, 0.5 );
+					gridEnt.addSub( block );
 				}
 			}
 		}
@@ -320,7 +330,24 @@ export class Level extends Scene {
 					this.em.insert( entity );
 
 				} else if ( index == 11 ) {
-					let entity = new Blocker( pos.copy() );
+					let entity = new LockWall( pos.copy(), 0 );
+					entity.collisionGroup = COL.LEVEL;
+					this.em.insert( entity );
+
+				} else if ( index == 12 ) {
+					let entity = new Blocker( pos.copy() ); 
+					this.em.insert( entity );
+
+				} else if ( index == 13 ) {
+					let entity = new Tumbler( pos.copy() );
+					this.em.insert( entity );
+
+				} else if ( index == 14 ) {
+					let entity = new Door( pos.copy(), this.data.width * this.grid.tileWidth, 3 * this.grid.tileWidth );
+					this.em.insert( entity );
+
+				} else if ( index == 15 ) {
+					let entity = new Elevator( pos.copy(), this.grid.tileWidth );
 					this.em.insert( entity );
 				}
 			}
@@ -685,6 +712,12 @@ export class Level extends Scene {
 			}
 		}
 
+		for ( let entity of this.em.entities ) {
+			if ( entity.isPliant ) {
+				solveCollisionsFor( entity, this.em.entities, COL.LEVEL, frameStep );
+			}
+		}
+
 		let result = solveCollisionsFor( this.player, this.em.entities, COL.ENEMY_BODY | COL.LEVEL, frameStep );
 
 		this.em.update( frameStep, elapsed );
@@ -698,22 +731,6 @@ export class Level extends Scene {
 		}
 
 		this.checkForSuccess();
-
-		for ( let entity of this.em.entities ) {
-			if ( entity instanceof Coin ) {
-				if ( entity.overlaps( this.player, 0.0 ).length > 0 ) {
-					entity.removeThis = true;
-				}
-			}
-
-			if ( entity != this.player ) {
-				entity.drawWireframe = false;
-
-				if ( entity.overlaps( this.player, 0.0 ).length > 0 ) {
-					entity.drawWireframe = true;
-				}
-			}
-		}
 
 		let oldCoinCount = this.em.entities.filter( x => x instanceof Coin ).length;
 
@@ -1173,7 +1190,7 @@ export class Level extends Scene {
 			}
 		}
 
-		if ( this.updateQueue.length > 0 ) {
+		/*if ( this.updateQueue.length > 0 ) {
 			context.fillStyle = 'black';
 			context.fillRect( 400 - 36,
 				   			  400 - 16,
@@ -1181,7 +1198,7 @@ export class Level extends Scene {
 			context.fillStyle = 'white';
 			context.fillText( 'Z: skip', 400 - 35,
 				   			  400 - 6 );
-		}		
+		}*/	
 	}
 
 	drawPauseOverlay( context: CanvasRenderingContext2D ) {

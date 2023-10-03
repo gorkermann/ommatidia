@@ -59,6 +59,9 @@ export class Boss extends CenteredEntity {
 
 	constructor( pos: Vec2, width: number, height: number ) {
 		super( pos, width, height );
+
+		this.coreMaterial.emit = 0.8;
+		this.whiteMaterial.emit = 0.8;
 	}
 
 	watch( target: Vec2 ) {
