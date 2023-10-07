@@ -10,7 +10,7 @@ import { Sound } from './lib/juego/Sound.js'
 import { TileArray } from './lib/juego/TileArray.js'
 import { Vec2 } from './lib/juego/Vec2.js'
 
-import { Bullet, Gutter } from './Bullet.js'
+import { Bullet, PlayerBullet, Gutter } from './Bullet.js'
 import { CenteredEntity } from './CenteredEntity.js'
 import { Coin } from './Coin.js'
 import { Explosion } from './Explosion.js'
@@ -75,6 +75,7 @@ classMap['Blocker'] = Blocker;
 classMap['Elevator'] = Elevator;
 classMap['Tumbler'] = Tumbler;
 classMap['Door'] = Door;
+classMap['PlayerBullet'] = PlayerBullet;
 
 // list of constructor functions
 // (need to access static props, not sure how to define this as a type in TS, so type is vague)

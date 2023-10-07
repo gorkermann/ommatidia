@@ -19,7 +19,7 @@ import { Vec2 } from './lib/juego/Vec2.js'
 import * as tp from './lib/toastpoint.js'
 
 import { Boss } from './Boss.js'
-import { Bullet } from './Bullet.js'
+import { Bullet, PlayerBullet } from './Bullet.js'
 import { CenteredEntity, RandomPoly } from './CenteredEntity.js'
 import { Coin } from './Coin.js'
 import { COL, MILLIS_PER_FRAME, REWIND_SECS } from './collisionGroup.js'
@@ -178,10 +178,10 @@ export class Level extends Scene {
 		let fields = Object.keys( this );
 
 		// never save these fields (which are lists of other fields)
-		let exclude = ['editFields', 'saveFields', 'discardFields', 'entities'];
+		let exclude = ['editFields', 'saveFields', 'discardFields']
 
 		// fields for for serialization only (exclude the old value if left in by mistake)
-		exclude = exclude.concat( ['__entities'] );
+		exclude = exclude.concat( ['entities', '__entities'] );
 
 		exclude = exclude.concat( this.discardFields );
 		fields = fields.filter( x => !exclude.includes( x ) );
@@ -220,7 +220,7 @@ export class Level extends Scene {
 									this.grid.tileHeight );
 
 					block.material = new Material( this.data.hue, 1.0, 0.3 );
-					block.altMaterial = new Material( this.data.hue, 1.0, 0.5 );
+					if ( Debug.flags.LEVEL_ALT_MAT ) block.altMaterial = new Material( this.data.hue, 1.0, 0.5 );
 					gridEnt.addSub( block );
 
 				} else if ( index == 2 ) {
@@ -230,7 +230,7 @@ export class Level extends Scene {
 									this.grid.tileHeight );
 
 					block.material = new Material( this.data.hue + 30, 1.0, 0.3 );
-					block.altMaterial = new Material( this.data.hue + 30, 1.0, 0.5 );
+					if ( Debug.flags.LEVEL_ALT_MAT ) block.altMaterial = new Material( this.data.hue + 30, 1.0, 0.5 );
 					gridEnt.addSub( block );
 				}
 			}
@@ -330,12 +330,12 @@ export class Level extends Scene {
 					this.em.insert( entity );
 
 				} else if ( index == 11 ) {
-					let entity = new LockWall( pos.copy(), 0 );
+					let entity = new LockWall( pos.plus( new Vec2( this.grid.tileWidth / 2, 0 ) ), 0 );
 					entity.collisionGroup = COL.LEVEL;
 					this.em.insert( entity );
 
 				} else if ( index == 12 ) {
-					let entity = new Blocker( pos.copy() ); 
+					let entity = new Blocker( pos.copy() );
 					this.em.insert( entity );
 
 				} else if ( index == 13 ) {
@@ -360,86 +360,6 @@ export class Level extends Scene {
 			'or': { value: 120, expireOnReach: true } } ) );
 		this.anim.pushFrame( new AnimFrame( { 
 			'ir': { value: 100, expireOnReach: true } } ) );
-
-		let coins = this.em.entities.filter( x => x instanceof Coin );
-
-		for (let c = 0; c <= this.grid.hTiles; c++ ) {
-			for (let r = 0; r <= this.grid.vTiles; r++ ) {
-				let index = this.grid.spawnLayer.get( r, c );
-
-				pos.setValues( c * this.grid.tileWidth, r * this.grid.tileHeight );
-
-				if ( index == -1 ) {
-					let player = this.player;
-					let coin = coins[0];
-
-					let region = new Region( pos.copy(),
-											 this.grid.tileWidth * 2, this.grid.tileHeight );
-					if ( this.name == 'level2' ) {
-						region.update = function( this: Level) {
-							if ( region.overlaps( player, 0.0 ).length > 0 ) {
-								this.queueText( coin, 'You found the pit! Go ahead, try again.' );
-							
-								region.removeThis = true;
-							}
-						}.bind( this );
-
-						this.em.insert( region );
-					}
-				}
-			}
-		}
-
-		if ( this.name == 'level2' && this.tryCount == 1 ) {
-			this.queueText( coins[0], 'Check it out!' );
-			this.queueText( this.player, 'Check what out?' );
-			this.queueText( coins[0], 'It\'s a bottomless pit!' );
-			this.queueText( this.player, 'Oh. I\'ve seen a lot of bottomless pits in my time. You just jump over.' );
-			this.queueText( coins[0], 'Fine. You want something you\'ve never seen before?' );
-			this.queueText( this.player, 'Please.' );
-			this.queueText( coins[0], 'Okay, here goes.' );
-			this.queueSliceCount( 0 );
-			this.updateQueue.push( new QueueFunc( function(): boolean {
-				Debug.setFlags( { 'DRAW_NORMAL': false } );
-
-				return true;
-			}, { runOnClear: true } ) );
-			this.queueText( this.player, 'Agh!' );
-			this.queueText( this.player, 'I\'m blind! And invisible!' );
-			this.queueText( this.player, 'What happened? Where am I?' );
-			this.queueSliceCount( 1 );
-			this.queueText( coins[0], 'You haven\'t moved. The pit\'s still there, too.' );
-			this.queueText( this.player, 'I can\'t see the pit either. All I see is a big V.' );
-			this.queueText( coins[0], 'I\'m sure you\'ll find it.' );
-			this.queueText( this.player, 'At the bottom of the V?' );
-			this.queueText( coins[0], 'No, you\'re at the bottom of the V.' );
-			this.queueText( this.player, 'That doesn\'t make any sense.' );
-			this.queueText( coins[0], 'Now, don\'t go having a crisis just because you can\'t see your own body.' );
-			this.queueText( coins[0], 'Perhaps I can clarify.' );
-			this.queueSliceCount( 2 );
-			this.queueText( coins[0], 'How\'s that?' );
-			this.queueText( this.player, 'The V is now a U. Great. I remain disembodied.' );
-			this.queueSliceCount( 3 );
-			this.queueText( coins[0], 'All you\'ve done is changed perspective.' );
-			this.queueSliceCount( 4 );
-			this.queueText( this.player, 'Yeah, from a bird\'s-eye view to a rat\'s-eye view...' );
-			this.queueSliceCount( 5 );
-			this.queueText( this.player, 'How do I get back to how it looked before?' );
-			this.queueSliceCount( 6 );
-			this.queueText( coins[0], 'Wouldn\'t that be...boring? Ha ha ha.' )
-			this.queueSliceCount( 7 );
-			this.queueText( coins[0], 'If you must, you could start with finding all the other coins.' );
-			this.queueSliceCount( 45 );
-			this.queueText( coins[0], 'There\'s one now. Have at it!' );
-			this.queueText( coins[0], '...and don\'t forget about the pit!' );
-
-		} else if ( this.name == 'level2' && this.tryCount > 1 ) {
-			Debug.setFlags( { 'DRAW_NORMAL': false } );
-		}
-
-		if ( this.name == 'level3' && this.tryCount == 1 ) {
-			this.queueText( coins[0], 'You\'re on your own now. Good luck!' );
-		}
 
 		return new Promise( function(resolve, reject) {
 			resolve(0);
@@ -504,26 +424,6 @@ export class Level extends Scene {
 				this.defaultUpdate( frameStep, elapsed );
 			}
 		}
-
-		// some animation is playing
-		/*if ( this.updateQueue.length > 0 ) {
-			let finished = this.updateQueue[0].func();
-
-			if ( finished ) {
-				this.updateQueue.shift();
-			}
-
-			if ( Keyboard.keyHit( KeyCode.Z ) ) {
-				for ( let entry of this.updateQueue ) {
-					if ( entry.runOnClear ) {
-						while( !entry.func() ) {
-
-						}
-					}
-				}
-				this.updateQueue = [];
-			}
-		}*/
 	}
 
 	updateSounds() {
@@ -630,11 +530,10 @@ export class Level extends Scene {
 			this.player.vel.rotate( this.player.angle );
 
 			if ( Keyboard.getHits( KeyCode.X ) > 0 ) {
-				let bullet = new Bullet( 
-						this.player.pos.copy().plus( new Vec2( 0, -this.player.height ) ),
-						new Vec2( 0, -10 ).rotate( this.player.angle ) );
-				
-				bullet.material = playerBulletMaterial.copy();
+				let bullet = new PlayerBullet( 
+						this.player.pos.copy().plus( new Vec2( 0, 0 ) ),
+						new Vec2( 0, -10 ).rotate( this.player.angle ),
+						playerBulletMaterial.copy() );
 
 				this.player.spawnEntity( bullet );
 
@@ -653,6 +552,9 @@ export class Level extends Scene {
 				this.player.angleVel = 0.1;
 			}
 		}
+
+		// insert player bullets
+		this.em.insertSpawned();
 
 		// debug {
 			let canvas = ( window as any ).canvas;
@@ -720,7 +622,9 @@ export class Level extends Scene {
 
 		let result = solveCollisionsFor( this.player, this.em.entities, COL.ENEMY_BODY | COL.LEVEL, frameStep );
 
-		this.em.update( frameStep, elapsed );
+		this.em.advance( frameStep );
+		this.em.animate( frameStep, elapsed );
+		this.em.update();
 
 		if ( this.player.health <= 0 || result.crushed ) {
 			if ( result.crushed ) {
@@ -732,32 +636,8 @@ export class Level extends Scene {
 
 		this.checkForSuccess();
 
-		let oldCoinCount = this.em.entities.filter( x => x instanceof Coin ).length;
-
 		this.em.cull();
 		this.em.insertSpawned();
-
-		let coins = this.em.entities.filter( x => x instanceof Coin );
-
-		if ( coins.length == 1 && oldCoinCount > coins.length && this.name == 'level1' ) {
-			this.queueText( this.player, 'Is this all there is to it?' );
-			this.queueText( coins[0], 'This is just the first level. Are you bored already?' );
-			this.queueText( this.player, 'Whoa! Someone else is here. And yeah, I am kind of bored. Who are you?' );
-			this.queueText( coins[0], 'I\'m the last coin in this level. Touch me and I\'ll show you something really cool.' );
-		}
-
-		if ( coins.length == 1 && oldCoinCount > coins.length && this.name == 'level8' ) {
-			this.queueText( coins[0], 'Wow, you\'re almost there! I\'m so proud of you. To turn yourself back, press the D key.' );
-			this.updateQueue.push( new QueueFunc( function(): boolean {
-				Debug.setFlags( { 'DRAW_NORMAL': false } );
-
-				return true;
-			}, { runOnClear: true } ) );
-		}
-
-		if ( coins.length == 0 && oldCoinCount > coins.length ) {
-			document.dispatchEvent( new CustomEvent( 'complete', {} ) );
-		}
 
 		let boundary = 400;
 
@@ -864,86 +744,6 @@ export class Level extends Scene {
 
 	updateCursor( pos: Vec2 ) {
 		this.cursorPos.set( pos );
-	}
-
-	/* Events */
-
-	openTextBoxAnim(): boolean {
-		this.textBox.height += 10;
-
-		if ( this.textBox.height >= this.textBoxHeight ||
-			 Keyboard.keyHeld( KeyCode.RIGHT ) ) {
-			this.textBox.height = this.textBoxHeight;
-
-			return true;
-		} else {
-			return false;
-		}
-	}
-
-	displayTextUpdate(): boolean {
-		if ( this.textIndex < this.text.length ) {
-			this.textIndex += 1;
-		}
-
-		if ( this.textIndex >= this.text.length ) {
-			if ( Keyboard.keyHit( KeyCode.RIGHT ) ) {
-				return true;	
-			} else {
-				return false;
-			}
-		} else {
-			if ( Keyboard.keyHeld( KeyCode.RIGHT ) ) {
-				this.textIndex = this.text.length;
-			}
-
-			return false;
-		}		
-	}
-
-	closeTextBoxAnim(): boolean {
-		this.textBox.height -= 10;
-
-		if ( this.textBox.height <= 0 ||
-			 Keyboard.keyHeld( KeyCode.RIGHT ) ) {
-			this.textBox.height = 0;
-
-			return true;
-		} else {
-			return false;
-		}
-	}
-
-	queueText( speaker: Entity, text: string ) {
-		this.updateQueue.push( new QueueFunc( function( this: Level ): boolean {
-			this.textBox.height = 0;
-
-			this.speaker = speaker;
-			this.text = text;
-
-			this.textIndex = 0;
-
-			return true;
-		}.bind( this ) ) );
-		this.updateQueue.push( new QueueFunc( this.openTextBoxAnim.bind( this ) ) );
-		this.updateQueue.push( new QueueFunc( this.displayTextUpdate.bind( this ) ) );
-		this.updateQueue.push( new QueueFunc( function( this: Level ): boolean {
-			this.speaker = null;
-			this.text = '';
-
-			return true;
-		}.bind( this ), { runOnClear: true } ) );
-		this.updateQueue.push( new QueueFunc( 
-			this.closeTextBoxAnim.bind( this ),
-			{ runOnClear: true } ) );
-	}
-
-	queueSliceCount( count: number ) {
-		this.updateQueue.push( new QueueFunc( function( this: Level ): boolean {
-			this.sliceCount = count;
-
-			return true;
-		}.bind( this ) ) );
 	}
 
 	/* Drawing */

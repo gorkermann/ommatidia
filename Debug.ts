@@ -14,6 +14,7 @@ export let flags: Dict<boolean> = {
 	FORCE_BOSS_ATK: false,
 	HIGHLIGHT_CORNERS: false,
 	AUTO_BRIGHT_ADJUST: true,
+	LEVEL_ALT_MAT: true,
 }
 
 type DebugField = {
