@@ -87,22 +87,90 @@ export class LockBossBarrier extends CenteredEntity {
 export class LockBulb extends CenteredEntity {
 	flashOffset: number = Math.random();
 
-	constructor( pos: Vec2=new Vec2() ) {
-		super( pos, wallUnit * 0.8, wallUnit * 0.8 );
+	onMaterial: Material;
 
-		this.material = new Material( 45, 0.0, 0.5 );
-		this.altMaterial = new Material( 45, 1.0, 0.5 );
+	pushed: boolean = false;
+
+	openAngle: number = 0;
+
+	/* property overrides */
+
+	transformOrder = TransformOrder.ROTATE_THEN_TRANSLATE;
+
+	constructor( pos: Vec2=new Vec2() ) {
+		super( pos, wallUnit * 0.6, wallUnit * 0.6 );
+
+		this.material = new Material( 0, 0.0, 0.5 );
+		this.onMaterial = new Material( 30, 0.6, 0.5 );
+		this.onMaterial.emit = 0.0;
+
+		this.anim = new Anim( {
+			'openAngle': new AnimField( this, 'openAngle', 1 ),
+			'angle': new PhysField( this, 'angle', 'angleVel', 0.2 ),
+			'hue': new AnimField( this.onMaterial, 'hue', 6 ),
+			'sat': new AnimField( this.onMaterial, 'sat', 0.1 ),
+			'alpha': new AnimField( this.onMaterial, 'alpha', 0.1 ),
+		},
+		new AnimFrame( {
+
+		} ) );		
 	}
 
-	getOwnShapes(): Array<Shape> {
+	isDone(): boolean {
+		return this.pushed;
+	}
+
+	push() {
+		if ( this.pushed ) return;
+
+		/*this.anim.pushFrame( new AnimFrame( {
+			'alpha': { value: 0.0, expireOnReach: true, setDefault: true }
+		} ) );
+		this.anim.pushFrame( new AnimFrame( {
+			'angle': { value: this.angle + Math.PI, expireOnReach: true, setDefault: true }
+		} ) );*/
+		this.anim.pushFrame( new AnimFrame( {
+			'alpha': { value: 0.0, expireOnReach: true, setDefault: true }
+		} ) );		
+		this.anim.pushFrame( new AnimFrame( {
+			'hue': { value: 90, expireOnReach: true, setDefault: true },
+			//'sat': { value: 1.0, expireOnReach: true, setDefault: true },
+			'openAngle': { value: this.width / 2, expireOnReach: true, setDefault: true },
+		} ) );
+
+		this.pushed = true;
+	}
+
+	/*getOwnShapes(): Array<Shape> {
 		let shape = Shape.makeCircle( new Vec2(), this.width, 6, 0 );
+		//let shape = Shape.makeRectangle( new Vec2( -this.width / 2, -this.height / 2 ), this.width, this.height );
+
+		//shape.points[0].x *= 0.75;
+		//shape.points[3].x *= 0.75;
+
+		for ( let point of shape.points ) {
+		//	point.y *= ( 1 - this.compression );
+		}
 
 		shape.material = this.material;
 		shape.parent = this;
 
-		shape.edges[1].material = this.altMaterial;
+		shape.edges[1].material = this.onMaterial;
+		//shape.edges[2].material = this.altMaterial;
 
 		return [shape];
+	}*/
+	
+	getOwnShapes(): Array<Shape> {
+		let shape = Shape.makeRectangle( new Vec2( -this.width / 2, -1 ), this.width, 2 );
+		shape.parent = this;
+		shape.material = this.material;
+
+		let shape2 = Shape.makeRectangle( new Vec2( -this.openAngle, -this.width / 4 ), this.width / 2, this.width / 2 );
+		shape2.parent = this;
+		shape2.material = this.onMaterial;
+
+		return [shape, shape2]
 	}
 
 	shade() {
@@ -121,15 +189,36 @@ let LockWallState = {
 	ENTERING: 2,
 }
 
-export class LockWall extends CenteredEntity {
+export class LockWave extends CenteredEntity {
+	alpha: number = 0.0;
+
+	constructor( pos: Vec2=new Vec2(), width: number=0, height: number=0 ) {
+		super( pos, width, height );
+	}
+
+	update() {
+		this.material.alpha = this.alpha;
+		this.altMaterial.alpha = this.alpha;
+
+		if ( this.alpha <= 0 ) {
+			this.destructor();
+		}
+	}
+
+	hitWith( otherEntity: Entity, contact: Contact ) {
+		if ( otherEntity instanceof Bullet ) {
+			otherEntity.removeThis = true;
+		}
+	}	
+}
+
+export class LockWall extends LockWave {
 	left: CenteredEntity;
 	right: CenteredEntity;
 
-	anim: Anim;
-
-	alpha: number = 0.0;
-
 	state: number = LockWallState.DEFAULT;
+
+	isOpen: boolean = false;
 
 	/* property overrides */
 
@@ -206,34 +295,32 @@ export class LockWall extends CenteredEntity {
 	}
 
 	getBulbCount(): number {
-		return this.left._subs.length + this.right._subs.length;
+		let count = 0;
+
+		for ( let sub of this.left.getSubs() ) {
+			if ( sub instanceof LockBulb && !sub.isDone() ) count++;
+		}
+
+		for ( let sub of this.right.getSubs() ) {
+			if ( sub instanceof LockBulb && !sub.isDone() ) count++;
+		}
+
+		return count;
 	}
 
-	update( step: number, elapsed: number ) {
-		this.advance( step );
-
-		this.anim.update( step, elapsed );
-
-		let count = this.getBulbCount();
-
-		this.left.cull();
-		this.right.cull();
-
-		if ( count > 0 && this.getBulbCount() == 0 ) {
+	update() {
+		if ( this.getBulbCount() == 0 && !this.isOpen ) {
 			let offset = new Vec2( wallUnit, 0 );
 
 			this.anim.pushFrame( new AnimFrame( {
 				'leftPos': { value: this.left.pos.minus( offset ), expireOnReach: true, setDefault: true },
 				'rightPos': { value: this.right.pos.plus( offset ), expireOnReach: true, setDefault: true }
 			} ) );
+
+			this.isOpen = true;
 		}
 
-		this.material.alpha = this.alpha;
-		this.altMaterial.alpha = this.alpha;
-
-		if ( this.alpha <= 0 ) {
-			this.destructor();
-		}
+		super.update();
 	}
 
 	hitWith( otherEntity: Entity, contact: Contact ) {
@@ -241,19 +328,15 @@ export class LockWall extends CenteredEntity {
 			otherEntity.removeThis = true;
 
 			if ( contact.sub instanceof LockBulb ) {
-				contact.sub.removeThis = true;
+				contact.sub.push();
 			}
 		}
 	}
 }
 
-export class LockJaw extends CenteredEntity {
+export class LockJaw extends LockWave {
 	top: CenteredEntity;
 	bottom: CenteredEntity;
-
-	anim: Anim;
-
-	alpha: number = 0.0;
 
 	state: number = LockWallState.DEFAULT;
 
@@ -335,9 +418,7 @@ export class LockJaw extends CenteredEntity {
 		} ) );
 	}
 
-	update( step: number, elapsed: number ) {
-		this.advance( step );
-
+	animate( step: number, elapsed: number ) {
 		if ( this.anim.isDone() ) {
 			this.anim.pushFrame( new AnimFrame( {
 				'bottomPos': { 
@@ -354,35 +435,20 @@ export class LockJaw extends CenteredEntity {
 			} ) );
 		}
 
-		this.anim.update( step, elapsed );
-
-		this.material.alpha = this.alpha;
-		this.altMaterial.alpha = this.alpha;
-
-		if ( this.alpha <= 0 ) {
-			this.destructor();
-		}
-	}
-
-	hitWith( otherEntity: Entity, contact: Contact ) {
-		if ( otherEntity instanceof Bullet ) {
-			otherEntity.removeThis = true;
-		}
+		super.animate( step, elapsed );
 	}
 }
 
-export class LockRing extends CenteredEntity {
+export class LockRing extends LockWave {
 	moons: Array<CenteredEntity> = [];
 	//wall: CenteredEntity;
-
-	anim: Anim;
-
-	alpha: number = 0.0;
 
 	state: number = LockWallState.DEFAULT;
 
 	//speed: number = 2;
 	angleSpeed: number = 0.05;
+
+	isExpanded: boolean = false;
 
 	radiusVec = new Vec2( ( fieldWidth - wallUnit ) / 2, 0 );
 	radiusVel = new Vec2();
@@ -475,31 +541,22 @@ export class LockRing extends CenteredEntity {
 		let result = 0;
 
 		for ( let moon of this.moons ) {
-			result += moon._subs.length;
+			result += moon._subs.filter( x => x instanceof LockBulb && !x.isDone() ).length;
 		}
 
 		return result;
 	}
 
-	update( step: number, elapsed: number ) {
-		//this.wall.angleVel = -this.angleVel;
-		for ( let moon of this.moons ) {
-		//	moon.angleVel = -this.angleVel;
-		}
+	advance( step: number ) {
+		super.advance( step );
 
-		this.advance( step );
 		this.radiusVec.add( this.radiusVel );
+	}
 
-		this.anim.update( step, elapsed );
-
-		let count = this.getBulbCount();
-
-		for ( let moon of this.moons ) {
-			moon.cull();
-		}
+	update() {
 
 		// when all bulbs are gone, expand then fade
-		if ( count > 0 && this.getBulbCount() == 0 ) {
+		if ( this.getBulbCount() == 0 && !this.isExpanded ) {
 			this.anim.pushFrame( new AnimFrame( {
 				'alpha': { value: 0, expireOnReach: true }
 			} ) );
@@ -509,14 +566,11 @@ export class LockRing extends CenteredEntity {
 	 						   setDefault: true },
 	 			'angleVel': { value: 0, setDefault: true }
 	 		} ) );
+
+	 		this.isExpanded = true;
 		}
 
-		this.material.alpha = this.alpha;
-		this.altMaterial.alpha = this.alpha;
-
-		if ( this.alpha <= 0 ) {
-			this.destructor();
-		}
+		super.update();
 	}
 
 	hitWith( otherEntity: Entity, contact: Contact ) {
@@ -524,18 +578,14 @@ export class LockRing extends CenteredEntity {
 			otherEntity.removeThis = true;
 
 			if ( contact.sub instanceof LockBulb ) {
-				contact.sub.removeThis = true;
+				contact.sub.push();
 			}
 		}
 	}
 }
 
-export class LockBarrage extends CenteredEntity {
+export class LockBarrage extends LockWave {
 	bits: Array<CenteredEntity> = [];
-
-	anim: Anim;
-
-	alpha: number = 0.0;
 
 	state: number = LockWallState.DEFAULT;
 
@@ -606,25 +656,6 @@ export class LockBarrage extends CenteredEntity {
 			'alpha': { value: 1.0, setDefault: true, expireOnReach: true },
 		} ) );
 	}
-
-	update( step: number, elapsed: number ) {
-		this.advance( step );
-
-		this.anim.update( step, elapsed );
-
-		this.material.alpha = this.alpha;
-		this.altMaterial.alpha = this.alpha;
-
-		if ( this.alpha <= 0 ) {
-			this.destructor();
-		}
-	}
-
-	hitWith( otherEntity: Entity, contact: Contact ) {
-		if ( otherEntity instanceof Bullet ) {
-			otherEntity.removeThis = true;
-		}
-	} 
 }
 
 // LockSandwich
@@ -688,6 +719,8 @@ export class LockBoss extends Boss {
 	barrageSpeedRise: number = 4;
 	barrageSpeedMax: number = 20;
 
+	anim = new Anim( {}, new AnimFrame( {} ) );
+
 	/* property overrides */
 
 	flavorName = 'LOCK CORE';
@@ -698,10 +731,6 @@ export class LockBoss extends Boss {
 
 	collisionGroup = COL.ENEMY_BODY;
 	collisionMask = COL.PLAYER_BULLET;
-
-	counts: Dict<Chrono> = { ...this.counts,
-		'createWave': new Chrono( 3000, 1000 ),
-	};
 
 	constructor( pos: Vec2=new Vec2( 0, 0 ), spawn: boolean=false ) {
 		super( pos, 40, 40 );
@@ -730,82 +759,28 @@ export class LockBoss extends Boss {
 		this.messages.push( 'Above, the LOCK CORE looks on.\n' );
 		this.messages.push( 'Beware, traveler!\n' );
 		this.messages.push( 'Many have perished before its diabolical doors!\n' );
+
+		this.anim.pushFrame( new AnimFrame( {},
+			[ { caller: this, funcName: 'createWave' } ] ), { delay: 3000 } ); 
 	}
 
-	defaultLogic( step: number, elapsed: number ) {
-		// restart wave counter if there are no waves
-		if ( !this.counts['createWave'].active && this.waves.length == 0 ) {
-			this.counts['createWave'].active = true;
+	animate( step: number, elapsed: number ) {
+		super.animate( step, elapsed ); // eye animations
+
+		this.anim.update( step, elapsed );
+	}
+
+	defaultLogic() {
+		if ( this.anim.isDone() && this.waves.length == 0 ) {
+			this.anim.pushFrame( new AnimFrame( {},
+				[ { caller: this, funcName: 'createWave' } ] ), { delay: 1000 } ); 
+
 			this.eyeAnim.clear( { withoutTag: 'exit' } );
-			this.counts['attention'].count = 0;
+
+			this.doLook();
 		}
 
-		// create a wave when the wave counter trips
-		if ( this.counts['createWave'].count <= 0 ) {
-			let type: WaveType;
-			let attackName: string;
-
-			if ( Debug.flags.FORCE_BOSS_ATK ) {
-				let names = Debug.fields.LOCK_ATK.value.split( ',' );
-				let debugAttacks = waveTypes.filter( x => names.includes( x ) );
-
-				if ( debugAttacks.length > 0 ) {
-					let index = Math.floor( Math.random() * debugAttacks.length )
-					type = debugAttacks[index];
-
-				} else {
-					console.warn( 'LockBoss.defaultLogic: no valid attacks from debug' );
-				}
-			
-			} else {
-				if ( this.waveQueue.length > 0 ) type = this.waveQueue.shift();
-				else type = waveTypes[Math.floor( Math.random() * waveTypes.length )];
-			}
-			
-			let pos = this.pos.copy().plus( new Vec2( 0, this.height / 2 + wallUnit / 2 ) );
-
-			if ( type == 'wall' ) {
-				let wall = new LockWall( pos, this.wallSpeed );
-
-				this.wallSpeed += this.wallSpeedRise;
-				this.wallSpeed = Math.min( this.wallSpeed, this.wallSpeedMax );
-
-				this.waves.push( wall );
-				this.spawnEntity( wall );
-				
-			} else if ( type == 'jaw' ) {
-				let wall = new LockJaw( pos, this.jawSpeed );
-
-				this.jawSpeed += this.jawSpeedRise;
-				this.jawSpeed = Math.min( this.jawSpeed, this.jawSpeedMax );
-
-				this.waves.push( wall );
-				this.spawnEntity( wall );
-			
-			} else if ( type == 'ring' ) {
-				let wall = new LockRing( pos.minus( new Vec2( 0, fieldWidth / 2 ) ), this.ringSpeed );
-
-				this.ringSpeed += this.ringSpeedRise;
-				this.ringSpeed = Math.min( this.ringSpeed, this.ringSpeedMax );
-
-				this.waves.push( wall );
-				this.spawnEntity( wall );
-
-			} else if ( type == 'barrage' ) {
-				let wall = new LockBarrage( pos, this.barrageSpeed );
-
-				this.barrageSpeed += this.barrageSpeedRise;
-				this.barrageSpeed = Math.min( this.barrageSpeed, this.barrageSpeedMax );
-
-				this.waves.push( wall );
-				this.spawnEntity( wall );
-			}
-
-			this.counts['createWave'].active = false;
-			this.counts['createWave'].reset();
-		}
-
-		// update and end waves
+     	// update and end waves
 		for ( let wave of this.waves ) {
 			let fade = false;
 
@@ -851,6 +826,67 @@ export class LockBoss extends Boss {
 				wave.state = LockWallState.FADING;
 				wave.anim.pushFrame( new AnimFrame( { 'alpha': { value: 0.0, expireOnReach: true } } ) );
 			}	
+		}
+	}
+
+	createWave() {
+		let type: WaveType;
+		let attackName: string;
+
+		if ( Debug.flags.FORCE_BOSS_ATK ) {
+			let names = Debug.fields.LOCK_ATK.value.split( ',' );
+			let debugAttacks = waveTypes.filter( x => names.includes( x ) );
+
+			if ( debugAttacks.length > 0 ) {
+				let index = Math.floor( Math.random() * debugAttacks.length )
+				type = debugAttacks[index];
+
+			} else {
+				console.warn( 'LockBoss.defaultLogic: no valid attacks from debug' );
+			}
+		
+		} else {
+			if ( this.waveQueue.length > 0 ) type = this.waveQueue.shift();
+			else type = waveTypes[Math.floor( Math.random() * waveTypes.length )];
+		}
+		
+		let pos = this.pos.copy().plus( new Vec2( 0, this.height / 2 + wallUnit / 2 ) );
+
+		if ( type == 'wall' ) {
+			let wall = new LockWall( pos, this.wallSpeed );
+
+			this.wallSpeed += this.wallSpeedRise;
+			this.wallSpeed = Math.min( this.wallSpeed, this.wallSpeedMax );
+
+			this.waves.push( wall );
+			this.spawnEntity( wall );
+			
+		} else if ( type == 'jaw' ) {
+			let wall = new LockJaw( pos, this.jawSpeed );
+
+			this.jawSpeed += this.jawSpeedRise;
+			this.jawSpeed = Math.min( this.jawSpeed, this.jawSpeedMax );
+
+			this.waves.push( wall );
+			this.spawnEntity( wall );
+		
+		} else if ( type == 'ring' ) {
+			let wall = new LockRing( pos.minus( new Vec2( 0, fieldWidth / 2 ) ), this.ringSpeed );
+
+			this.ringSpeed += this.ringSpeedRise;
+			this.ringSpeed = Math.min( this.ringSpeed, this.ringSpeedMax );
+
+			this.waves.push( wall );
+			this.spawnEntity( wall );
+
+		} else if ( type == 'barrage' ) {
+			let wall = new LockBarrage( pos, this.barrageSpeed );
+
+			this.barrageSpeed += this.barrageSpeedRise;
+			this.barrageSpeed = Math.min( this.barrageSpeed, this.barrageSpeedMax );
+
+			this.waves.push( wall );
+			this.spawnEntity( wall );
 		}
 	}
 

@@ -75,8 +75,9 @@ export class Boss extends CenteredEntity {
 		core.material = this.coreMaterial;
 		core.parent = this;
 
-		for ( let point of core.points ) {
-			point.rotate( this.eyeAngle );
+		for ( let i = 0; i < core.points.length; i++ ) {
+			core.points[i].rotate( this.eyeAngle );
+			core.normals[i].rotate( this.eyeAngle );
 		}
 
 		if ( this.blink < 0.8 ) {
@@ -123,25 +124,11 @@ export class Boss extends CenteredEntity {
 		return Math.max( this.health, 0 );
 	}
 
-	update( step: number, elapsed: number ) {
-		if ( this.state != BossState.EXPLODE ) {
-			this.advance( step );
-		}
-
+	animate( step: number, elapsed: number ) {
 		for ( let key in this.counts ) {
 			this.counts[key].update( elapsed );
 		}
 
-		this.animate( step, elapsed );
-
-		if ( this.state == BossState.EXPLODE ) {
-			this.explodeLogic( step, elapsed );
-		} else if ( this.state == BossState.DEFAULT ) {
-			this.defaultLogic( step, elapsed );
-		}
-	}
-
-	animate( step: number, elapsed: number ) {
 		if ( this.counts['blink'].count <= 0 && this.canBlink ) {
 			this.eyeAnim.pushFrame( new AnimFrame( {
 				'blink': { value: 1.0, expireOnReach: true }
@@ -159,6 +146,18 @@ export class Boss extends CenteredEntity {
 		}
 
 		this.eyeAnim.update( step, elapsed );
+	}
+
+	update() {
+		if ( this.state == BossState.EXPLODE ) {
+			this.explodeLogic();
+		} else if ( this.state == BossState.DEFAULT ) {
+			this.defaultLogic();
+		}
+	}
+
+	doLook() {
+		this.counts['attention'].count = 0;
 	}
 
 	doEyeStrain() {
@@ -185,9 +184,9 @@ export class Boss extends CenteredEntity {
 		} ) );
 	}
 
-	defaultLogic( step: number, elapsed: number ) {}
+	defaultLogic() {}
 
-	explodeLogic( step: number, elapsed: number ) {
+	explodeLogic() {
 		this.counts['attention'].active = false;
 		this.counts['blink'].active = false;
 

@@ -1,4 +1,4 @@
-import { Chrono, Anim, AnimField, PhysField, AnimFrame, MilliCountdown, SpinDir } from './lib/juego/Anim.js'
+import { Anim, AnimField, PhysField, AnimFrame, MilliCountdown, SpinDir } from './lib/juego/Anim.js'
 import { Entity, cullList, TransformOrder } from './lib/juego/Entity.js'
 import { Contact } from './lib/juego/Contact.js'
 import { Material } from './lib/juego/Material.js'  
@@ -68,11 +68,13 @@ export class Gun extends CenteredEntity {
 	anim = new Anim( {
 		'ready': new AnimField( this, 'ready' ),
 		'flash': new AnimField( this.flashMaterial, 'lum' ),
+		'emit': new AnimField( this.flashMaterial, 'emit' ),
 		//'fireInterval': new AnimField( this, 'fireInterval' )
 
 	}, new AnimFrame( {
 		'ready': { value: true },
 		'flash': { value: 0.5 },
+		'emit': { value: 0.0 },
 		//'fireInterval': { value: this.fireInterval }
 	} ) );
 
@@ -105,6 +107,7 @@ export class Gun extends CenteredEntity {
 		this.anim.pushFrame( new AnimFrame( { 
 			'ready': { value: false, expireOnCount: this.fireInterval },
 			'flash': { value: 1.0, reachOnCount: this.fireInterval },
+			'emit': { value: 0.5, reachOnCount: this.fireInterval },
 		} ) );
 
 		return new Bullet( 
@@ -156,11 +159,7 @@ export class Balloon extends Bullet {
 		//this.angleVel = 0.02 * ( Math.random() > 0.5 ? -1: 1 );
 	}
 
-	update( step: number, elapsed: number ) {
-		super.update( step, elapsed );
-
-		this.anim.update( step, elapsed );
-
+	update() {
 		this.material.alpha = this.alpha;
 	}
 
@@ -502,10 +501,19 @@ export class RollBoss extends Boss {
 		} ) );
 	}
 
-	cull() {
-		cullList( this.guns );
+	/* function overrides */
 
+	animate( step: number, elapsed: number ) {
+		super.animate( step, elapsed ); // eye animations
+
+		this.anim.update( step, elapsed );
+	}
+
+
+	cull() {
 		super.cull();
+
+		cullList( this.guns );
 	}
 
 	getBody(): Array<CenteredEntity> {
@@ -624,6 +632,8 @@ export class RollBoss extends Boss {
 		}
 	}
 
+	/* logic */
+
 	addSound( sound: Sound ) {
 		this.sounds.push( sound );
 	}
@@ -637,16 +647,6 @@ export class RollBoss extends Boss {
 			}
 
 			this.sounds.splice( index, 1 );
-		}
-	}
-
-	animate( step: number, elapsed: number ) {
-		super.animate( step, elapsed );
-
-		this.anim.update( step, elapsed );
-
-		for ( let gun of this.guns ) {
-			gun.anim.update( step, elapsed );
 		}
 	}
 
@@ -677,7 +677,7 @@ export class RollBoss extends Boss {
 		this.anim.clear( { withoutTag: 'exit' } );
 	}
 
-	defaultLogic( step: number, elapsed: number ) {
+	defaultLogic() {
 
 		//this.topSound.pos = this.tops[1].applyTransform( new Vec2() );
 		//this.bottomSound.pos = this.bottoms[1].applyTransform( new Vec2() );
@@ -1032,6 +1032,8 @@ export class RollBoss extends Boss {
 			}
 		}
 	}
+
+	/* drawing */
 
 	shade() {
 		if ( this.material.skewL > 0 ) {

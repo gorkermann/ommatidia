@@ -43,9 +43,7 @@ export class Orbiter extends CenteredEntity {
 		this.addSub( this.right );
 	}
 
-	update( step: number, elapsed: number ) {
-		this.advance( step );
-
+	animate( step: number, elapsed: number ) {
 		if ( this.anim.isDone() ) {
 			this.anim.pushFrame( new AnimFrame( {
 				'stall': { value: true, expireOnCount: 500 }
@@ -77,7 +75,7 @@ export class Orbiter extends CenteredEntity {
 			} ) );
 		}
 
-		this.anim.update( step, elapsed );
+		super.animate( step, elapsed );
 	}
 }
 
@@ -116,9 +114,7 @@ export class Door extends CenteredEntity {
 		this.addSub( this.right );
 	}
 
-	update( step: number, elapsed: number ) {
-		this.advance( step );
-
+	animate( step: number, elapsed: number ) {
 		if ( this.anim.isDone() ) {
 			this.anim.pushFrame( new AnimFrame( {
 				'stall': { value: true, expireOnCount: 500 }
@@ -136,7 +132,7 @@ export class Door extends CenteredEntity {
 			} ) );
 		}
 
-		this.anim.update( step, elapsed );
+		super.animate( step, elapsed );
 	}
 }
 
@@ -176,9 +172,7 @@ export class Elevator extends CenteredEntity {
 		this.addSub( this.bottom );
 	}
 
-	update( step: number, elapsed: number ) {
-		this.advance( step );
-
+	animate( step: number, elapsed: number ) {
 		if ( this.anim.isDone() ) {
 			this.anim.pushFrame( new AnimFrame( {
 				'stall': { value: true, expireOnCount: 1000 }
@@ -194,7 +188,7 @@ export class Elevator extends CenteredEntity {
 			} ) );
 		}
 
-		this.anim.update( step, elapsed );
+		super.animate( step, elapsed );
 	}
 }
 
@@ -287,16 +281,14 @@ export class Blocker extends CenteredEntity {
 		this.watchTarget = target.copy();//target.minus( this.pos );
 	}
 
-	update( step: number, elapsed: number ) {
-		this.advance( step );
-
+	animate( step: number, elapsed: number ) {
 		if ( this.anim.isDone() ) {
 			this.anim.pushFrame( new AnimFrame( {
 				'pos': { value: new Vec2( this.watchTarget.x, this.pos.y ), expireOnCount: 100 },
 			} ) );
 		}
 
-		this.anim.update( step, elapsed );
+		super.animate( step, elapsed );
 	}
 
 	shade() {
