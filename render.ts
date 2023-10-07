@@ -1,41 +1,46 @@
+import { Angle } from './lib/juego/Angle.js'
+import { Entity } from './lib/juego/Entity.js'
 import { Vec2 } from './lib/juego/Vec2.js'
 import { Line } from './lib/juego/Line.js'
 import { Material, RGBAtoFillStyle} from './lib/juego/Material.js'
 import { RayHit, closestTo } from "./lib/juego/RayHit.js"
-import { Shape } from './lib/juego/Shape.js'
+import { Shape, ShapeHit } from './lib/juego/Shape.js'
 import { Dict } from './lib/juego/util.js'
 
 import { COL, MILLIS_PER_FRAME } from './collisionGroup.js'
 import * as Debug from './Debug.js'
 
-class ShapeHit extends RayHit {
-	shape: Shape;
-	dist: number;
-	incidentDot: number;
-	normalDist: number;
-
-	constructor( point: Vec2, normal: Vec2, material: Material ) {
-		super( point, normal, material );
-	}
-}
-
-function shapecast( line: Line, shapes: Array<Shape> ): Array<ShapeHit> {
+function shapecast( line: Line, shapes: Array<Shape>, minSweep: Array<number>, maxSweep: Array<number> ): Array<ShapeHit> {
 	let closestRayHits: Array<ShapeHit> = [];
+	let v = line.p2.minus( line.p1 );
+	let angle = v.angle();
 
-	for ( let shape of shapes ) {
+	for ( let i = 0; i < shapes.length; i++ ) {
+		let shape = shapes[i];
+
 		if ( !shape.material ) continue;
+		if ( !Angle.between( angle, minSweep[i], maxSweep[i] ) ) continue;
 
-		let rayHits: Array<RayHit> = shape.rayIntersect( line );
+		let hits = shape.rayIntersect( line );
 
-		if ( rayHits.length > 0 ) {
-			let shapeHit = new ShapeHit( rayHits[0].point, rayHits[0].normal, rayHits[0].material );
-			shapeHit.vel = shape.getVel( shapeHit.point );
-			shapeHit.dist = shapeHit.point.minus( line.p1 ).length();
-			shapeHit.shape = shape;
-			shapeHit.incidentDot = line.p2.minus( line.p1 ).unit().dot( shapeHit.normal );
-			shapeHit.normalDist = -shapeHit.incidentDot * shapeHit.dist;
+		for ( let i = 0; i < hits.length; i++ ) {
+			if ( hits[i].material.alpha == 0.0 ) continue;
 
-			closestRayHits.push( shapeHit );
+			hits[i].vel = shape.getVel( hits[i].point );
+			hits[i].shape = shape;
+			hits[i].incidentDot = line.p2.minus( line.p1 ).unit().dot( hits[i].normal );
+
+			// inside shape
+			if ( hits[i].incidentDot > 0 ) {
+				hits[i].incidentDot *= -1;
+				hits[i].normal.flip();
+			}
+
+			hits[i].normalDist = -hits[i].incidentDot * hits[i].dist;
+
+			closestRayHits.push( hits[i] );
+
+			if ( hits[i].material.alpha == 1.0 ) break;
 		}
 	}
 
@@ -64,30 +69,23 @@ function getHits( shapes: Array<Shape>,
 	let angle = 0;
 	let opaqueIndex = 0;
 
+	let minSweep = [];
+	let maxSweep = [];
+
+	for ( let shape of shapes ) {
+		let [min, max] = Angle.getSweep( shape.points, origin );
+
+		minSweep.push( min );
+		maxSweep.push( max );
+	}
+
 	for ( let slice of slices ) {
 		angle += slice / 2;
 
 		let hits = shapecast( new Line( origin.x, 
 										origin.y,
-									    origin.x + Math.cos( angle ) * 117.5 / 4, 
-									    origin.y + Math.sin( angle ) * 117.5 / 4 ), shapes );
-
-		opaqueIndex = -1;
-		for ( let j = 0; j < hits.length; j++ ) {
-			if ( hits[j].material.alpha == 1.0 ) {
-				opaqueIndex = j;
-				break;
-			}
-		}
-
-		//hits = [];
-
-		if ( opaqueIndex < 0 ) {
-			hits = shapecast( new Line( origin.x, 
-										origin.y,
 									    origin.x + Math.cos( angle ) * 1000, 
-									    origin.y + Math.sin( angle ) * 1000 ), shapes );
-		}
+									    origin.y + Math.sin( angle ) * 1000 ), shapes, minSweep, maxSweep );
 
 		if ( hits.length > 0 ) {
 			output.push( new SliceInfo( angle, slice, hits ) );
@@ -114,13 +112,19 @@ export function renderRays( context: CanvasRenderingContext2D,
 
 		let hit = sliceInfo.hits[0];
 
-		context.strokeStyle = 'black';
+		context.strokeStyle = 'white';
 		context.lineWidth = 1;
 		context.beginPath();
 		context.moveTo( origin.x, origin.y );
 		context.lineTo( hit.point.x, hit.point.y );
 		context.stroke();
+	}
 
+	for ( let sliceInfo of sliceInfos ) {
+		if ( !sliceInfo ) continue;
+	
+		let hit = sliceInfo.hits[0];
+	
 		let n = hit.point.plus( hit.normal.times( 10 ) );
 
 		context.strokeStyle = 'blue';
@@ -144,7 +148,7 @@ export let vals: Dict<SliderVal> = {
 	},
 	satPower: {
 		id: 'sat-power',
-		val: 1.2,
+		val: 1.0,
 	},
 	satMin: {
 		id: 'sat-min',
@@ -156,7 +160,7 @@ export let vals: Dict<SliderVal> = {
 	},
 	lumPower: {
 		id: 'lum-power',
-		val: 1.2,
+		val: 1.0,
 	},
 	lumMin: {
 		id: 'lum-min',
@@ -165,7 +169,7 @@ export let vals: Dict<SliderVal> = {
 
 	shading: {
 		id: 'shading',
-		val: 0.75,
+		val: 0.3,
 	},
 	lens: {
 		id: 'lens',
@@ -211,11 +215,11 @@ function highlightCorners( hit: ShapeHit, prevHit: ShapeHit, nextHit: ShapeHit, 
 		}
 	}
 
-	hit.material.hue += score * 10 * hit.material.alpha;
+	hit.material.highlightCorners( score );
 
 	// specular highlight
 	if ( hit.incidentDot < 0 ) {
-	//	hit.material.lum *= 1 - vals.shading.val * hit.incidentDot;
+		hit.material.lum *= 1 - vals.shading.val * hit.incidentDot;
 	}
 }
 
@@ -272,6 +276,8 @@ for ( let valName in vals ) {
 }
 
 let sliceWipe = 1;
+let rollingAvgDist = 0;
+let rollingFactor = 0.01;
 
 export function renderFromEye( context: CanvasRenderingContext2D, 
 							   shapes: Array<Shape>,
@@ -307,6 +313,12 @@ export function renderFromEye( context: CanvasRenderingContext2D,
 				maxDist = hits[opaqueIndex].dist;
 			}
 		}
+
+		if ( rollingAvgDist == 0 ) {
+			rollingAvgDist = maxDist;
+		} else {
+			rollingAvgDist = ( 1 - rollingFactor ) * rollingAvgDist + rollingFactor * maxDist;
+		}
 	}
 
 	for ( let i = 0; i < sliceInfos.length; i++ ) {
@@ -340,22 +352,24 @@ export function renderFromEye( context: CanvasRenderingContext2D,
 
 		blended = { r: 0, g: 0, b: 0, a: 1.0 }; // background color
 
+		let distCutoff = vals.lumFactor.val;
+		if ( Debug.flags.AUTO_BRIGHT_ADJUST ) distCutoff = rollingAvgDist;
+
 		for ( let j = opaqueIndex; j >= 0; j-- ) {
+			
 			//satFactor = Math.min( vals.satFactor.val / ( hits[j].dist ** vals.satPower.val ), 1.0 );
 			satFactor = Math.min( ( vals.satFactor.val - hits[j].dist ) / ( vals.satFactor.val - 10 ), 1.0 );
 			satFactor = Math.max( satFactor, vals.satMin.val );
 
 			hits[j].material.sat *= Math.max( hits[j].material.emit, satFactor );
 			
-			if ( Debug.flags.AUTO_BRIGHT_ADJUST ) {
-				hits[j].material.lum *= Math.min( ( maxDist / 4 ) / ( hits[j].dist ** vals.lumPower.val ), 1.0 );
-			} else {
-				//lumFactor = Math.min( vals.lumFactor.val / ( hits[j].dist ** vals.lumPower.val ), 1.0 );
-				lumFactor = Math.min( ( vals.lumFactor.val - hits[j].dist ) / ( vals.lumFactor.val - 10 ), 1.0 );
-				lumFactor = Math.max( lumFactor, vals.lumMin.val );
 
-				hits[j].material.lum *= Math.max( hits[j].material.emit, lumFactor );
-			}
+			//lumFactor = Math.min( vals.lumFactor.val / ( hits[j].dist ** vals.lumPower.val ), 1.0 );
+			lumFactor = Math.min( ( distCutoff - hits[j].dist ) / ( distCutoff - 10 ), 1.0 );
+			lumFactor = Math.max( lumFactor, vals.lumMin.val );
+
+			hits[j].material.lum *= Math.max( hits[j].material.emit, lumFactor );
+
 
 			let color = hits[j].material.getRGBA();
 
