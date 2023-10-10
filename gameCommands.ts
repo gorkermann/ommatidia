@@ -9,7 +9,13 @@ import { Level } from './Level.js'
 import { constructors, nameMap } from './objDef.js'
 import { store } from './store.js'
 
+import { PlayMode } from './mode/PlayMode.js'
+import { DragMode } from './mode/DragMode.js'
+
 export let gameCommands: Array<CommandRef> = [];
+
+gameCommands.push( new CommandRef( 'Play', null, PlayMode, null ) );
+gameCommands.push( new CommandRef( 'Drag', PlayMode, DragMode, null ) );
 
 let codeByDigit: Dict<KeyCode> = {
 	0: KeyCode.DIGIT_0,

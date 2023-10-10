@@ -51,7 +51,6 @@ export class TitleScene extends Scene {
 		let ir = 120 * this.camera.viewportW / 400;
 		let or = 180 * this.camera.viewportH / 400;
 
-		context.save();
 		this.camera.moveContext( context );
 
 			let slices = [];
@@ -104,7 +103,7 @@ export class TitleScene extends Scene {
 				angle += slice / 2;
 			}
 
-		context.restore();
+		this.camera.unMoveContext( context );
 
 		context.globalAlpha = 1.0;
 

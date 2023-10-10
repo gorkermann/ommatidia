@@ -5,6 +5,7 @@
 		background: black;
 		font-family: monospace;
 		margin: 0;
+		height: 100%;
 	}
 
 	#optionpanel {
@@ -59,6 +60,11 @@
 		width: 20%;
 		height: 100%;
 		overflow-y: scroll;
+	}
+
+	.object-link:hover {
+		color: black;
+		background: white;
 	}
 </style>
 
@@ -128,8 +134,7 @@
 	<div class="rightpane">
 		<div id="debugpanel" class="hidden">
 			<div id="debug"></div>
-			<div id="debugtext"> </div>
-			<div id="entities"> </div>
+			<div id="inspector" style="margin-top: 20px"> </div>
 		</div>
 	</div>
 </body>

@@ -1,18 +1,20 @@
-import { Chrono } from './lib/juego/Anim.js'
 import { Camera } from './lib/juego/Camera.js'
 import { CommandRef, MOD } from './lib/juego/CommandRef.js'
 import { Controller } from './lib/juego/Controller.js'
 import { Entity } from './lib/juego/Entity.js'
+import { Inspector } from './lib/juego/Inspector.js'
 import { Keyboard, KeyCode } from './lib/juego/keyboard.js'
-import { SessionManager } from './lib/juego/SessionManager.js'
+import { Scene } from './lib/juego/Scene.js'
 
 import * as tp from './lib/toastpoint.js'
 
 import { Level } from './Level.js'
 import { constructors, nameMap } from './objDef.js'
 import { store } from './store.js'
+import * as Debug from './Debug.js'
+ 
+import { PlayMode } from './mode/PlayMode.js'
 
-import { REWIND_SECS } from './collisionGroup.js'
 import { gameCommands } from './gameCommands.js'
 import { levelDataList } from './levels.js'
 import { DeathScene } from './DeathScene.js'
@@ -36,14 +38,15 @@ type LoadLevelOptions = {
 	forceEraseHistory?: boolean
 }
 
+let domHoverlist: Array<Entity> = [];
+
 export class GameControllerDom extends Controller {
-	manager: SessionManager = new SessionManager();
+	context: CanvasRenderingContext2D = null;
+
+	currentScene: Scene = null;
 
 	title: TitleScene = new TitleScene();
 	deathScene: DeathScene = new DeathScene();
-
-	canvas: HTMLCanvasElement = null;
-	context: CanvasRenderingContext2D = null;
 
 	levelIndex: number = 0;
 
@@ -54,23 +57,21 @@ export class GameControllerDom extends Controller {
 	saveStateInterval: number = 1000;
 	lastStateTime: number = 0; // milliseconds of play time since scene started
 
-	camera: Camera = new Camera();
+	/* property overrides */
+
+	defaultMode = 'Play';
 
 	constructor() {
 		super( gameCommands );
 
 		this.initCanvas();
 
-		this.title.useCamera( this.camera );
-
-		this.floaterScene = new FloaterScene( this.canvas );
-		this.floaterScene.useCamera( this.camera );
-
 		this.title.floaters = this.floaterScene.floaters;
 
 		this.initKeyboard();
+		this.initMouse();
 
-		this.manager.useCanvas( this.canvas );
+		this.changeMode( new PlayMode() );
 
 		document.addEventListener( 'start', ( e: any ) => { 
 			this.levelIndex = 0;
@@ -94,7 +95,7 @@ export class GameControllerDom extends Controller {
 		} );
 
 		document.addEventListener( 'death', ( e: any ) => {
-			this.manager.loadScene( this.deathScene );
+			this.loadScene( this.deathScene );
 		} );
 
 		document.addEventListener( 'complete', ( e: any ) => { 
@@ -104,7 +105,7 @@ export class GameControllerDom extends Controller {
 				let context = this.canvas.getContext( '2d' );
 
 				context.clearRect( 0, 0, this.canvas.width, this.canvas.height );
-				this.manager.draw( context );
+				this.mode.draw( this, context );
 
 				var image = new Image();
 				image.src = this.canvas.toDataURL();
@@ -116,14 +117,28 @@ export class GameControllerDom extends Controller {
 			} else {
 				oldImages = [];
 
-				this.manager.loadScene( this.title );
+				this.loadScene( this.title );
 			}
+		} );
+
+		document.addEventListener( 'dom-select', ( e: any ) => {
+			this.sel.doSelect( {}, e.detail );
+
+			this.inspect( this.sel.selection );
+		} );
+
+		document.addEventListener( 'dom-hover', ( e: any ) => {
+			this.sel.clearHovered();
+			this.sel.hoverlist.add( [e.detail] );
 		} );
 	}
 
 	initCanvas() {
 		this.canvas = document.getElementById( 'canvas' ) as HTMLCanvasElement;
 		this.resize();
+
+		this.floaterScene = new FloaterScene( this.canvas );
+		this.floaterScene.camera.setViewport( this.canvas.width, this.canvas.height );
 
 		window.addEventListener( 'resize', ( e ) => {
 			this.resize();
@@ -137,11 +152,10 @@ export class GameControllerDom extends Controller {
 			this.recentStates = [];
 			this.lastStateTime = 0;
 
-			this.manager.loadScene( level );
-			this.manager.currentScene.useCamera( this.camera );
+			this.loadScene( level );
 
 		} catch ( e ) {
-			this.manager.currentScene = null;
+			this.currentScene = null;
 
 			throw e;
 		}
@@ -171,7 +185,7 @@ export class GameControllerDom extends Controller {
 
 	getJSON(): any {
 		let toaster = new tp.Toaster( constructors, nameMap );
-		let scene = this.manager.currentScene;
+		let scene = this.currentScene;
 
 		let output = null;
 
@@ -218,11 +232,7 @@ export class GameControllerDom extends Controller {
 
 		delete level['__entities'];
 
-		if ( this.manager.currentScene !== null ) {
-			this.manager.currentScene.sleep();
-		}
-		this.manager.currentScene = level as Level;
-		this.manager.currentScene.useCamera( this.camera );
+		this.loadScene( level, false );
 
 		let sameLevel = false;
 		if ( 'levelIndex' in json ) {
@@ -233,43 +243,35 @@ export class GameControllerDom extends Controller {
 
 		if ( sameLevel && !options.forceEraseHistory ) {
 			this.recentStates = this.recentStates.slice( 0, 1 );
-			this.lastStateTime = ( this.manager.currentScene as Level ).elapsedTotal;
+			this.lastStateTime = ( this.currentScene as Level ).elapsedTotal;
 		} else {
 			this.recentStates = [];
 			this.lastStateTime = 0;
 		}
 	}
 
+	loadScene( scene: Scene, doLoad: boolean=true ) {
+		if ( doLoad ) {
+			scene.load();
+		}
+		this.currentScene = scene;
+		this.camera = scene.camera;
+
+		this.resize();
+	}
+
 	update() {
-		if ( this.manager.currentScene === null ) {
-			this.manager.loadScene( this.title );
+		if ( this.currentScene === null ) {
+			this.loadScene( this.title );
 		}
 
-		// save recent game states
-		if ( this.manager.currentScene instanceof Level && 
-			 this.manager.currentScene.elapsedTotal - this.lastStateTime > this.saveStateInterval ) {
-
-			let json = this.getJSON();
-
-			if ( json ) {
-				this.recentStates.push( json );
-
-				console.log( 'pushed state at ' + this.manager.currentScene.elapsedTotal );
-			}
-
-			// keep only the most recent states
-			if ( this.recentStates.length > REWIND_SECS ) {
-				this.recentStates = this.recentStates.slice( -REWIND_SECS );
-			}
-
-			this.lastStateTime = this.manager.currentScene.elapsedTotal;
+		if ( this.mode ) {
+			this.mode.update( this );
 		}
 
-		this.floaterScene.update();
+		this.mouse.update( this.canvas );
 
-		this.manager.update();
-
-		this.manager.mouse.update( this.canvas );
+		Inspector.updateFields();
 	}
 
 	resize() {
@@ -286,32 +288,28 @@ export class GameControllerDom extends Controller {
 
 		this.canvas.width = this.canvas.height;
 
-		this.camera.setViewport( this.canvas.width, this.canvas.height );
+		if ( this.currentScene ) {
+			this.currentScene.camera.setViewport( this.canvas.width, this.canvas.height );
+		}
 	}
 
-	draw( context?: CanvasRenderingContext2D ) {
-		if ( !context ) {
-			context = this.canvas.getContext( '2d' );
+	updateHovered() {
+		this.sel.clearHovered();
+
+		if ( this.currentScene instanceof Level ) {
+			this.sel.availablePrims = this.currentScene.em.entities;
+
+			if ( !Debug.flags.DRAW_NORMAL ) {
+				let dir = this.cursor.unit().scale( 1000 );
+
+				this.sel.hoverlist.add( this.currentScene.pickFromEye( dir ) );
+			}
 		}
 
-		context.clearRect( 0, 0, this.canvas.width, this.canvas.height );
+		this.sel.updateHovered( this.cursor );
+	}
 
-		if ( !this.manager.currentScene ) return;
-
-		// background
-		if ( this.manager.currentScene == this.title || 
-			 this.manager.currentScene == this.deathScene ) {
-
-			context.save();
-				context.translate( -this.title.origin.x, -this.title.origin.y );
-				this.floaterScene.draw( context );
-			context.restore();
-		}
-
-		// current scene
-		this.manager.draw( context );
-
-		// previous level fadeout
+	drawOldImage( context: CanvasRenderingContext2D ) {
 		context.save();
 			context.translate( this.canvas.width / 2, this.canvas.height / 2 );
 			for ( let data of oldImages ) {
@@ -331,5 +329,28 @@ export class GameControllerDom extends Controller {
 
 			context.globalAlpha = 1.0;
 		context.restore();
+	}
+
+	draw( context?: CanvasRenderingContext2D ) {
+		if ( !context ) {
+			context = this.canvas.getContext( '2d' );
+		}
+
+		context.clearRect( 0, 0, this.canvas.width, this.canvas.height );
+
+		// background
+		if ( this.currentScene == this.title || 
+			 this.currentScene == this.deathScene ) {
+
+			context.save();
+				context.translate( -this.title.origin.x, -this.title.origin.y );
+				this.floaterScene.draw( context );
+			context.restore();
+		}
+
+		this.currentScene.draw( context );
+		this.mode.draw( this, context );
+
+		this.drawOldImage( context );
 	}
 }

@@ -1,5 +1,6 @@
 import { Anim, AnimField, AnimFrame } from './lib/juego/Anim.js'
 import { solveCollisionsFor } from './lib/juego/collisionSolver.js'
+import { Camera } from './lib/juego/Camera.js'
 import { Contact } from './lib/juego/Contact.js'
 import { Entity, TopLeftEntity, cullList } from './lib/juego/Entity.js'
 import { EntityManager } from './lib/juego/EntityManager.js'
@@ -25,28 +26,13 @@ import { Coin } from './Coin.js'
 import { COL, MILLIS_PER_FRAME, REWIND_SECS } from './collisionGroup.js'
 import { Player } from './Player.js'
 import { constructors, nameMap } from './objDef.js'
-import { renderFromEye, renderRays, whiteText, vals } from './render.js'
+import { shapecast, renderFromEye, renderRays, whiteText, vals } from './render.js'
 
 import { Orbiter, Blocker, Elevator, Tumbler, Door } from './TutorialEntity.js'
 import { RollBoss, Barrier } from './RollBoss.js' 
 import { LockBoss, LockWall } from './LockBoss.js'
 
 import * as Debug from './Debug.js'
-
-type QueueFuncOptions = {
-	runOnClear?: boolean;
-}
-
-class QueueFunc {
-	func: () => boolean;
-	runOnClear: boolean = false;
-
-	constructor( func: () => boolean, options: QueueFuncOptions={} ) {
-		if ( options.runOnClear !== undefined ) this.runOnClear = options.runOnClear;
-
-		this.func = func;
-	}
-}
 
 let MODE_GRAVITY = 0;
 let MODE_SQUARE = 1;
@@ -99,7 +85,7 @@ export class Level extends Scene {
 	
 	// text box
 	textBox: Entity = new TopLeftEntity( new Vec2( 0, 300 ), DEFAULT_WIDTH, 0 );
-	textBoxHeight: number = 50;//Quant = new Quant( 0, 0, 50, 2 );
+	textBoxHeight: number = 50;
 
 	text: string = '';
 	textIndex: number = 0;
@@ -109,7 +95,6 @@ export class Level extends Scene {
 	paused: boolean = false;
 
 	tryCount: number = 0;
-	updateQueue: Array<QueueFunc> = [];
 	
 	cursorPos: Vec2 = new Vec2( 0, 0 );
 	
@@ -742,13 +727,34 @@ export class Level extends Scene {
 		}
 	}
 
-	updateCursor( pos: Vec2 ) {
-		this.cursorPos.set( pos );
+	getShapes(): Array<Shape> {
+		let shapes = [];
+
+		for ( let entity of this.em.entities ) {
+			if ( entity != this.player ) {
+				shapes.push( ...entity.getShapes( 0.0 ) );
+			}
+		}
+
+		return shapes;
+	}
+
+	pickFromEye( dir: Vec2 ): Array<Entity> {
+		let shapes = this.getShapes();
+		let hits = shapecast( Line.fromPoints( this.player.pos.copy(), this.player.pos.plus( dir ) ), shapes );
+
+		if ( hits.length > 0 ) {
+			return [hits[0].shape.parent];
+		}
+
+		return [];
 	}
 
 	/* Drawing */
 
 	draw( context: CanvasRenderingContext2D ) {
+		this.camera.pos.set( this.player.pos );
+
 		if ( this.state == LevelState.DEATH_REPLAY ) {
 			this.deathDraw( context );
 			this.defaultDraw( context );
@@ -825,28 +831,41 @@ export class Level extends Scene {
 
 		let ir = this.ir * this.camera.viewportW / 400;
 
-		context.save();
-			this.camera.moveContext( context );
-
+		this.camera.moveContext( context );
 			context.globalCompositeOperation = 'destination-in';
 			context.fillStyle = 'white';
 			context.beginPath();
 			context.arc( 0, 0, ir, 0, Math.PI * 2 );
 			context.fill();
 			context.globalCompositeOperation = 'source-over';
+		this.camera.unMoveContext( context );
+	}
 
+	drawSpherical( context: CanvasRenderingContext2D, camera: Camera=this.camera ) {
+		let ir = this.ir * camera.viewportW / 400;
+
+		let shapes = this.getShapes();
+
+		context.save();
+			context.translate( camera.viewportW / 2, camera.viewportH / 2 );
+			context.scale( 1.0, 1.0 );
+			context.translate( -this.player.pos.x, -this.player.pos.y );
+
+			for ( let shape of shapes ) {
+				shape.sphericalStroke( context, this.player.pos, ir, vals.lens.val );
+			}
 		context.restore();
 	}
 
-	defaultDraw( context: CanvasRenderingContext2D ) {
+	defaultDraw( context: CanvasRenderingContext2D, camera: Camera=this.camera ) {
 
 		/* Prepare Scene */
 
 		let origin = this.player.pos.copy();
 
-		let ir = this.ir * this.camera.viewportW / 400;
-		let or = this.or * this.camera.viewportW / 400;
-		let haloW = this.haloWidth * this.camera.viewportW / 400;
+		let ir = this.ir * camera.viewportW / 400;
+		let or = this.or * camera.viewportW / 400;
+		let haloW = this.haloWidth * camera.viewportW / 400;
 
 		let slices: Array<number> = [];
 		let defaultSlice = Math.PI * 2 / this.sliceCount;
@@ -855,50 +874,30 @@ export class Level extends Scene {
 			slices.push( defaultSlice );
 		}
 
-		let shapes = [];
-		for ( let entity of this.em.entities ) {
-			if ( entity != this.player ) {
-				shapes.push( ...entity.getShapes( 0.0 ) );
-			}
-		}
+		let shapes = this.getShapes();
 
 		/* Draw Scene */
 
 		// draw 2D
 		if ( Debug.flags.DRAW_NORMAL ) {
-			context.save();
-				this.camera.moveContext( context );
-				context.translate( -this.player.pos.x, -this.player.pos.y );
+			this.camera.moveContext( context );
 				this.em.draw( context );
 			
 				if ( Debug.flags.DRAW_RAYS ) {
 					renderRays( context, shapes, origin, slices );
 				}
-			context.restore();
+			this.camera.unMoveContext( context );
 
 		// draw from eye
 		} else {
 
 			if ( Debug.flags.DRAW_SPHERICAL ) {
-				context.save();
-					context.translate( this.camera.viewportW / 2, this.camera.viewportH / 2 );
-					context.scale( 1.0, 1.0 );
-					context.translate( -this.player.pos.x, -this.player.pos.y );
-
-					for ( let entity of this.em.entities ) {
-						let shapes = entity.getShapes( 0.0 );
-
-						for ( let shape of shapes ) {
-							shape.sphericalStroke( context, this.player.pos, ir, vals.lens.val );
-						}
-					}
-				context.restore();
+				this.drawSpherical( context, camera );
 			}
 
 			if ( Debug.flags.DRAW_FROM_EYE ) {
 				context.save();
-					this.camera.moveContext( context );
-					context.rotate( -this.player.angle );
+					context.translate( this.camera.viewportW / 2, this.camera.viewportH / 2 );
 
 					renderFromEye( context, shapes, origin, this.player.vel, slices, or, ir );
 
@@ -1037,9 +1036,7 @@ export class Level extends Scene {
 
 		let ir = this.ir * this.camera.viewportW / 400;
 
-		context.save();
-			this.camera.moveContext( context );
-
+		this.camera.moveContext( context );
 			context.globalCompositeOperation = 'destination-in';
 			context.fillStyle = 'white';
 			context.beginPath();
@@ -1054,7 +1051,6 @@ export class Level extends Scene {
 			context.arc( 0, 0, ir, 0, Math.PI * 2 );
 			context.fill();
 			context.globalAlpha = 1.0;
-
-		context.restore();
+		this.camera.unMoveContext( context );
 	}
 }

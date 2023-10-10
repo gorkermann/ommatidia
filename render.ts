@@ -10,7 +10,7 @@ import { Dict } from './lib/juego/util.js'
 import { COL, MILLIS_PER_FRAME } from './collisionGroup.js'
 import * as Debug from './Debug.js'
 
-function shapecast( line: Line, shapes: Array<Shape>, minSweep: Array<number>, maxSweep: Array<number> ): Array<ShapeHit> {
+export function shapecast( line: Line, shapes: Array<Shape>, minSweep: Array<number>=null, maxSweep: Array<number>=null ): Array<ShapeHit> {
 	let closestRayHits: Array<ShapeHit> = [];
 	let v = line.p2.minus( line.p1 );
 	let angle = v.angle();
@@ -19,7 +19,7 @@ function shapecast( line: Line, shapes: Array<Shape>, minSweep: Array<number>, m
 		let shape = shapes[i];
 
 		if ( !shape.material ) continue;
-		if ( !Angle.between( angle, minSweep[i], maxSweep[i] ) ) continue;
+		if ( minSweep && maxSweep && !Angle.between( angle, minSweep[i], maxSweep[i] ) ) continue;
 
 		let hits = shape.rayIntersect( line );
 

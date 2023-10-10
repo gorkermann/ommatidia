@@ -103,9 +103,11 @@ export class Door extends CenteredEntity {
 
 		this.left = new CenteredEntity( new Vec2( -totalWidth / 4, 0 ), totalWidth / 2, height );
 		this.left.material = new Material( 210, 1.0, 0.5 );
+		this.left.collisionGroup = COL.LEVEL;
 
 		this.right = new CenteredEntity( new Vec2( totalWidth / 4, 0 ), totalWidth / 2, height );
 		this.right.material = new Material( 210, 1.0, 0.5 );
+		this.right.collisionGroup = COL.LEVEL;
 
 		this.anim.fields['left-pos'] = new PhysField( this.left, 'pos', 'vel', 2 );
 		this.anim.fields['right-pos'] = new PhysField( this.right, 'pos', 'vel', 2 );

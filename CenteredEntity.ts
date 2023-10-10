@@ -22,7 +22,15 @@ export class CenteredEntity extends Entity {
 		if ( this.altMaterial ) {
 			for ( let i = 1; i < shape.edges.length; i += 2 ) {
 				shape.edges[i].material = this.altMaterial;
-			}	
+			}
+		}
+
+		if ( this.hovered ) {
+			this.material.skewH = 20;
+			if ( this.altMaterial ) this.altMaterial.skewH = 20;
+		} else {
+			this.material.skewH = 0;
+			if ( this.altMaterial ) this.altMaterial.skewH = 0;
 		}
 
 		return [shape];

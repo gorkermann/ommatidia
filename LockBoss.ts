@@ -506,7 +506,6 @@ export class LockRing extends LockWave {
 		let index = Math.floor( Math.random() * this.moons.length );
 		for ( let i = 0; i < bulbCount; i++ ) {
 			let bulb = new LockBulb( new Vec2( -wallUnit / 2, 0 ) );
-			bulb.transformOrder = TransformOrder.ROTATE_THEN_TRANSLATE;
 			bulb.angle = Math.PI / 2;
 			bulb.collisionGroup = COL.ENEMY_BODY;
 			bulb.collisionMask = COL.PLAYER_BULLET;
