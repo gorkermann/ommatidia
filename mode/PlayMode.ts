@@ -1,5 +1,6 @@
 import { Vec2 } from '../lib/juego/Vec2.js'
-import { GenericMode } from '../lib/juego/Mode.js'
+import { Keyboard, KeyCode } from '../lib/juego/keyboard.js'
+import { GenericMode } from '../lib/juego/mode/Mode.js'
 
 import { GameControllerDom } from '../GameControllerDom.js'
 
@@ -8,8 +9,6 @@ import { GameControllerDom } from '../GameControllerDom.js'
 import { REWIND_SECS } from '../collisionGroup.js'
 import * as Debug from '../Debug.js'
 import { Level } from '../Level.js'
-
-import { Inspector } from '../lib/juego/Inspector.js'
 
 let actions = ['down', 'up', 'drag'];
 type MouseAction = typeof actions[number];
@@ -81,6 +80,30 @@ export class PlayMode extends GenericMode {
 			gc.sel.doSelect( { sticky: this.sticky, all: this.all } );
 
 			gc.inspect( gc.sel.selection );
+		}
+	}
+
+	keyboard( gc: GameControllerDom ) {
+		super.keyboard( gc );
+
+		//gc.currentCommand = 'Select';
+
+		this.sticky = false;
+		if ( Keyboard.keyHeld( KeyCode.CTRL ) ) {
+			this.sticky = true;
+			//gc.currentCommand = 'Select (Sticky)';
+		}
+
+		this.all = false;
+		if ( Keyboard.keyHeld( KeyCode.ALT ) ) {
+			this.all = true;
+			//gc.currentCommand = 'Select (All of Type)';
+		}
+
+		this.allHovered = false;
+		if ( Keyboard.keyHeld( KeyCode.SHIFT ) ) {
+			this.allHovered = true;
+			//gc.currentCommand = 'Select (Hovered)';
 		}
 	}
 

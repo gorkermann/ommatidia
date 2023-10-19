@@ -1,4 +1,4 @@
-import { Chrono, Anim, AnimField, PhysField, AnimFrame, MilliCountdown } from './lib/juego/Anim.js'
+import { Chrono, Anim, AnimField, PhysField, AnimFrame, AnimTarget, MilliCountdown } from './lib/juego/Anim.js'
 import { Entity, cullList, TransformOrder } from './lib/juego/Entity.js'
 import { Contact } from './lib/juego/Contact.js'
 import { Material } from './lib/juego/Material.js'  
@@ -641,12 +641,10 @@ export class LockBarrage extends LockWave {
 			let y = yVals.splice( Math.floor( Math.random() * yVals.length ), 1 )[0];
 
 			let frame = new AnimFrame( {} );
-			frame.targets['bit' + i + 'pos'] = { 
-				value: new Vec2( ( i + 0.5 ) * wallUnit * 2 - fieldWidth / 2, 
-								 y * wallUnit ),
-				expireOnReach: true,
+			frame.targets['bit' + i + 'pos'] = new AnimTarget(
+				new Vec2( ( i + 0.5 ) * wallUnit * 2 - fieldWidth / 2, y * wallUnit ) );
 				//setDefault: true
-			};
+
 			this.anim.pushFrame( frame );
 		}
 

@@ -1,7 +1,6 @@
-import { Scene } from './lib/juego/Scene.js'
 import { Entity } from './lib/juego/Entity.js'
+import { Scene } from './lib/juego/Scene.js'
 import { Keyboard, KeyCode } from './lib/juego/keyboard.js'
-import { Text } from './lib/juego/Menu.js'
 import { Shape } from './lib/juego/Shape.js'
 import { Vec2 } from './lib/juego/Vec2.js'
  

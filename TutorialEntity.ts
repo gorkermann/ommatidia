@@ -256,10 +256,10 @@ export class Blocker extends CenteredEntity {
 	constructor( pos: Vec2=new Vec2() ) {
 		super( pos, 10, 20 );
 
-		this.left = new CenteredEntity( new Vec2( -20, 0 ), 30, 20 );
+		this.left = new CenteredEntity( new Vec2( -15, 0 ), 20, 20 );
 		this.left.material = new Material( 210, 1.0, 0.5 );
 
-		this.right = new CenteredEntity( new Vec2( 20, 0 ), 30, 20 );
+		this.right = new CenteredEntity( new Vec2( 15, 0 ), 20, 20 );
 		this.right.material = new Material( 210, 1.0, 0.5 );
 
 		this.addSub( this.left );

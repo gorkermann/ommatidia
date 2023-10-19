@@ -1,0 +1,144 @@
+		if ( coins.length == 1 && oldCoinCount > coins.length && this.name == 'level1' ) {
+			this.queueText( this.player, 'Is this all there is to it?' );
+			this.queueText( coins[0], 'This is just the first level. Are you bored already?' );
+			this.queueText( this.player, 'Whoa! Someone else is here. And yeah, I am kind of bored. Who are you?' );
+			this.queueText( coins[0], 'I\'m the last coin in this level. Touch me and I\'ll show you something really cool.' );
+		}
+
+		if ( coins.length == 1 && oldCoinCount > coins.length && this.name == 'level8' ) {
+			this.queueText( coins[0], 'Wow, you\'re almost there! I\'m so proud of you. To turn yourself back, press the D key.' );
+			this.updateQueue.push( new QueueFunc( function(): boolean {
+				Debug.setFlags( { 'DRAW_NORMAL': false } );
+
+				return true;
+			}, { runOnClear: true } ) );
+		}
+
+				if ( this.name == 'level2' && this.tryCount == 1 ) {
+			this.queueText( coins[0], 'Check it out!' );
+			this.queueText( this.player, 'Check what out?' );
+			this.queueText( coins[0], 'It\'s a bottomless pit!' );
+			this.queueText( this.player, 'Oh. I\'ve seen a lot of bottomless pits in my time. You just jump over.' );
+			this.queueText( coins[0], 'Fine. You want something you\'ve never seen before?' );
+			this.queueText( this.player, 'Please.' );
+			this.queueText( coins[0], 'Okay, here goes.' );
+			this.queueSliceCount( 0 );
+			this.updateQueue.push( new QueueFunc( function(): boolean {
+				Debug.setFlags( { 'DRAW_NORMAL': false } );
+
+				return true;
+			}, { runOnClear: true } ) );
+			this.queueText( this.player, 'Agh!' );
+			this.queueText( this.player, 'I\'m blind! And invisible!' );
+			this.queueText( this.player, 'What happened? Where am I?' );
+			this.queueSliceCount( 1 );
+			this.queueText( coins[0], 'You haven\'t moved. The pit\'s still there, too.' );
+			this.queueText( this.player, 'I can\'t see the pit either. All I see is a big V.' );
+			this.queueText( coins[0], 'I\'m sure you\'ll find it.' );
+			this.queueText( this.player, 'At the bottom of the V?' );
+			this.queueText( coins[0], 'No, you\'re at the bottom of the V.' );
+			this.queueText( this.player, 'That doesn\'t make any sense.' );
+			this.queueText( coins[0], 'Now, don\'t go having a crisis just because you can\'t see your own body.' );
+			this.queueText( coins[0], 'Perhaps I can clarify.' );
+			this.queueSliceCount( 2 );
+			this.queueText( coins[0], 'How\'s that?' );
+			this.queueText( this.player, 'The V is now a U. Great. I remain disembodied.' );
+			this.queueSliceCount( 3 );
+			this.queueText( coins[0], 'All you\'ve done is changed perspective.' );
+			this.queueSliceCount( 4 );
+			this.queueText( this.player, 'Yeah, from a bird\'s-eye view to a rat\'s-eye view...' );
+			this.queueSliceCount( 5 );
+			this.queueText( this.player, 'How do I get back to how it looked before?' );
+			this.queueSliceCount( 6 );
+			this.queueText( coins[0], 'Wouldn\'t that be...boring? Ha ha ha.' )
+			this.queueSliceCount( 7 );
+			this.queueText( coins[0], 'If you must, you could start with finding all the other coins.' );
+			this.queueSliceCount( 45 );
+			this.queueText( coins[0], 'There\'s one now. Have at it!' );
+			this.queueText( coins[0], '...and don\'t forget about the pit!' );
+
+		} else if ( this.name == 'level2' && this.tryCount > 1 ) {
+			Debug.setFlags( { 'DRAW_NORMAL': false } );
+		}
+
+		if ( this.name == 'level3' && this.tryCount == 1 ) {
+			this.queueText( coins[0], 'You\'re on your own now. Good luck!' );
+		}
+
+	openTextBoxAnim(): boolean {
+		this.textBox.height += 10;
+
+		if ( this.textBox.height >= this.textBoxHeight ||
+			 Keyboard.keyHeld( KeyCode.RIGHT ) ) {
+			this.textBox.height = this.textBoxHeight;
+
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+	displayTextUpdate(): boolean {
+		if ( this.textIndex < this.text.length ) {
+			this.textIndex += 1;
+		}
+
+		if ( this.textIndex >= this.text.length ) {
+			if ( Keyboard.keyHit( KeyCode.RIGHT ) ) {
+				return true;	
+			} else {
+				return false;
+			}
+		} else {
+			if ( Keyboard.keyHeld( KeyCode.RIGHT ) ) {
+				this.textIndex = this.text.length;
+			}
+
+			return false;
+		}		
+	}
+
+	closeTextBoxAnim(): boolean {
+		this.textBox.height -= 10;
+
+		if ( this.textBox.height <= 0 ||
+			 Keyboard.keyHeld( KeyCode.RIGHT ) ) {
+			this.textBox.height = 0;
+
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+	queueText( speaker: Entity, text: string ) {
+		this.updateQueue.push( new QueueFunc( function( this: Level ): boolean {
+			this.textBox.height = 0;
+
+			this.speaker = speaker;
+			this.text = text;
+
+			this.textIndex = 0;
+
+			return true;
+		}.bind( this ) ) );
+		this.updateQueue.push( new QueueFunc( this.openTextBoxAnim.bind( this ) ) );
+		this.updateQueue.push( new QueueFunc( this.displayTextUpdate.bind( this ) ) );
+		this.updateQueue.push( new QueueFunc( function( this: Level ): boolean {
+			this.speaker = null;
+			this.text = '';
+
+			return true;
+		}.bind( this ), { runOnClear: true } ) );
+		this.updateQueue.push( new QueueFunc( 
+			this.closeTextBoxAnim.bind( this ),
+			{ runOnClear: true } ) );
+	}
+
+	queueSliceCount( count: number ) {
+		this.updateQueue.push( new QueueFunc( function( this: Level ): boolean {
+			this.sliceCount = count;
+
+			return true;
+		}.bind( this ) ) );
+	}

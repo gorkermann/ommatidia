@@ -3,7 +3,6 @@ import { solveCollisionsFor } from './lib/juego/collisionSolver.js'
 import { Camera } from './lib/juego/Camera.js'
 import { Contact } from './lib/juego/Contact.js'
 import { Entity, TopLeftEntity, cullList } from './lib/juego/Entity.js'
-import { EntityManager } from './lib/juego/EntityManager.js'
 import { GridArea } from './lib/juego/GridArea.js'
 import { Keyboard, KeyCode } from './lib/juego/keyboard.js'
 import { Line } from './lib/juego/Line.js'
@@ -74,7 +73,6 @@ let playerMaterial = new Material( 0, 0, 1.0 );
 let optionPanel = document.getElementById( 'optionpanel' ) as HTMLDivElement;
 
 export class Level extends Scene {
-	em: EntityManager = new EntityManager();
 	grid: GridArea = new GridArea();
 
 	// level info
@@ -159,7 +157,7 @@ export class Level extends Scene {
 		this.textBox.material = new Material( 0, 0, 0.92 );
 	}
 
-	protected toJSON( toaster: tp.Toaster ): any {
+	protected toToast( toaster: tp.Toaster ): any {
 		let fields = Object.keys( this );
 
 		// never save these fields (which are lists of other fields)
@@ -329,6 +327,7 @@ export class Level extends Scene {
 
 				} else if ( index == 14 ) {
 					let entity = new Door( pos.copy(), this.data.width * this.grid.tileWidth, 3 * this.grid.tileWidth );
+					entity.collisionGroup = COL.LEVEL;
 					this.em.insert( entity );
 
 				} else if ( index == 15 ) {
@@ -453,12 +452,12 @@ export class Level extends Scene {
 			if ( this.controlMode == MODE_GRAVITY ) {
 				this.controlMode = MODE_SQUARE;
 			} else {
-				this.controlMode = MODE_GRAVITY;
+				this.controlMode = MODE_FREE;
 			}
 		}
 
 		if ( this.controlMode == MODE_GRAVITY ) {
-			this.player.vel.x = 0;
+			/*this.player.vel.x = 0;
 			if ( this.player.collideDown ) this.player.vel.y = 0;
 
 			// left/right
@@ -487,7 +486,7 @@ export class Level extends Scene {
 
 			} else {
 				this.player.jumping = false;
-			}
+			}*/
 
 		} else if ( this.controlMode == MODE_SQUARE ) {
 			this.player.vel.setValues( 0, 0 );
@@ -662,32 +661,34 @@ export class Level extends Scene {
 			'state': { value: LevelState.DEATH_MENU, expireOnReach: true }
 		} ) );
 
-		// fade out
-		/*this.anim.pushFrame( new AnimFrame( {
-			'replayAlpha': { value: 0.0, expireOnReach: true } 
-		} ) );*/
+		if ( Debug.flags.SHOW_DEATH ) {
+			// fade out
+			/*this.anim.pushFrame( new AnimFrame( {
+				'replayAlpha': { value: 0.0, expireOnReach: true } 
+			} ) );*/
 
-		// wait
-		this.anim.pushFrame( new AnimFrame( {
-			'replayIndex': { value: this.replayImages.length - 1, expireOnCount: 1000 } 
-		} ) );
-
-		// replay death
-		for ( let i = this.replayImages.length - 1; i >= 0; i-- ) {
+			// wait
 			this.anim.pushFrame( new AnimFrame( {
-				'replayIndex': { value: i, expireOnCount: MILLIS_PER_FRAME * 2 } 
+				'replayIndex': { value: this.replayImages.length - 1, expireOnCount: 1000 } 
+			} ) );
+
+			// replay death
+			for ( let i = this.replayImages.length - 1; i >= 0; i-- ) {
+				this.anim.pushFrame( new AnimFrame( {
+					'replayIndex': { value: i, expireOnCount: MILLIS_PER_FRAME * 2 } 
+				} ) );
+			}
+
+			// fade in
+			this.anim.pushFrame( new AnimFrame( {
+				'replayAlpha': { value: 1.0, expireOnReach: true } 
+			} ) );
+
+			// change state
+			this.anim.pushFrame( new AnimFrame( {
+				'state': { value: LevelState.DEATH_REPLAY, expireOnReach: true }
 			} ) );
 		}
-
-		// fade in
-		this.anim.pushFrame( new AnimFrame( {
-			'replayAlpha': { value: 1.0, expireOnReach: true } 
-		} ) );
-
-		// change state
-		this.anim.pushFrame( new AnimFrame( {
-			'state': { value: LevelState.DEATH_REPLAY, expireOnReach: true }
-		} ) );
 	}
 
 	checkForSuccess() {
@@ -711,19 +712,24 @@ export class Level extends Scene {
 		}
 
 		if ( success ) {
-			this.anim.clear();
+			if ( defeatedNames.length > 0 ) {
+				this.anim.clear();
 
-			this.messageAnim.pushFrame( new AnimFrame( {
-				'newMsg': { value: 'Press Z to proceed\n', expireOnReach: true }
-			} ) );
+				this.messageAnim.pushFrame( new AnimFrame( {
+					'newMsg': { value: 'Press Z to proceed\n', expireOnReach: true }
+				} ) );
 
-			this.messageAnim.pushFrame( new AnimFrame( {
-				'newMsg': { value: 'You have defeated the ' + defeatedNames.join( ', ' ) + '\n', expireOnReach: true }
-			} ) );
+				this.messageAnim.pushFrame( new AnimFrame( {
+					'newMsg': { value: 'You have defeated the ' + defeatedNames.join( ', ' ) + '\n', expireOnReach: true }
+				} ) );
 
-			this.anim.pushFrame( new AnimFrame( {
-				'state': { value: LevelState.SUCCESS_MENU, expireOnReach: true }
-			} ) );
+				this.anim.pushFrame( new AnimFrame( {
+					'state': { value: LevelState.SUCCESS_MENU, expireOnReach: true }
+				} ) );
+
+			} else {
+				document.dispatchEvent( new CustomEvent( 'complete' ) );
+			}
 		}
 	}
 
@@ -1013,6 +1019,8 @@ export class Level extends Scene {
 	}
 
 	deathDraw( context: CanvasRenderingContext2D ) {
+		if ( !Debug.flags.SHOW_DEATH ) return;
+
 		if ( this.replayIndex < this.replayImages.length ) {
 			let finalPos = this.replayImages.slice( -1 )[0].playerPos;
 
@@ -1036,7 +1044,8 @@ export class Level extends Scene {
 
 		let ir = this.ir * this.camera.viewportW / 400;
 
-		this.camera.moveContext( context );
+		context.save();
+			context.translate( this.camera.viewportW / 2, this.camera.viewportH / 2 );
 			context.globalCompositeOperation = 'destination-in';
 			context.fillStyle = 'white';
 			context.beginPath();
@@ -1051,6 +1060,6 @@ export class Level extends Scene {
 			context.arc( 0, 0, ir, 0, Math.PI * 2 );
 			context.fill();
 			context.globalAlpha = 1.0;
-		this.camera.unMoveContext( context );
+		context.restore();
 	}
 }

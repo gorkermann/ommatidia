@@ -1,4 +1,4 @@
-import { Anim, AnimField, PhysField, AnimFrame, MilliCountdown, SpinDir } from './lib/juego/Anim.js'
+import { Anim, AnimField, PhysField, AnimFrame, AnimTarget, MilliCountdown, SpinDir } from './lib/juego/Anim.js'
 import { Entity, cullList, TransformOrder } from './lib/juego/Entity.js'
 import { Contact } from './lib/juego/Contact.js'
 import { Material } from './lib/juego/Material.js'  
@@ -313,6 +313,7 @@ let rollerLength = 80;
 
 export class Roller extends CenteredEntity {
 	block: CenteredEntity;
+	flash: number = 0.0;
 
 	constructor( pos: Vec2 ) {
 		super( pos, 0, 0 );
@@ -363,6 +364,8 @@ export class RollBoss extends Boss {
 		current_attack_damage: 0
 	};
 
+	flash: number = 0.0;
+
 	/* property overrides */
 
 	flavorName = 'ROLL CORE';
@@ -387,7 +390,7 @@ export class RollBoss extends Boss {
 	//extendedSound: Sound = new Sound( './sfx/roll_extended.wav' );
 
 	anim = new Anim( {
-		'skewL': new AnimField( this.material, 'skewL' ), // TODO: make this harder to unlink?
+		'flash': new AnimField( this, 'flash' ),
 		'invuln': new AnimField( this, 'invuln' ),
 		'state': new AnimField( this, 'state' ),
 		'fireFat': new AnimField( this, 'fireFat' ),
@@ -395,7 +398,7 @@ export class RollBoss extends Boss {
 		'staggerFat': new AnimField( this, 'staggerFat' )
 	},
 	new AnimFrame( {
-		'skewL': { value: 0.0 },
+		'flash': { value: 0.0 },
 		'invuln': { value: false },
 		'fireFat': { value: false },
 		'fireSkin': { value: false },
@@ -423,12 +426,12 @@ export class RollBoss extends Boss {
 
 			let roller = new Roller( new Vec2( 0, y ) );
 			roller.block.name = prefix + l + '-block';
-			this.anim.fields[prefix + l + '-block-mat-skewL'] = new AnimField( roller.block.material, 'skewL' ),
+			this.anim.fields[prefix + l + '-block-flash'] = new AnimField( roller, 'flash' ),
 			this.anim.fields[prefix + l + '-angle'] = ( new PhysField( roller, 'angle', 'angleVel', 0.05, { isAngle: true } ) );
 			this.anim.fields[prefix + l + '-block-angle'] = ( new PhysField( roller.block, 'angle', 'angleVel', 0.05, { isAngle: true } ) );
 			roller.angle = 0;
-			this.anim.default.targets[prefix + l + '-angle'] = { value: roller.angle };
-			this.anim.default.targets[prefix + l + '-block-angle'] = { value: 0 };
+			this.anim.default.targets[prefix + l + '-angle'] = new AnimTarget( roller.angle );
+			this.anim.default.targets[prefix + l + '-block-angle'] = new AnimTarget( 0 );
 
 			target.push( roller );
 			this.addSub( roller );
@@ -440,8 +443,8 @@ export class RollBoss extends Boss {
 
 		this.anim.fields['top1-pos'] = new PhysField( this.tops[1], 'pos', 'vel', 3 );
 		this.anim.fields['bottom1-pos'] = new PhysField( this.bottoms[1], 'pos', 'vel', 3 );
-		this.anim.default.targets['top1-pos'] = { value: this.tops[1].pos.copy() };
-		this.anim.default.targets['bottom1-pos'] = { value: this.bottoms[1].pos.copy() };
+		this.anim.default.targets['top1-pos'] = new AnimTarget( this.tops[1].pos.copy() );
+		this.anim.default.targets['bottom1-pos'] = new AnimTarget( this.bottoms[1].pos.copy() );
 
 		this.anim.addGroup( 'roller-angle', ['top0-angle', 'top1-angle', 'bottom0-angle', 'bottom1-angle'] );
 		this.anim.addGroup( 'top-arm-angle', ['top0-angle', 'top1-angle'] );
@@ -559,15 +562,15 @@ export class RollBoss extends Boss {
 				contact.sub.health -= 1;
 
 				if ( contact.sub.parent ) {
-					let paramKey = contact.sub.parent.name + '-mat-skewL';
+					let paramKey = contact.sub.parent.name + '-flash';
 
 					if ( paramKey in this.anim.fields ) {
 						let frame = new AnimFrame( {} );
-						frame.targets[paramKey] = { value: 0.0, expireOnReach: true, overrideRate: 0.1 };
+						frame.targets[paramKey] = new AnimTarget( 0.0, { overrideRate: 0.1 } );
 						this.anim.pushFrame( frame, { threadIndex: 1, tag: 'exit' } );
 
 						frame = new AnimFrame( {} );
-						frame.targets[paramKey] = { value: 0.5, expireOnReach: true, overrideRate: 0 };
+						frame.targets[paramKey] = new AnimTarget( 0.5, { overrideRate: 0 } );
 						this.anim.pushFrame( frame, { threadIndex: 1 } );
 					}
 				}
@@ -603,10 +606,10 @@ export class RollBoss extends Boss {
 				this.health -= 1;
 
 				this.anim.pushFrame( new AnimFrame( {
-					'skewL': { value: 0.0, expireOnReach: true, overrideRate: 0.1 },
+					'flash': { value: 0.0, expireOnReach: true, overrideRate: 0.1 },
 				} ), { threadIndex: 1, tag: 'exit' } );
 				this.anim.pushFrame( new AnimFrame( {
-					'skewL': { value: 0.5, expireOnReach: true, overrideRate: 0 },
+					'flash': { value: 0.5, expireOnReach: true },
 				} ), { threadIndex: 1 } );
 
 				this.hitSound.count = 1;
@@ -1036,13 +1039,11 @@ export class RollBoss extends Boss {
 	/* drawing */
 
 	shade() {
-		if ( this.material.skewL > 0 ) {
-			for ( let top of this.tops ) {
-				top.block.material.skewL = this.material.skewL;
-			}
-			for ( let bottom of this.bottoms ) {
-				bottom.block.material.skewL = this.material.skewL;
-			}
+		for ( let top of this.tops ) {
+			top.block.material.skewL = Math.max( this.flash, top.flash );
+		}
+		for ( let bottom of this.bottoms ) {
+			bottom.block.material.skewL =  Math.max( this.flash, bottom.flash );
 		}
 
 		super.shade();

@@ -1,4 +1,4 @@
-<script type="module" src="./build/Game.js"></script>
+<script type="module" src="./dist/dev/app.js"></script>
 
 <style>
 	body {
@@ -6,6 +6,8 @@
 		font-family: monospace;
 		margin: 0;
 		height: 100%;
+		color: white;
+		overflow-x: hidden; /* so tooltips don't make the scroll bar flash when adjusting to right edge of screen */
 	}
 
 	#optionpanel {
@@ -62,10 +64,117 @@
 		overflow-y: scroll;
 	}
 
-	.object-link:hover {
+	.object-link {
+		color: gray;
+		text-overflow: ellipsis;
+		overflow: hidden;
+	}
+
+	.object-link.nonempty {
+		color: white;
+	}
+
+	.object-link.nonempty:hover {
 		color: black;
 		background: white;
 	}
+
+	.object-link.single {
+		display: inline;
+		margin-left: 0px;
+	}
+
+	.file-link:hover {
+		color: orange;
+		background: black;
+	}
+
+	.anim-table-container {
+		overflow-x: scroll;
+	}
+
+	table.anim-table {
+		table-layout: fixed; /* use column widths */
+		width: 0px; /* fit table to content */
+		margin-left: 10px;
+		background: #222222;
+	}
+
+	table.anim-table.sequence {
+		color: black;
+		background: #444444;
+	}
+
+	table.anim-table td {
+		padding: 0px;
+	}
+
+	table.anim-table td.selected {
+		color: black;
+		background: fuchsia;
+	}
+
+	col.anim-field-col {
+		width: 100px;
+	}
+
+	col.anim-frame-col {
+		width: 20px;
+	}
+
+	td.anim-field-cell {
+		white-space: nowrap; /* truncate text */
+		text-overflow: ellipsis;
+		overflow: hidden;
+		/* max-width: 1px; not needed */
+
+		font-size: 12px; /* bigger than other defaults for some reason */
+	}
+
+	td.anim-frame-cell {
+		white-space: nowrap; /* not needed if no text in cell */
+	}
+
+	td:hover {
+		background: #666600;
+	}
+
+	td.anim-targeted {
+		background: white;
+	}
+
+	td.anim-targeted:hover {
+		background: orange;
+	}
+
+	td.anim-targeted.delayed {
+		background: gray;
+	}
+
+	td.anim-targeted.disabled {
+		background: #444444;
+	}
+
+	.tooltip-container {
+		position: absolute;
+		z-index: 1;
+	}
+
+	.tooltip {
+		border: 1px solid;
+		background: beige;
+		width: auto;
+		padding-left: 5px;
+		padding-right: 5px;
+		
+		color: black;
+		font-size: 12;
+		font-family: sans-serif;
+		text-align: left;
+
+		white-space: pre-wrap;
+	}
+
 </style>
 
 <title></title>
@@ -128,13 +237,14 @@
 			</div>
 		</div>
 	</div>
-	<div id="drawarea" class="middlepane">
+	<div id="drawarea" class="middlepane" tabindex="0">
 		<canvas id="canvas" width="400" height="400"></canvas>
 	</div>
 	<div class="rightpane">
 		<div id="debugpanel" class="hidden">
 			<div id="debug"></div>
 			<div id="inspector" style="margin-top: 20px"> </div>
+			<div id="fileList" style="margin-top: 20px"> </div>
 		</div>
 	</div>
 </body>

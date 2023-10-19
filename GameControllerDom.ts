@@ -5,21 +5,25 @@ import { Entity } from './lib/juego/Entity.js'
 import { Inspector } from './lib/juego/Inspector.js'
 import { Keyboard, KeyCode } from './lib/juego/keyboard.js'
 import { Scene } from './lib/juego/Scene.js'
+import { Selector } from './lib/juego/Selector.js'
+import { Dict } from './lib/juego/util.js'
+import { Vec2 } from './lib/juego/Vec2.js'
 
 import * as tp from './lib/toastpoint.js'
-
-import { Level } from './Level.js'
-import { constructors, nameMap } from './objDef.js'
-import { store } from './store.js'
-import * as Debug from './Debug.js'
  
 import { PlayMode } from './mode/PlayMode.js'
 
-import { gameCommands } from './gameCommands.js'
-import { levelDataList } from './levels.js'
 import { DeathScene } from './DeathScene.js'
+import * as Debug from './Debug.js'
+import { gameCommands } from './gameCommands.js'
 import { FloaterScene } from './FloaterScene.js'
+import { Level } from './Level.js'
+import { levelDataList } from './levels.js'
+import { constructors, nameMap } from './objDef.js'
+import { Panel, SaverPanel } from './Panel.js'
+import { store } from './store.js'
 import { TitleScene } from './TitleScene.js'
+import { Watcher, DictWatcher } from './Watcher.js'
 
 tp.config.WRITE_PTR_CLASSNAME = true;
 
@@ -40,6 +44,10 @@ type LoadLevelOptions = {
 
 let domHoverlist: Array<Entity> = [];
 
+type ResetInterfaceOptions = {
+	soft?: boolean;
+}
+
 export class GameControllerDom extends Controller {
 	context: CanvasRenderingContext2D = null;
 
@@ -57,12 +65,20 @@ export class GameControllerDom extends Controller {
 	saveStateInterval: number = 1000;
 	lastStateTime: number = 0; // milliseconds of play time since scene started
 
+	watchers: Dict<Watcher> = {
+		'localStorage': new DictWatcher( 'localStorage', store )
+	};
+
+	panels: Array<Panel> = [
+		new SaverPanel()
+	];
+
 	/* property overrides */
 
 	defaultMode = 'Play';
 
 	constructor() {
-		super( gameCommands );
+		super( [] );
 
 		this.initCanvas();
 
@@ -70,6 +86,7 @@ export class GameControllerDom extends Controller {
 
 		this.initKeyboard();
 		this.initMouse();
+		this.initMenu();
 
 		this.changeMode( new PlayMode() );
 
@@ -105,7 +122,7 @@ export class GameControllerDom extends Controller {
 				let context = this.canvas.getContext( '2d' );
 
 				context.clearRect( 0, 0, this.canvas.width, this.canvas.height );
-				this.mode.draw( this, context );
+				this.currentScene.draw( context );
 
 				var image = new Image();
 				image.src = this.canvas.toDataURL();
@@ -119,17 +136,6 @@ export class GameControllerDom extends Controller {
 
 				this.loadScene( this.title );
 			}
-		} );
-
-		document.addEventListener( 'dom-select', ( e: any ) => {
-			this.sel.doSelect( {}, e.detail );
-
-			this.inspect( this.sel.selection );
-		} );
-
-		document.addEventListener( 'dom-hover', ( e: any ) => {
-			this.sel.clearHovered();
-			this.sel.hoverlist.add( [e.detail] );
 		} );
 	}
 
@@ -145,59 +151,45 @@ export class GameControllerDom extends Controller {
 		} );
 	}
 
-	startLevel() {
-		try {
-			let level = new Level( 'level' + this.levelIndex, levelDataList[this.levelIndex] );
+	initMenu() {
+		this.commandList = this.commandList.concat( gameCommands );
 
-			this.recentStates = [];
-			this.lastStateTime = 0;
-
-			this.loadScene( level );
-
-		} catch ( e ) {
-			this.currentScene = null;
-
-			throw e;
-		}
-	}
-
-	initKeyboard() {
-		document.addEventListener( 'keydown', ( e: KeyboardEvent ) => {
-
-			// Select input mode
-			let foundCommand = false;
-
-			for ( let command of this.commandList ) {
-				if ( command.tryEnter( this, e ) ) {
-					if ( foundCommand ) {
-						throw new Error( 'Multiple commands triggered by keyboard event' );
-					}
-
-					foundCommand = true;
-				}
+		// command events
+		document.addEventListener( 'runCommand', ( e: any ) => {
+			if ( !e.detail ) {
+				console.error( 'runCommand handler: no detail provided' );
+				return;
 			}
 
-			if ( !foundCommand ) {
-				// do nothing
+			if ( !e.detail.commandName ) {
+				console.error( 'runCommand handler: no name provided' );
+				return;
 			}
-		} );	
+
+			if ( e.detail.selection &&
+				 e.detail.selection instanceof Array ) {
+				this.sel.selection = e.detail.selection;
+			}
+
+			this.runCommand( e.detail.commandName, e.detail.options );
+		} );
 	}
+
+	/* save */
 
 	getJSON(): any {
-		let toaster = new tp.Toaster( constructors, nameMap );
+		//let toaster = new tp.Toaster( constructors, nameMap );
 		let scene = this.currentScene;
 
 		let output = null;
 
 		if ( scene instanceof Level ) {
-			let flatLevel = tp.toJSON( scene, toaster );
+			try {
+				let flatLevel = tp.singleToJSON( scene, constructors, nameMap );
 
-			if ( toaster.errors.length > 0 ) {
-				for ( let error of toaster.errors ) {
-					console.error( error );
-				}
-			} else {
 				output = flatLevel;
+			} catch ( ex ) { 
+				console.error( ex );
 			}
 
 		} else {
@@ -205,13 +197,83 @@ export class GameControllerDom extends Controller {
 				scene.constructor.name );
 		}
 
-		toaster.cleanAddrIndex();
+		//toaster.cleanAddrIndex();
 
 		if ( output ) {
 			output['levelIndex'] = this.levelIndex;
 		}
 
 		return output;
+	}
+
+	/* load */
+
+	resetInterface( options: ResetInterfaceOptions={} ) {
+		let selectedIds = this.sel.selection.map( x => x.id );
+		let panels = Inspector.getPanelsDict();
+
+		this.sel = new Selector( [] );
+ 		Inspector.clearPanels( { force: true } );
+
+		this.sel.availablePrims = this.currentScene.em.entities;
+		Inspector.setObjectStore( this.currentScene.em.entitiesById );
+
+		// reapply selection and inspection
+		if ( this.currentScene instanceof Level ) {
+			for ( let id of selectedIds ) {
+				if ( id in this.currentScene.em.entitiesById ) {
+					this.sel.doSelect( { sticky: true }, this.currentScene.em.entitiesById[id] );
+				}
+			}
+
+			// reapply inspection
+			try {
+				let queries = [];
+
+				for ( let key in panels ) {
+					let panel = Inspector.getPanel( panels[key].query );
+					Inspector.addPanel( panel, key );
+
+					queries.push( panels[key].query );
+				}
+
+				if ( Debug.flags.LOG_PANEL_UPDATES ) {
+					console.log( 'reselected ids: ' + selectedIds );
+					console.log( 'reinspected queries: ' + queries );
+				}
+			} catch ( ex: any ) {
+				console.error ( ex.message );
+			}
+		}
+
+ 		// reset saved frames
+ 		if ( options.soft ) {
+ 			this.recentStates = this.recentStates.slice( 0, 1 );
+
+ 			if ( this.currentScene instanceof Level ) {
+ 				this.lastStateTime = this.currentScene.elapsedTotal;	
+ 			} else {
+ 				this.lastStateTime = 0;
+ 			}
+			
+ 		} else {
+ 			this.recentStates = [];
+			this.lastStateTime = 0;
+		}
+	}
+
+	startLevel() {
+		try {
+			let level = new Level( 'level' + this.levelIndex, levelDataList[this.levelIndex] );
+
+			this.loadScene( level );
+			this.resetInterface();
+
+		} catch ( e ) {
+			this.currentScene = null;
+
+			throw e;
+		}
 	}
 
 	loadLevelFromJSON( json: any, options: LoadLevelOptions={} ) {
@@ -232,8 +294,7 @@ export class GameControllerDom extends Controller {
 
 		delete level['__entities'];
 
-		this.loadScene( level, false );
-
+		// check if we are in the same level as previously
 		let sameLevel = false;
 		if ( 'levelIndex' in json ) {
 			sameLevel = ( json['levelIndex'] == this.levelIndex );
@@ -241,13 +302,8 @@ export class GameControllerDom extends Controller {
 			this.levelIndex = json['levelIndex'];
 		}
 
-		if ( sameLevel && !options.forceEraseHistory ) {
-			this.recentStates = this.recentStates.slice( 0, 1 );
-			this.lastStateTime = ( this.currentScene as Level ).elapsedTotal;
-		} else {
-			this.recentStates = [];
-			this.lastStateTime = 0;
-		}
+		this.loadScene( level, false );
+		this.resetInterface( { soft: sameLevel && !options.forceEraseHistory } );
 	}
 
 	loadScene( scene: Scene, doLoad: boolean=true ) {
@@ -260,6 +316,8 @@ export class GameControllerDom extends Controller {
 		this.resize();
 	}
 
+	/* play */
+
 	update() {
 		if ( this.currentScene === null ) {
 			this.loadScene( this.title );
@@ -271,7 +329,20 @@ export class GameControllerDom extends Controller {
 
 		this.mouse.update( this.canvas );
 
-		Inspector.updateFields();
+		for ( let key in this.watchers ) {
+			this.watchers[key].checkForChanges();
+		}
+
+		for ( let panel of this.panels ) {
+			for ( let key of panel.updateOn ) {
+				if ( panel.lastUpdateTime < this.watchers[key].lastChangeTime ) {
+					panel.update( this );
+					break;
+				}
+			}
+		}
+
+		Inspector.updatePanels();
 	}
 
 	resize() {
@@ -297,10 +368,10 @@ export class GameControllerDom extends Controller {
 		this.sel.clearHovered();
 
 		if ( this.currentScene instanceof Level ) {
-			this.sel.availablePrims = this.currentScene.em.entities;
+			if ( !Debug.flags.DRAW_NORMAL && Debug.flags.MOUSE_SELECT ) {
+				let pos = this.mouse.pos.minus( new Vec2( this.camera.viewportW / 2, this.camera.viewportH / 2 ) );
 
-			if ( !Debug.flags.DRAW_NORMAL ) {
-				let dir = this.cursor.unit().scale( 1000 );
+				let dir = pos.unit().scale( 1000 );
 
 				this.sel.hoverlist.add( this.currentScene.pickFromEye( dir ) );
 			}

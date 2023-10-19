@@ -1,10 +1,9 @@
-import { Chrono, Anim, AnimField, AnimFrame, PhysField } from './lib/juego/Anim.js'
+import { Chrono, Anim, AnimField, AnimFrame, AnimTarget, PhysField } from './lib/juego/Anim.js'
 import { Camera } from './lib/juego/Camera.js'
 import { Entity } from './lib/juego/Entity.js'
 import { GridArea } from './lib/juego/GridArea.js'
 import { Line } from './lib/juego/Line.js'
 import { Material } from './lib/juego/Material.js'
-import { Region } from './lib/juego/Region.js'
 import { Shape } from './lib/juego/Shape.js'
 import { Sound } from './lib/juego/Sound.js'
 import { TileArray } from './lib/juego/TileArray.js'
@@ -39,7 +38,6 @@ classMap['Material'] = Material; // no loops
 classMap['Line'] = Line; // no loops
 classMap['Shape'] = Shape; // could loop via .parent but currently not stored by parent
 classMap['Entity'] = Entity; // no loops
-classMap['Region'] = Region; // no loops
 classMap['GridArea'] = GridArea;
 classMap['TileArray'] = TileArray;
 classMap['Anim'] = Anim;
@@ -49,6 +47,7 @@ classMap['Chrono'] = Chrono;
 classMap['PhysField'] = PhysField;
 classMap['Sound'] = Sound;
 classMap['Camera'] = Camera;
+classMap['AnimTarget'] = AnimTarget;
 
 classMap['Level'] = Level;
 classMap['Player'] = Player;

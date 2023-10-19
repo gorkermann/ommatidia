@@ -67,8 +67,7 @@ export class FloaterScene extends Scene {
 	draw( context: CanvasRenderingContext2D ) {
 		if ( !this.canvas ) return;
 
-		context.save();
-			this.camera.moveContext( context );
+		this.camera.moveContext( context );
 
 			context.globalAlpha = 0.1;
 
@@ -82,6 +81,6 @@ export class FloaterScene extends Scene {
 			context.putImageData( upsampled, 0, 0 );*/
 
 			context.globalAlpha = 1.0;
-		context.restore();
+		this.camera.unMoveContext( context );
 	}
 }

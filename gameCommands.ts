@@ -1,6 +1,11 @@
+
 import { CommandRef, MOD } from './lib/juego/CommandRef.js'
+import { Entity } from './lib/juego/Entity.js'
 import { Keyboard, KeyCode } from './lib/juego/keyboard.js'
+import { Selectable } from './lib/juego/Selectable.js'
 import { Dict } from './lib/juego/util.js'
+
+import { DragMode } from './lib/juego/mode/DragMode.js'
 
 import * as tp from './lib/toastpoint.js'
 
@@ -10,7 +15,6 @@ import { constructors, nameMap } from './objDef.js'
 import { store } from './store.js'
 
 import { PlayMode } from './mode/PlayMode.js'
-import { DragMode } from './mode/DragMode.js'
 
 export let gameCommands: Array<CommandRef> = [];
 
@@ -30,10 +34,13 @@ let codeByDigit: Dict<KeyCode> = {
 	9: KeyCode.DIGIT_9,
 }
 
+let c: CommandRef;
+
+// Quick Access States
 for ( let i in codeByDigit ) {
 
 	// Save State
-	let c = new CommandRef( 'Save State ' + i, null, null, codeByDigit[i], MOD.CTRL );
+	c = new CommandRef( 'Save State ' + i, null, null, codeByDigit[i], MOD.CTRL );
 	c.enter = function( this: GameControllerDom ) {
 		let json = this.getJSON();
 
@@ -54,7 +61,7 @@ for ( let i in codeByDigit ) {
 	c = new CommandRef( 'Load State ' + i, null, null, codeByDigit[i] );
 	c.enter = function( this: GameControllerDom ) {
 		if ( !store['state_' + i] ) {
-			console.warn( 'No state in slot ' + i );
+			console.error( 'No state in slot ' + i );
 			return;
 		}
 
@@ -66,3 +73,94 @@ for ( let i in codeByDigit ) {
 	}
 	gameCommands.push( c );
 }
+
+// Load File
+c = new CommandRef( 'Load File', null, null );
+c.enter = function( this: GameControllerDom, options?: FilenameStruct ) {
+	if ( !options || !options.filename ) {
+		console.error( 'Load File: invalid options: ' + options );
+		return;
+	}
+
+	if ( !store[options.filename] ) {
+		console.error( 'Load File: No file named ' + options.filename );
+		return;
+	}
+
+	let json = JSON.parse( store[options.filename] );
+
+	this.loadLevelFromJSON( json, { forceEraseHistory: true } );
+
+	console.log( 'Load File: Loaded file ' + options.filename );
+}
+gameCommands.push( c );	
+
+// Save File
+c = new CommandRef( 'Save File', null, null );
+c.enter = function( this: GameControllerDom, options?: FilenameStruct ) {
+	if ( !options || !options.filename ) {
+		console.error( 'Save File: invalid options: ' + options );
+		return;
+	}
+
+	if ( store[options.filename] ) {
+		console.warn( 'Save File: overwriting ' + options.filename );
+	}
+
+	let json = this.getJSON();
+
+	if ( json ) {
+		let str = JSON.stringify( json );
+		store[options.filename] = str;
+
+		console.log( 'Save File: Saved file ' + options.filename );
+
+	} else {
+		console.error( 'Save File: Failed to create state' );
+	}
+}
+gameCommands.push( c );	
+ 
+type ArrayOfEntity = {
+	targets: Array<Entity>;
+}
+
+type SingleEntity = {
+	target: Entity;
+}
+
+type FilenameStruct = {
+	filename: string;
+}
+
+c = new CommandRef( 'Hover Only', null, null );
+c.enter = function( this: GameControllerDom, options?: SingleEntity ) {
+	if ( !options || !options.target ) {
+		console.error( 'Hover Only: invalid options: ' + options );
+		return;
+	}
+
+	this.sel.clearHovered();
+
+	this.sel.hoverlist.add( [options.target] );
+}
+gameCommands.push( c );
+
+c = new CommandRef( 'Unhover All', null, null );
+c.enter = function( this: GameControllerDom, ) {
+	this.sel.clearHovered();
+}
+gameCommands.push( c );
+
+c = new CommandRef( 'Select Only', null, null );
+c.enter = function( this: GameControllerDom, options?: SingleEntity ) {
+	if ( !options || !options.target ) {
+		console.error( 'Hover Only: invalid options: ' + options );
+		return;
+	}
+
+	this.sel.doSelect( {}, options.target );
+
+	this.inspect( this.sel.selection );
+}
+gameCommands.push( c );

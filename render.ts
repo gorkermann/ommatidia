@@ -204,8 +204,10 @@ function highlightCorners( hit: ShapeHit, prevHit: ShapeHit, nextHit: ShapeHit, 
 			}
 
 			// interior corner or flat made by two shapes
-			if ( hit.shape != comp.shape && hit.normal.dot( comp.normal ) > -0.1 ) {
-				score = 1.0;
+			if ( Debug.flags.HIGHLIGHT_INTERIOR_CORNERS ) {
+				if ( hit.shape != comp.shape && hit.normal.dot( comp.normal ) > -0.1 ) {
+					score = 1.0;
+				}
 			}
 
 			// corner of a single shape between two faces

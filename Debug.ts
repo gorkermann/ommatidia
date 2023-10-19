@@ -12,9 +12,13 @@ export let flags: Dict<boolean> = {
 	LOG_ANIM: false,
 	SUPER_SHOT: false,
 	FORCE_BOSS_ATK: false,
-	HIGHLIGHT_CORNERS: false,
+	HIGHLIGHT_CORNERS: true,
+	HIGHLIGHT_INTERIOR_CORNERS: false,
 	AUTO_BRIGHT_ADJUST: true,
 	LEVEL_ALT_MAT: true,
+	LOG_PANEL_UPDATES: true,
+	MOUSE_SELECT: false,
+	SHOW_DEATH: false,
 }
 
 type DebugField = {
