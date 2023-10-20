@@ -118,7 +118,7 @@ export class PlayMode extends GenericMode {
 				if ( json ) {
 					gc.recentStates.push( json );
 
-					console.log( 'pushed state at ' + gc.currentScene.elapsedTotal );
+					if ( Debug.flags.LOG_STATE_SAVELOAD ) console.log( 'pushed state at ' + gc.currentScene.elapsedTotal );
 				}
 
 				// keep only the most recent states

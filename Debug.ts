@@ -17,11 +17,12 @@ export let flags: Dict<boolean> = {
 	AUTO_BRIGHT_ADJUST: true,
 	LEVEL_ALT_MAT: true,
 	LOG_PANEL_UPDATES: true,
+	LOG_STATE_SAVELOAD: false, 
 	MOUSE_SELECT: false,
 	SHOW_DEATH: false,
 }
 
-type DebugField = {
+export type DebugField = {
 	value: string;
 	default?: string;
 	isValid?: boolean;
@@ -110,85 +111,6 @@ export function setFlags( newFlags: Dict<boolean | DebugField> ) {
 			}
 		}
 	}
-}
-
-export function createDOMPanel(): HTMLDivElement {
-	let panel = document.createElement( 'div' );
-	panel.classList.add( 'query-panel' );
-
-	// checkboxes
-	for ( let option in flags ) {
-		let optionName = option; // bring name into local scope
-
-		let div = document.createElement( 'div' );
-		div.innerHTML = optionName;
-
-		let checkbox = document.createElement( 'input' ) as HTMLInputElement;
-		checkbox.className = 'check';
-		checkbox.type = 'checkbox';
-
-		checkbox.onchange = () => {
-			let obj: Dict<boolean> = {};
-			obj[optionName] = checkbox.checked;
-
-			setFlags( obj );
-		}
-
-		document.addEventListener( 'var_' + optionName, ( e: Event ) => {
-			if ( ( e as CustomEvent).detail ) {
-				checkbox.checked = true;
-			} else {
-				checkbox.checked = false;
-			}
-		} );
-
-		checkbox.checked = flags[optionName];
-
-		div.appendChild( checkbox );
-		panel.appendChild( div );
-	}
-
-	for ( let option in fields ) {
-		let optionName = option;
-
-		let div = document.createElement( 'div' );
-		div.innerHTML = optionName;
-
-		let textbox = document.createElement( 'input' ) as HTMLInputElement;
-		textbox.className = 'text';
-
-		let obj: Dict<DebugField> = {};
-
-		textbox.onchange = () => {
-			obj[optionName] = { value: textbox.value };
-
-			setFlags( obj );
-		}
-
-		document.addEventListener( 'var_' + optionName, ( e: Event ) => {
-			let detail = ( e as CustomEvent ).detail as DebugField;
-
-			if ( detail ) {
-				textbox.value = detail.value;
-
-				if ( detail.isValid ) {
-					textbox.classList.remove( 'invalid' );
-				} else {
-					textbox.classList.add( 'invalid' );
-				}
-			} else {
-				textbox.value = '';
-			}
-		} );
-
-		obj[optionName] = fields[optionName];
-		setFlags( obj );
-
-		div.appendChild( textbox );
-		panel.appendChild( div );	
-	}
-
-	return panel;
 }
 
 export function init() {

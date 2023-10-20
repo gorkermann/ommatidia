@@ -85,8 +85,8 @@
 	}
 
 	.file-link:hover {
-		color: orange;
-		background: black;
+		color: white;
+		background: blue;
 	}
 
 	.anim-table-container {
@@ -175,6 +175,35 @@
 		white-space: pre-wrap;
 	}
 
+	.query-panel {
+		border: 1px solid white;
+		overflow: auto; /* stretches height to include right-floated hide/show button */
+	}
+
+	.query-panel-header {
+		background: #440044;
+		overflow: auto; /* stretches height to include right-floated hide/show button */
+	}
+
+	.dragged .query-panel-header {
+		background: fuchsia;
+	}
+
+	.query-panel-title {
+		display: inline-block; /* allows hide/show button to be in the same line */
+	}
+
+	.hide-show-button {
+		float: right;
+		padding-left: 10px;
+		padding-right: 10px;
+		padding-top: 0px;
+		padding-bottom: 0px;
+		font-size: 10;
+		color: white;
+		background: black;
+	}
+
 </style>
 
 <title></title>
@@ -241,10 +270,9 @@
 		<canvas id="canvas" width="400" height="400"></canvas>
 	</div>
 	<div class="rightpane">
-		<div id="debugpanel" class="hidden">
-			<div id="debug"></div>
-			<div id="inspector" style="margin-top: 20px"> </div>
-			<div id="fileList" style="margin-top: 20px"> </div>
+		<div class="scroll-container">
+			<div id="debugpanel" class="hidden">
+			</div>
 		</div>
 	</div>
 </body>

@@ -1,9 +1,10 @@
 import { Camera } from './lib/juego/Camera.js'
 import { CommandRef, MOD } from './lib/juego/CommandRef.js'
 import { Controller } from './lib/juego/Controller.js'
+import { Editable } from './lib/juego/Editable.js'
 import { Entity } from './lib/juego/Entity.js'
-import { Inspector } from './lib/juego/Inspector.js'
 import { Keyboard, KeyCode } from './lib/juego/keyboard.js'
+import { constructors, nameMap } from './lib/juego/constructors.js'
 import { Scene } from './lib/juego/Scene.js'
 import { Selector } from './lib/juego/Selector.js'
 import { Dict } from './lib/juego/util.js'
@@ -13,14 +14,13 @@ import * as tp from './lib/toastpoint.js'
  
 import { PlayMode } from './mode/PlayMode.js'
 
-import { DeathScene } from './DeathScene.js'
 import * as Debug from './Debug.js'
 import { gameCommands } from './gameCommands.js'
 import { FloaterScene } from './FloaterScene.js'
+import { InspectorPanel } from './InspectorPanel.js'
 import { Level } from './Level.js'
 import { levelDataList } from './levels.js'
-import { constructors, nameMap } from './objDef.js'
-import { Panel, SaverPanel } from './Panel.js'
+import { Panel, SaverPanel, PrefabPanel } from './Panel.js'
 import { store } from './store.js'
 import { TitleScene } from './TitleScene.js'
 import { Watcher, DictWatcher } from './Watcher.js'
@@ -54,7 +54,6 @@ export class GameControllerDom extends Controller {
 	currentScene: Scene = null;
 
 	title: TitleScene = new TitleScene();
-	deathScene: DeathScene = new DeathScene();
 
 	levelIndex: number = 0;
 
@@ -69,9 +68,8 @@ export class GameControllerDom extends Controller {
 		'localStorage': new DictWatcher( 'localStorage', store )
 	};
 
-	panels: Array<Panel> = [
-		new SaverPanel()
-	];
+	inspector: InspectorPanel;
+	panels: Array<Panel> = [];
 
 	/* property overrides */
 
@@ -89,6 +87,19 @@ export class GameControllerDom extends Controller {
 		this.initMenu();
 
 		this.changeMode( new PlayMode() );
+
+		let rightPane = document.getElementById( 'debugpanel' );
+		let saver = new SaverPanel();
+		rightPane.appendChild( saver.dom );
+		this.panels.push( saver );
+
+		let prefab = new PrefabPanel();
+		rightPane.appendChild( prefab.dom );
+		this.panels.push( prefab );
+
+		this.inspector = new InspectorPanel();
+		rightPane.appendChild( this.inspector.dom );
+		this.panels.push( this.inspector )
 
 		document.addEventListener( 'start', ( e: any ) => { 
 			this.levelIndex = 0;
@@ -112,7 +123,7 @@ export class GameControllerDom extends Controller {
 		} );
 
 		document.addEventListener( 'death', ( e: any ) => {
-			this.loadScene( this.deathScene );
+			this.startLevel();
 		} );
 
 		document.addEventListener( 'complete', ( e: any ) => { 
@@ -210,15 +221,14 @@ export class GameControllerDom extends Controller {
 
 	resetInterface( options: ResetInterfaceOptions={} ) {
 		let selectedIds = this.sel.selection.map( x => x.id );
-		let panels = Inspector.getPanelsDict();
+		for ( let panel of this.panels ) {
+			panel.save( this );
+		}
 
 		this.sel = new Selector( [] );
- 		Inspector.clearPanels( { force: true } );
-
 		this.sel.availablePrims = this.currentScene.em.entities;
-		Inspector.setObjectStore( this.currentScene.em.entitiesById );
 
-		// reapply selection and inspection
+		// reapply selection and restore panels
 		if ( this.currentScene instanceof Level ) {
 			for ( let id of selectedIds ) {
 				if ( id in this.currentScene.em.entitiesById ) {
@@ -226,23 +236,12 @@ export class GameControllerDom extends Controller {
 				}
 			}
 
-			// reapply inspection
-			try {
-				let queries = [];
+			if ( Debug.flags.LOG_PANEL_UPDATES ) {
+				console.log( 'reselected ids: ' + selectedIds );
+			}
 
-				for ( let key in panels ) {
-					let panel = Inspector.getPanel( panels[key].query );
-					Inspector.addPanel( panel, key );
-
-					queries.push( panels[key].query );
-				}
-
-				if ( Debug.flags.LOG_PANEL_UPDATES ) {
-					console.log( 'reselected ids: ' + selectedIds );
-					console.log( 'reinspected queries: ' + queries );
-				}
-			} catch ( ex: any ) {
-				console.error ( ex.message );
+			for ( let panel of this.panels ) {
+				panel.restore( this );
 			}
 		}
 
@@ -334,15 +333,24 @@ export class GameControllerDom extends Controller {
 		}
 
 		for ( let panel of this.panels ) {
+			let newHash = '';
+
 			for ( let key of panel.updateOn ) {
-				if ( panel.lastUpdateTime < this.watchers[key].lastChangeTime ) {
-					panel.update( this );
-					break;
+				if ( key == 'self' ) {
+					newHash = panel.getHash();
+
+				} else {
+					if ( key in this.watchers ) {
+						if ( panel.lastUpdateTime < this.watchers[key].lastChangeTime ) {
+							newHash = this.watchers[key].lastChangeTime + '';
+							break;
+						}
+					}
 				}
 			}
-		}
 
-		Inspector.updatePanels();
+			panel.tryUpdate( this, newHash );
+		}
 	}
 
 	resize() {
@@ -362,6 +370,10 @@ export class GameControllerDom extends Controller {
 		if ( this.currentScene ) {
 			this.currentScene.camera.setViewport( this.canvas.width, this.canvas.height );
 		}
+	}
+
+	inspect( targets: Array<Editable> ) {
+		this.inspector.inspect( targets ); 
 	}
 
 	updateHovered() {
@@ -410,8 +422,7 @@ export class GameControllerDom extends Controller {
 		context.clearRect( 0, 0, this.canvas.width, this.canvas.height );
 
 		// background
-		if ( this.currentScene == this.title || 
-			 this.currentScene == this.deathScene ) {
+		if ( this.currentScene == this.title ) {
 
 			context.save();
 				context.translate( -this.title.origin.x, -this.title.origin.y );
@@ -420,7 +431,14 @@ export class GameControllerDom extends Controller {
 		}
 
 		this.currentScene.draw( context );
-		this.mode.draw( this, context );
+
+		this.currentScene.camera.moveContext( context );
+			this.mode.draw( this, context );
+
+			for ( let panel of this.panels ) {
+				panel.drawHelpers( context );
+			}
+		this.currentScene.camera.unMoveContext( context );
 
 		this.drawOldImage( context );
 	}

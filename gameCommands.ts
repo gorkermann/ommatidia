@@ -1,7 +1,7 @@
-
 import { CommandRef, MOD } from './lib/juego/CommandRef.js'
 import { Entity } from './lib/juego/Entity.js'
 import { Keyboard, KeyCode } from './lib/juego/keyboard.js'
+import { constructors, nameMap } from './lib/juego/constructors.js'
 import { Selectable } from './lib/juego/Selectable.js'
 import { Dict } from './lib/juego/util.js'
 
@@ -11,15 +11,21 @@ import * as tp from './lib/toastpoint.js'
 
 import { GameControllerDom } from './GameControllerDom.js'
 import { Level } from './Level.js'
-import { constructors, nameMap } from './objDef.js'
 import { store } from './store.js'
 
 import { PlayMode } from './mode/PlayMode.js'
+import { PlaceMode } from './mode/PlaceMode.js'
 
 export let gameCommands: Array<CommandRef> = [];
 
-gameCommands.push( new CommandRef( 'Play', null, PlayMode, null ) );
-gameCommands.push( new CommandRef( 'Drag', PlayMode, DragMode, null ) );
+/*
+									null origin mode means that the command can be run from any mode
+									null key means that there is no keyboard shortcut to run the command
+
+									name        origin mode 	target mode     key  
+*/
+gameCommands.push( new CommandRef( 'Play', 		null, 			PlayMode, 		KeyCode.ESC ) );
+gameCommands.push( new CommandRef( 'Drag', 		PlayMode, 		DragMode, 		null ) );
 
 let codeByDigit: Dict<KeyCode> = {
 	0: KeyCode.DIGIT_0,
@@ -32,6 +38,18 @@ let codeByDigit: Dict<KeyCode> = {
 	7: KeyCode.DIGIT_7,
 	8: KeyCode.DIGIT_8,
 	9: KeyCode.DIGIT_9,
+}
+
+type ArrayOfEntity = {
+	targets: Array<Entity>;
+}
+
+type SingleEntity = {
+	target: Entity;
+}
+
+type FilenameStruct = {
+	filename: string;
 }
 
 let c: CommandRef;
@@ -121,18 +139,44 @@ c.enter = function( this: GameControllerDom, options?: FilenameStruct ) {
 }
 gameCommands.push( c );	
  
-type ArrayOfEntity = {
-	targets: Array<Entity>;
-}
+// Save As Prefab
+c = new CommandRef( 'Save As Prefab', null, null );
+c.enter = function( this: GameControllerDom, options?: FilenameStruct ) {
+	if ( this.sel.selection.length == 0 ) return;
 
-type SingleEntity = {
-	target: Entity;
-}
+	let select = this.sel.selection[0];
 
-type FilenameStruct = {
-	filename: string;
-}
+	let toaster = new tp.Toaster( constructors, nameMap );
+	let json = tp.toJSON( select, toaster );
+	toaster.cleanAddrIndex();
 
+	if ( json ) {
+		let root = select.getRoot();
+
+		if ( !json['collisionGroup'] ) {
+			json['collisionGroup'] = root.collisionGroup;
+		}
+
+		let str = JSON.stringify( json );
+		let key = 'prefab-' + select.name;
+		store[key] = str;
+
+		console.log( 'Save As Prefab: Saved prefab ' + key );
+
+	} else {
+		console.error( 'Save As Prefab: Failed to save prefab' );
+	}
+}
+gameCommands.push( c );
+
+// Place Entity
+c = new CommandRef( 'Place Entity', null, null );
+c.enter = function( this: GameControllerDom, options?: SingleEntity ) {
+	this.changeMode( new PlaceMode( 'Place Entity', options.target ) );
+}
+gameCommands.push( c );
+
+// Hover Only
 c = new CommandRef( 'Hover Only', null, null );
 c.enter = function( this: GameControllerDom, options?: SingleEntity ) {
 	if ( !options || !options.target ) {
@@ -146,12 +190,14 @@ c.enter = function( this: GameControllerDom, options?: SingleEntity ) {
 }
 gameCommands.push( c );
 
+// Unhover All
 c = new CommandRef( 'Unhover All', null, null );
 c.enter = function( this: GameControllerDom, ) {
 	this.sel.clearHovered();
 }
 gameCommands.push( c );
 
+// Select Only
 c = new CommandRef( 'Select Only', null, null );
 c.enter = function( this: GameControllerDom, options?: SingleEntity ) {
 	if ( !options || !options.target ) {

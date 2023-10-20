@@ -1,13 +1,5 @@
-import { Chrono, Anim, AnimField, AnimFrame, AnimTarget, PhysField } from './lib/juego/Anim.js'
-import { Camera } from './lib/juego/Camera.js'
-import { Entity } from './lib/juego/Entity.js'
-import { GridArea } from './lib/juego/GridArea.js'
-import { Line } from './lib/juego/Line.js'
-import { Material } from './lib/juego/Material.js'
-import { Shape } from './lib/juego/Shape.js'
-import { Sound } from './lib/juego/Sound.js'
-import { TileArray } from './lib/juego/TileArray.js'
-import { Vec2 } from './lib/juego/Vec2.js'
+import { addClass, constructors } from './lib/juego/constructors.js'
+import { empty as juegoEmpty } from './lib/juego/objDef.js'
 
 import { Bullet, PlayerBullet, Gutter } from './Bullet.js'
 import { CenteredEntity } from './CenteredEntity.js'
@@ -19,80 +11,36 @@ import { Orbiter, Blocker, Elevator, Tumbler, Door} from './TutorialEntity.js'
 import { Attack, RollBoss, Gun, Barrier, Balloon, Roller } from './RollBoss.js'
 import { LockBoss, LockBossBarrier, LockWall, LockBulb,
 		 LockJaw, LockBarrage, LockRing } from './LockBoss.js'
- 
-export type Newable = { new ( ...args: any[] ): any }
 
-let factory = ( newable: Newable ): ( () => Object ) => {
-	return () => {
-		let obj = new newable();
-		return obj;
-	}
-}
+let juegoEmpty2 = juegoEmpty;
+export let empty = 0; // export so that webpack doesn't ignore the file
 
-// map from class names to constructors
-// used to make highlightable text in instructions
-export let classMap: { [ key: string ]: Newable } = {};
+addClass( 'Level', Level );
+addClass( 'Player', Player );
+addClass( 'Coin', Coin );
+addClass( 'CenteredEntity', CenteredEntity );
+addClass( 'RollBoss', RollBoss ); // could have loops if I decide to set .parent for Entities
+addClass( 'Gun', Gun );
+addClass( 'Bullet', Bullet );
+addClass( 'Explosion', Explosion );
+addClass( 'Barrier', Barrier );
+addClass( 'Gutter', Gutter );
+addClass( 'LockBoss', LockBoss );
+addClass( 'LockBossBarrier', LockBossBarrier );
+addClass( 'LockWall', LockWall );
+addClass( 'LockBulb', LockBulb );
+addClass( 'LockJaw', LockJaw );
+addClass( 'LockBarrage', LockBarrage );
+addClass( 'LockRing', LockRing );
+addClass( 'Balloon', Balloon );
+addClass( 'Roller', Roller );
+addClass( 'Attack', Attack );
+addClass( 'Orbiter', Orbiter );
+addClass( 'Blocker', Blocker );
+addClass( 'Elevator', Elevator );
+addClass( 'Tumbler', Tumbler );
+addClass( 'Door', Door );
+addClass( 'PlayerBullet', PlayerBullet );
 
-classMap['Vec2'] = Vec2; // no loops
-classMap['Material'] = Material; // no loops
-classMap['Line'] = Line; // no loops
-classMap['Shape'] = Shape; // could loop via .parent but currently not stored by parent
-classMap['Entity'] = Entity; // no loops
-classMap['GridArea'] = GridArea;
-classMap['TileArray'] = TileArray;
-classMap['Anim'] = Anim;
-classMap['AnimField'] = AnimField;
-classMap['AnimFrame'] = AnimFrame;
-classMap['Chrono'] = Chrono;
-classMap['PhysField'] = PhysField;
-classMap['Sound'] = Sound;
-classMap['Camera'] = Camera;
-classMap['AnimTarget'] = AnimTarget;
-
-classMap['Level'] = Level;
-classMap['Player'] = Player;
-classMap['Coin'] = Coin;
-classMap['CenteredEntity'] = CenteredEntity;
-classMap['RollBoss'] = RollBoss; // could have loops if I decide to set .parent for Entities
-classMap['Gun'] = Gun;
-classMap['Bullet'] = Bullet;
-classMap['Explosion'] = Explosion;
-classMap['Barrier'] = Barrier;
-classMap['Gutter'] = Gutter;
-classMap['LockBoss'] = LockBoss;
-classMap['LockBossBarrier'] = LockBossBarrier;
-classMap['LockWall'] = LockWall;
-classMap['LockBulb'] = LockBulb;
-classMap['LockJaw'] = LockJaw;
-classMap['LockBarrage'] = LockBarrage;
-classMap['LockRing'] = LockRing;
-classMap['Balloon'] = Balloon;
-classMap['Roller'] = Roller;
-classMap['Attack'] = Attack;
-classMap['Orbiter'] = Orbiter;
-classMap['Blocker'] = Blocker;
-classMap['Elevator'] = Elevator;
-classMap['Tumbler'] = Tumbler;
-classMap['Door'] = Door;
-classMap['PlayerBullet'] = PlayerBullet;
-
-// list of constructor functions
-// (need to access static props, not sure how to define this as a type in TS, so type is vague)
-
-// if a class is not in this list, it is instantiated as new Class()
-export let constructors : { [key: string]: () => Object } = {};
-
-for ( let className in classMap ) {
-	if ( !( className in constructors ) ) {
-		constructors[className] = factory( classMap[className] );
-	}
-}
-
-// create a map so constructor names can be retrieved post-obfuscation
-export let nameMap: { [ key: string ]: string } = {};
-
-for ( let className in classMap ) {
-	let constr = classMap[className];
-
-	nameMap[constr.name] = className;
-}
+// define special constructors here
+// constructors[className] =  () => new Class( false );

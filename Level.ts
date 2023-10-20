@@ -7,7 +7,7 @@ import { GridArea } from './lib/juego/GridArea.js'
 import { Keyboard, KeyCode } from './lib/juego/keyboard.js'
 import { Line } from './lib/juego/Line.js'
 import { Material } from './lib/juego/Material.js'
-import { Region } from './lib/juego/Region.js'
+import { constructors, nameMap } from './lib/juego/constructors.js'
 import { RayHit } from './lib/juego/RayHit.js'
 import { Scene } from './lib/juego/Scene.js'
 import { ScrollBox } from './lib/juego/ScrollBox.js'
@@ -24,7 +24,6 @@ import { CenteredEntity, RandomPoly } from './CenteredEntity.js'
 import { Coin } from './Coin.js'
 import { COL, MILLIS_PER_FRAME, REWIND_SECS } from './collisionGroup.js'
 import { Player } from './Player.js'
-import { constructors, nameMap } from './objDef.js'
 import { shapecast, renderFromEye, renderRays, whiteText, vals } from './render.js'
 
 import { Orbiter, Blocker, Elevator, Tumbler, Door } from './TutorialEntity.js'
@@ -634,6 +633,7 @@ export class Level extends Scene {
 
 					if ( entity == this.player ) {
 						document.dispatchEvent( new CustomEvent( 'death', {} ) );
+						
 					} else if ( entity instanceof Bullet ) {
 						entity.removeThis = true;
 					}

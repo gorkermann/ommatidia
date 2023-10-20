@@ -1,14 +1,17 @@
 import { Keyboard, KeyCode } from './lib/juego/keyboard.js'
 import { Vec2 } from './lib/juego/Vec2.js'
 
-import { GameControllerDom } from './GameControllerDom.js'
 import { MILLIS_PER_FRAME } from './collisionGroup.js'
-
+import { GameControllerDom } from './GameControllerDom.js'
+import { empty } from './objDef.js'
+import { DebugPanel } from './Panel.js'
 import { whiteText } from './render.js'
 
 import * as Debug from './Debug.js'
 
 let ctlr: GameControllerDom;
+
+let empty2 = empty;
 
 let count = 0;
 function annotate( context: CanvasRenderingContext2D, v: Vec2 ) {
@@ -44,8 +47,12 @@ window.onload = function() {
 	// debug panel
 	Debug.init();
 
-	let debugDiv = document.getElementById( 'debug' );
-	debugDiv.appendChild( Debug.createDOMPanel() );
+	let rightPane = document.getElementById( 'debugpanel' );
+
+	let debugPanel = new DebugPanel();
+	debugPanel.tryUpdate( ctlr, new Date().getTime() + '' );
+
+	rightPane.appendChild( debugPanel.dom );
 
 	setInterval( update, MILLIS_PER_FRAME );
 }
@@ -69,6 +76,7 @@ debugPanel.addEventListener( 'keyup', function( e: any ) {
 } );
 
 let frameTime = 0;
+let scrollTop = 0;
 
 let update = function() {
 
@@ -99,6 +107,33 @@ let update = function() {
 		if ( !debugPanel.classList.contains( 'hidden' ) ) {
 			debugPanel.classList.add( 'hidden' );
 		}
+	}
+
+	let container = document.getElementsByClassName( 'scroll-container' )[0] as HTMLDivElement;
+	let rightPane = document.getElementsByClassName( 'rightpane' )[0] as HTMLDivElement;
+
+	// Options for the observer (which mutations to observe)
+	const config = { attributeFilter: ['scrollHeight'] };
+
+	// Callback function to execute when mutations are observed
+	const callback = () => {
+		container.style.height = Math.max( container.scrollHeight, debugPanel.scrollHeight ) + 'px';
+		scrollTop = rightPane.scrollTop;
+	};
+
+	// Create an observer instance linked to the callback function
+	const observer = new MutationObserver( callback );
+
+	// Start observing the target node for configured mutations
+	observer.observe( debugPanel, config );
+
+	rightPane.onscroll = ( e: any ) => {
+		let height = container.scrollHeight;
+		let diff = Math.max( scrollTop - rightPane.scrollTop, 0 );
+
+		container.style.height = Math.max( debugPanel.scrollHeight, height - diff ) + 'px';
+
+		scrollTop = rightPane.scrollTop;
 	}
 
 	// want as short a time as possible between input checks in ctlr.update() and Keyboard.updateState()
