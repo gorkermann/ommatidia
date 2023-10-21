@@ -27,6 +27,9 @@ function annotate( context: CanvasRenderingContext2D, v: Vec2 ) {
 window.onload = function() {
 	console.log( 'init' );
 
+	// debug panel
+	Debug.init();
+	
 	ctlr = new GameControllerDom();
 
 	( window as any ).canvas = document.getElementById( 'canvas' );
@@ -44,15 +47,6 @@ window.onload = function() {
 		}
 	}
 
-	// debug panel
-	Debug.init();
-
-	let rightPane = document.getElementById( 'debugpanel' );
-
-	let debugPanel = new DebugPanel();
-	debugPanel.tryUpdate( ctlr, new Date().getTime() + '' );
-
-	rightPane.appendChild( debugPanel.dom );
 
 	setInterval( update, MILLIS_PER_FRAME );
 }
@@ -65,15 +59,15 @@ document.addEventListener( 'keyup', function( e: any ) {
 	Keyboard.upHandler( e );
 } );
 
-let debugPanel = document.getElementById( 'debugpanel' );
+let rightPanels = document.getElementById( 'rightPanelContainer' );
 
-debugPanel.addEventListener( 'keydown', function( e: any ) {
+/*debugPanel.addEventListener( 'keydown', function( e: any ) {
 	e.stopPropagation();
 } );
 
 debugPanel.addEventListener( 'keyup', function( e: any ) {
 	e.stopPropagation();
-} );
+} );*/
 
 let frameTime = 0;
 let scrollTop = 0;
@@ -99,39 +93,37 @@ let update = function() {
 			let put_a_breakpoint_here = 0;
 		}
 	
-		if ( debugPanel.classList.contains( 'hidden' ) ) {
-			debugPanel.classList.remove( 'hidden' );
+		if ( rightPanels.classList.contains( 'hidden' ) ) {
+			rightPanels.classList.remove( 'hidden' );
 		}
 
 	} else {
-		if ( !debugPanel.classList.contains( 'hidden' ) ) {
-			debugPanel.classList.add( 'hidden' );
+		if ( !rightPanels.classList.contains( 'hidden' ) ) {
+			rightPanels.classList.add( 'hidden' );
 		}
 	}
 
-	let container = document.getElementsByClassName( 'scroll-container' )[0] as HTMLDivElement;
+	let rightScroll = document.getElementsByClassName( 'scroll-container' )[0] as HTMLDivElement;
 	let rightPane = document.getElementsByClassName( 'rightpane' )[0] as HTMLDivElement;
 
 	// Options for the observer (which mutations to observe)
 	const config = { attributeFilter: ['scrollHeight'] };
 
-	// Callback function to execute when mutations are observed
 	const callback = () => {
-		container.style.height = Math.max( container.scrollHeight, debugPanel.scrollHeight ) + 'px';
+		let height = rightScroll.scrollHeight;
+
+		rightScroll.style.height = Math.max( rightPanels.scrollHeight, height ) + 'px';
 		scrollTop = rightPane.scrollTop;
 	};
 
-	// Create an observer instance linked to the callback function
 	const observer = new MutationObserver( callback );
-
-	// Start observing the target node for configured mutations
-	observer.observe( debugPanel, config );
+	observer.observe( rightPanels, config );
 
 	rightPane.onscroll = ( e: any ) => {
-		let height = container.scrollHeight;
+		let height = rightScroll.scrollHeight;
 		let diff = Math.max( scrollTop - rightPane.scrollTop, 0 );
 
-		container.style.height = Math.max( debugPanel.scrollHeight, height - diff ) + 'px';
+		rightScroll.style.height = Math.max( rightPanels.scrollHeight, height - diff ) + 'px';
 
 		scrollTop = rightPane.scrollTop;
 	}

@@ -20,7 +20,7 @@ import { FloaterScene } from './FloaterScene.js'
 import { InspectorPanel } from './InspectorPanel.js'
 import { Level } from './Level.js'
 import { levelDataList } from './levels.js'
-import { Panel, SaverPanel, PrefabPanel } from './Panel.js'
+import { Panel, receivePanel, SaverPanel, PrefabPanel, DebugPanel } from './Panel.js'
 import { store } from './store.js'
 import { TitleScene } from './TitleScene.js'
 import { Watcher, DictWatcher } from './Watcher.js'
@@ -88,17 +88,26 @@ export class GameControllerDom extends Controller {
 
 		this.changeMode( new PlayMode() );
 
-		let rightPane = document.getElementById( 'debugpanel' );
+		let rightPane = document.getElementsByClassName( 'rightpane' )[0] as HTMLDivElement;
+		let container = document.getElementById( 'rightPanelContainer' );
+
+		rightPane.onmousemove = receivePanel.bind( rightPane, container );
+
+		let debug = new DebugPanel();
+		debug.tryUpdate( this, new Date().getTime() + '' );
+		container.appendChild( debug.dom );
+		this.panels.push( debug );
+
 		let saver = new SaverPanel();
-		rightPane.appendChild( saver.dom );
+		container.appendChild( saver.dom );
 		this.panels.push( saver );
 
 		let prefab = new PrefabPanel();
-		rightPane.appendChild( prefab.dom );
+		container.appendChild( prefab.dom );
 		this.panels.push( prefab );
 
 		this.inspector = new InspectorPanel();
-		rightPane.appendChild( this.inspector.dom );
+		container.appendChild( this.inspector.dom );
 		this.panels.push( this.inspector )
 
 		document.addEventListener( 'start', ( e: any ) => { 
@@ -146,6 +155,26 @@ export class GameControllerDom extends Controller {
 				oldImages = [];
 
 				this.loadScene( this.title );
+			}
+		} );
+
+		document.addEventListener( 'show-shields', ( e: any ) => { 
+			for ( let panel of this.panels ) {
+				let shield = panel.dom.getElementsByClassName( 'query-panel-shield' )[0] as HTMLDivElement;
+
+				if ( !shield ) continue;
+
+				shield.classList.add( 'show' );
+			}
+		} );
+
+		document.addEventListener( 'hide-shields', ( e: any ) => { 
+			for ( let panel of this.panels ) {
+				let shield = panel.dom.getElementsByClassName( 'query-panel-shield' )[0] as HTMLDivElement;
+
+				if ( !shield ) continue;
+
+				shield.classList.remove( 'show' );
 			}
 		} );
 	}

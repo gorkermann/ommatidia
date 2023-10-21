@@ -7,7 +7,7 @@
 		margin: 0;
 		height: 100%;
 		color: white;
-		overflow-x: hidden; /* so tooltips don't make the scroll bar flash when adjusting to right edge of screen */
+		overflow: hidden; /* so tooltips don't make the scroll bar flash when adjusting to right edge of screen */
 	}
 
 	#optionpanel {
@@ -176,13 +176,39 @@
 	}
 
 	.query-panel {
+		position: relative;
 		border: 1px solid white;
 		overflow: auto; /* stretches height to include right-floated hide/show button */
+		background: black;
+	}
+
+	.query-panel.detached {
+		position: absolute;
+		width: 20%;
 	}
 
 	.query-panel-header {
 		background: #440044;
 		overflow: auto; /* stretches height to include right-floated hide/show button */
+	}
+
+	.query-panel-body {
+		/* position: relative; */
+	}
+
+	.query-panel-shield {
+		position: absolute;
+		width: 100%;
+		height: 100%;
+		z-index: 1;
+		background: white;
+		opacity: 0.0;
+
+		display: none;
+	}
+
+	.query-panel-shield.show {
+		display: block;
 	}
 
 	.dragged .query-panel-header {
@@ -271,7 +297,7 @@
 	</div>
 	<div class="rightpane">
 		<div class="scroll-container">
-			<div id="debugpanel" class="hidden">
+			<div id="rightPanelContainer" class="hidden">
 			</div>
 		</div>
 	</div>

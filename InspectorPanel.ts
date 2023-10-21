@@ -32,9 +32,9 @@ export class InspectorPanel extends Panel {
 		super( 'Inspector' );
 
 		// unhover entities hovered from object links
-		this.dom.onmousemove = () => {
+		this.dom.addEventListener( 'mousemove', () => {
 			document.dispatchEvent( new CustomEvent( 'dom-hover', { detail: null } ) );
-		}
+		} );
 	}
 
 	private static getTitle( targets: Array<Editable> ) {

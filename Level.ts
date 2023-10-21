@@ -363,8 +363,12 @@ export class Level extends Scene {
 
 		let frameStep = 1.0;//elapsed / 60;
 
-		this.anim.update( frameStep, elapsed );
-		this.messageAnim.update( frameStep, elapsed );
+		if ( this.state != LevelState.DEFAULT ) this.paused = false;
+
+		if ( !this.paused ) {
+			this.anim.update( frameStep, elapsed );
+			this.messageAnim.update( frameStep, elapsed );
+		}
 
 		if ( this.state == LevelState.DEATH_REPLAY ) {
 			// do nothing, anim only
