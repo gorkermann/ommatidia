@@ -1,10 +1,11 @@
 import { Keyboard, KeyCode } from './lib/juego/keyboard.js'
 import { Vec2 } from './lib/juego/Vec2.js'
 
+import { DebugPanel } from './ctlr/DebugPanel.js'
+
 import { MILLIS_PER_FRAME } from './collisionGroup.js'
 import { GameControllerDom } from './GameControllerDom.js'
 import { empty } from './objDef.js'
-import { DebugPanel } from './Panel.js'
 import { whiteText } from './render.js'
 
 import * as Debug from './Debug.js'

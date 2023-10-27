@@ -1,14 +1,19 @@
+import * as tp from './lib/toastpoint.js'
+
 import { CommandRef, MOD } from './lib/juego/CommandRef.js'
 import { Entity } from './lib/juego/Entity.js'
+import { IsoTriangleEntity, RightTriangleEntity,
+		 OvalEntity } from './lib/juego/BasicEntity.js'
 import { Keyboard, KeyCode } from './lib/juego/keyboard.js'
 import { constructors, nameMap } from './lib/juego/constructors.js'
 import { Selectable } from './lib/juego/Selectable.js'
+import { Shape } from './lib/juego/Shape.js'
 import { Dict } from './lib/juego/util.js'
+import { Vec2 } from './lib/juego/Vec2.js'
 
 import { DragMode } from './lib/juego/mode/DragMode.js'
 
-import * as tp from './lib/toastpoint.js'
-
+import { COL } from './collisionGroup.js'
 import { GameControllerDom } from './GameControllerDom.js'
 import { Level } from './Level.js'
 import { store } from './store.js'
@@ -208,5 +213,98 @@ c.enter = function( this: GameControllerDom, options?: SingleEntity ) {
 	this.sel.doSelect( {}, options.target );
 
 	this.inspect( this.sel.selection );
+}
+gameCommands.push( c );
+
+// Union
+c = new CommandRef( 'Union', null, null );
+c.enter = function( this: GameControllerDom, options?: SingleEntity ) {
+	if ( this.sel.selection.length < 2 ) {
+		console.warn( 'Union: Not enough entities selected' );
+		return;
+	}
+
+	if ( this.sel.selection.length > 2 ) {
+		console.warn( 'Union: Too many entities selected' );
+		return;
+	}
+
+	let shapes = Shape.union( this.sel.selection[0].getShapes(), this.sel.selection[1].getShapes() );
+
+	this.sel.selection[0].replacePresetShapes( shapes );
+}
+gameCommands.push( c );
+
+// Intersection
+c = new CommandRef( 'Intersection', null, null );
+c.enter = function( this: GameControllerDom, options?: SingleEntity ) {
+	if ( this.sel.selection.length < 2 ) {
+		console.warn( 'Union: Not enough entities selected' );
+		return;
+	}
+
+	if ( this.sel.selection.length > 2 ) {
+		console.warn( 'Union: Too many entities selected' );
+		return;
+	}
+
+	let shapes = Shape.intersection( this.sel.selection[0].getShapes(), this.sel.selection[1].getShapes() );
+
+	this.sel.selection[0].replacePresetShapes( shapes );
+}
+gameCommands.push( c );
+
+// Difference
+c = new CommandRef( 'Difference', null, null );
+c.enter = function( this: GameControllerDom, options?: SingleEntity ) {
+	if ( this.sel.selection.length < 2 ) {
+		console.warn( 'Union: Not enough entities selected' );
+		return;
+	}
+
+	if ( this.sel.selection.length > 2 ) {
+		console.warn( 'Union: Too many entities selected' );
+		return;
+	}
+
+	let shapes = Shape.difference( this.sel.selection[0].getShapes(), this.sel.selection[1].getShapes() );
+
+	this.sel.selection[0].replacePresetShapes( shapes );
+}
+gameCommands.push( c );
+
+// Place Rect Entity
+c = new CommandRef( 'Place Rect Entity', null, null );
+c.enter = function( this: GameControllerDom ) {
+	let e = new Entity( new Vec2(), 20, 20 );
+	e.collisionGroup = COL.LEVEL;
+	this.changeMode( new PlaceMode( 'Place Rect Entity', e ) );
+}
+gameCommands.push( c );
+
+// Place Isoceles Triangle Entity
+c = new CommandRef( 'Place Isoceles Triangle Entity', null, null );
+c.enter = function( this: GameControllerDom ) {
+	let e = new IsoTriangleEntity( new Vec2(), 20, 20 );
+	e.collisionGroup = COL.LEVEL;
+	this.changeMode( new PlaceMode( 'Place Isoceles Triangle Entity', e ) );
+}
+gameCommands.push( c );
+
+// Place Right Triangle Entity
+c = new CommandRef( 'Place Right Triangle Entity', null, null );
+c.enter = function( this: GameControllerDom ) {
+	let e = new RightTriangleEntity( new Vec2(), 20, 20 );
+	e.collisionGroup = COL.LEVEL;
+	this.changeMode( new PlaceMode( 'Place Right Triangle Entity', e ) );
+}
+gameCommands.push( c );
+
+// Place Oval Entity
+c = new CommandRef( 'Place Oval Entity', null, null );
+c.enter = function( this: GameControllerDom ) {
+	let e = new OvalEntity( new Vec2(), 20 );
+	e.collisionGroup = COL.LEVEL;
+	this.changeMode( new PlaceMode( 'Place Oval Entity', e ) );
 }
 gameCommands.push( c );

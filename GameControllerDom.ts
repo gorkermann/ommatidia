@@ -14,13 +14,19 @@ import * as tp from './lib/toastpoint.js'
  
 import { PlayMode } from './mode/PlayMode.js'
 
+import { Panel, receivePanel } from './ctlr/Panel.js'
+import { InspectorPanel } from './ctlr/InspectorPanel.js'
+import { SaverPanel } from './ctlr/SaverPanel.js'
+import { PrefabPanel } from './ctlr/PrefabPanel.js'
+import { DebugPanel } from './ctlr/DebugPanel.js'
+import { EntityPanel } from './ctlr/EntityPanel.js'
+import { CommandPanel } from './ctlr/CommandPanel.js'
+
 import * as Debug from './Debug.js'
 import { gameCommands } from './gameCommands.js'
 import { FloaterScene } from './FloaterScene.js'
-import { InspectorPanel } from './InspectorPanel.js'
 import { Level } from './Level.js'
 import { levelDataList } from './levels.js'
-import { Panel, receivePanel, SaverPanel, PrefabPanel, DebugPanel } from './Panel.js'
 import { store } from './store.js'
 import { TitleScene } from './TitleScene.js'
 import { Watcher, DictWatcher } from './Watcher.js'
@@ -94,21 +100,15 @@ export class GameControllerDom extends Controller {
 		rightPane.onmousemove = receivePanel.bind( rightPane, container );
 
 		let debug = new DebugPanel();
-		debug.tryUpdate( this, new Date().getTime() + '' );
-		container.appendChild( debug.dom );
-		this.panels.push( debug );
+		this.addPanel( debug, container );
 
-		let saver = new SaverPanel();
-		container.appendChild( saver.dom );
-		this.panels.push( saver );
-
-		let prefab = new PrefabPanel();
-		container.appendChild( prefab.dom );
-		this.panels.push( prefab );
+		this.addPanel( new SaverPanel(), container );
+		this.addPanel( new PrefabPanel(), container );
+		this.addPanel( new CommandPanel(), container );
+		this.addPanel( new EntityPanel(), container );
 
 		this.inspector = new InspectorPanel();
-		container.appendChild( this.inspector.dom );
-		this.panels.push( this.inspector )
+		this.addPanel( this.inspector, container );
 
 		document.addEventListener( 'start', ( e: any ) => { 
 			this.levelIndex = 0;
@@ -158,7 +158,7 @@ export class GameControllerDom extends Controller {
 			}
 		} );
 
-		document.addEventListener( 'show-shields', ( e: any ) => { 
+		document.addEventListener( 'ui-show-shields', ( e: any ) => { 
 			for ( let panel of this.panels ) {
 				let shield = panel.dom.getElementsByClassName( 'query-panel-shield' )[0] as HTMLDivElement;
 
@@ -168,7 +168,7 @@ export class GameControllerDom extends Controller {
 			}
 		} );
 
-		document.addEventListener( 'hide-shields', ( e: any ) => { 
+		document.addEventListener( 'ui-hide-shields', ( e: any ) => { 
 			for ( let panel of this.panels ) {
 				let shield = panel.dom.getElementsByClassName( 'query-panel-shield' )[0] as HTMLDivElement;
 
@@ -177,6 +177,11 @@ export class GameControllerDom extends Controller {
 				shield.classList.remove( 'show' );
 			}
 		} );
+	}
+
+	addPanel( panel: Panel, container: HTMLElement ) {
+		container.appendChild( panel.dom );
+		this.panels.push( panel );
 	}
 
 	initCanvas() {

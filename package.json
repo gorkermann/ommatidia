@@ -5,7 +5,8 @@
   },
   "devDependencies": {
     "@types/md5": "^2.3.3",
-    "webpack-cli": "^5.1.4"
+    "webpack-cli": "^5.1.4",
+    "polyclip-ts": "^0.16.3"
   },
   "type": "module"
 }

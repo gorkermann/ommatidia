@@ -1,4 +1,4 @@
-import { Chrono, Anim, AnimField, PhysField, AnimFrame, AnimTarget, MilliCountdown } from './lib/juego/Anim.js'
+import { Anim, AnimField, PhysField, AnimFrame, AnimTarget, MilliCountdown } from './lib/juego/Anim.js'
 import { Entity, cullList, TransformOrder } from './lib/juego/Entity.js'
 import { Contact } from './lib/juego/Contact.js'
 import { Material } from './lib/juego/Material.js'  
@@ -35,7 +35,6 @@ export class LockBossBarrier extends CenteredEntity {
 
 	getShapes(): Array<Shape> {
 		//let shape = this.getOwnShapes()[0];
-
 
 		let points = [];
 		let segLength = 80;

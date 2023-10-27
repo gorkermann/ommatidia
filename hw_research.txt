@@ -1,0 +1,5 @@
+assuming 360 slices
+
+100 LEDs/m (1.15m o'all diameter) 24V supply, 18W/m
+https://www.superlightingled.com/dense-tm1824-sk6812-4040-rgbw-digital-addressable-led-strip-10m-no-voltage-drop-p-5872.html
+

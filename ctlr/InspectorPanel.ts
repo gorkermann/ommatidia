@@ -1,17 +1,18 @@
 import md5 from 'md5'
 
-import { Dropdown } from './lib/juego/Dropdown.js'
-import { Editable, Range } from './lib/juego/Editable.js'
-import { create, clear } from './lib/juego/domutil.js'
-import { Dict, unorderedArraysMatch, fancyType } from './lib/juego/util.js'
-import { Vec2 } from './lib/juego/Vec2.js'
+import { Dropdown } from '../lib/juego/Dropdown.js'
+import { Editable, Range } from '../lib/juego/Editable.js'
+import { create, clear } from '../lib/juego/domutil.js'
+import { Dict, unorderedArraysMatch, fancyType } from '../lib/juego/util.js'
+import { Vec2 } from '../lib/juego/Vec2.js'
 
-import { AnimPanel } from './lib/juego/panel/AnimPanel.js'
+import { AnimPanel } from '../lib/juego/panel/AnimPanel.js'
 import { Field, InputField, Vec2Field, DropField, ObjectField, ArrayField,
-		 getDisplayVarname, TypeMismatchError } from './lib/juego/panel/Field.js'
+		 getDisplayVarname, TypeMismatchError } from '../lib/juego/panel/Field.js'
 
-import * as Debug from './Debug.js'
-import { GameControllerDom } from './GameControllerDom.js'
+import * as Debug from '../Debug.js'
+import { GameControllerDom } from '../GameControllerDom.js'
+
 import { Panel } from './Panel.js'
 
 function getDefaultEditFields( obj: any ): Array<string> {
