@@ -8,9 +8,13 @@ import { Explosion } from './Explosion.js'
 import { Level } from './Level.js'
 import { Player } from './Player.js'
 import { Orbiter, Blocker, Elevator, Tumbler, Door} from './TutorialEntity.js'
-import { Attack, RollBoss, Gun, Barrier, Balloon, Roller } from './RollBoss.js'
+
+import { Attack } from './boss/Attack.js'
+import { RollBoss, Gun, Barrier, Balloon, Roller } from './boss/RollBoss.js'
 import { LockBoss, LockBossBarrier, LockWall, LockBulb,
-		 LockJaw, LockBarrage, LockRing } from './LockBoss.js'
+		 LockJaw, LockBarrage, LockRing } from './boss/LockBoss.js'
+
+import { constructors as ShellBossConstructors } from './boss/ShellBoss.js'
 
 let juegoEmpty2 = juegoEmpty;
 export let empty = 0; // export so that webpack doesn't ignore the file
@@ -41,6 +45,10 @@ addClass( 'Elevator', Elevator );
 addClass( 'Tumbler', Tumbler );
 addClass( 'Door', Door );
 addClass( 'PlayerBullet', PlayerBullet );
+
+for ( let name in ShellBossConstructors ) {
+	addClass( name, ShellBossConstructors[name] );
+}
 
 // define special constructors here
 // constructors[className] =  () => new Class( false );

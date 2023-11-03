@@ -1,18 +1,18 @@
-import { Anim, AnimField, PhysField, AnimFrame, AnimTarget, MilliCountdown } from './lib/juego/Anim.js'
-import { Entity, cullList, TransformOrder } from './lib/juego/Entity.js'
-import { Contact } from './lib/juego/Contact.js'
-import { Material } from './lib/juego/Material.js'  
-import { Shape } from './lib/juego/Shape.js'
-import { Vec2 } from './lib/juego/Vec2.js'
-import { Dict } from './lib/juego/util.js'
+import { Anim, AnimField, PhysField, AnimFrame, AnimTarget, MilliCountdown } from '../lib/juego/Anim.js'
+import { Entity, cullList, TransformOrder } from '../lib/juego/Entity.js'
+import { Contact } from '../lib/juego/Contact.js'
+import { Material } from '../lib/juego/Material.js'  
+import { Shape } from '../lib/juego/Shape.js'
+import { Vec2 } from '../lib/juego/Vec2.js'
+import { Dict } from '../lib/juego/util.js'
 
 import { Boss, BossState } from './Boss.js'
-import { CenteredEntity } from './CenteredEntity.js'
-import { COL } from './collisionGroup.js'
-import { Explosion } from './Explosion.js'
-import { Bullet, Gutter } from './Bullet.js'
+import { CenteredEntity } from '../CenteredEntity.js'
+import { COL } from '../collisionGroup.js'
+import { Explosion } from '../Explosion.js'
+import { Bullet, Gutter } from '../Bullet.js'
 
-import * as Debug from './Debug.js'
+import * as Debug from '../Debug.js'
 
 let fieldWidth = 200;
 let fieldHeight = fieldWidth * 2;
@@ -56,8 +56,8 @@ export class LockBossBarrier extends CenteredEntity {
 		}
 
 		let shape = Shape.fromPoints( points );
-		shape.offset( new Vec2( -this.width / 2, -this.height / 2 ) );
-		shape.offset( new Vec2( this.pos.x, this.pos.y ) );
+		shape.points.map( x => x.add( new Vec2( -this.width / 2, -this.height / 2 ) ) );
+		shape.points.map( x => x.add( new Vec2( this.pos.x, this.pos.y ) ) );
 
 		shape.material = this.material;
 		shape.parent = this;
@@ -208,7 +208,7 @@ export class LockWave extends CenteredEntity {
 		if ( otherEntity instanceof Bullet ) {
 			otherEntity.removeThis = true;
 		}
-	}	
+	}
 }
 
 export class LockWall extends LockWave {
@@ -715,9 +715,9 @@ export class LockBoss extends Boss {
 	barrageSpeedRise: number = 4;
 	barrageSpeedMax: number = 20;
 
-	anim = new Anim( {}, new AnimFrame( {} ) );
-
 	/* property overrides */
+
+	anim = new Anim( {}, new AnimFrame( {} ) );
 
 	flavorName = 'LOCK CORE';
 

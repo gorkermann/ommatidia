@@ -1,19 +1,21 @@
-import { Anim, AnimField, PhysField, AnimFrame, AnimTarget, MilliCountdown, SpinDir } from './lib/juego/Anim.js'
-import { Entity, cullList, TransformOrder } from './lib/juego/Entity.js'
-import { Contact } from './lib/juego/Contact.js'
-import { Material } from './lib/juego/Material.js'  
-import { Shape } from './lib/juego/Shape.js'
-import { Sound } from './lib/juego/Sound.js'
-import { Vec2 } from './lib/juego/Vec2.js'
-import { Dict, discreteAccelDist } from './lib/juego/util.js'
+import { Anim, AnimField, PhysField, AnimFrame, AnimTarget, MilliCountdown, SpinDir } from '../lib/juego/Anim.js'
+import { Entity, cullList, TransformOrder } from '../lib/juego/Entity.js'
+import { Contact } from '../lib/juego/Contact.js'
+import { Material } from '../lib/juego/Material.js'  
+import { Shape } from '../lib/juego/Shape.js'
+import { Sound } from '../lib/juego/Sound.js'
+import { Vec2 } from '../lib/juego/Vec2.js'
+import { Dict, discreteAccelDist } from '../lib/juego/util.js'
 
+import { CenteredEntity } from '../CenteredEntity.js'
+import { COL, MILLIS_PER_FRAME } from '../collisionGroup.js'
+import { Explosion } from '../Explosion.js'
+import { Bullet, Gutter } from '../Bullet.js'
+
+import * as Debug from '../Debug.js'
+
+import { Attack, AttackReq } from './Attack.js'
 import { Boss, BossState } from './Boss.js'
-import { CenteredEntity } from './CenteredEntity.js'
-import { COL, MILLIS_PER_FRAME } from './collisionGroup.js'
-import { Explosion } from './Explosion.js'
-import { Bullet, Gutter } from './Bullet.js'
-
-import * as Debug from './Debug.js'
 
 export class Barrier extends CenteredEntity {
 	altMaterial = new Material( 210, 1.0, 0.9 );
@@ -205,60 +207,6 @@ type BossFlags = {
 	current_attack_damage: number
 }
 
-function countIncluded<Type>( list: Array<Type>, otherList: Array<Type> ): number {
-	let includedCount = 0;
-	for ( let entry of otherList ) {
-		if ( list.includes( entry ) ) includedCount += 1;
-	}
-
-	return includedCount;
-}
-
-export class Attack {
-	name: string;
-	reqs: Array<AttackReq> = [];
-
-	constructor( name: string, reqs: Array<AttackReq>=[] ) {
-		this.name = name;
-		this.reqs = reqs;
-	}
-
-	canEnter( state: Array<string> ): boolean {
-		for ( let req of this.reqs ) {
-			if ( req.allOf ) {
-				for ( let allName of req.allOf ) {
-					if ( !state.includes( allName ) ) return false;
-				}
-			}
-
-			if ( req.anyOf && req.anyOf.length > 0 ) {
-				let count = countIncluded( state, req.anyOf );
-				if ( count == 0 ) return false;
-			}
-
-			if ( req.oneOf && req.oneOf.length > 0 ) {
-				let count = countIncluded( state, req.oneOf );
-				if ( count != 1 ) return false;
-			}
-
-			if ( req.noneOf && req.noneOf.length > 0 ) {
-				let count = countIncluded( state, req.noneOf );
-
-				if ( count > 0 ) return false;
-			}	
-		}
-
-		return true;
-	}
-}
-
-type AttackReq = {
-	allOf?: Array<string>;
-	anyOf?: Array<string>;
-	oneOf?: Array<string>;
-	noneOf?: Array<string>;
-}
-
 let attacks = [
 	new Attack(
 		'horiz_seek',
@@ -352,7 +300,6 @@ export class RollBoss extends Boss {
 	attack: Attack = null;
 	counter: Attack = null;
 
-	invuln: boolean = false;
 	fireFat: boolean = false;
 	fireSkin: boolean = false;
 	staggerFat: boolean = false;
@@ -371,8 +318,6 @@ export class RollBoss extends Boss {
 	flavorName = 'ROLL CORE';
 
 	health = 80;
-
-	material = new Material( 60, 1.0, 0.5 );
 
 	collisionGroup = COL.ENEMY_BODY;
 	collisionMask = COL.PLAYER_BULLET;
@@ -430,8 +375,8 @@ export class RollBoss extends Boss {
 			this.anim.fields[prefix + l + '-angle'] = ( new PhysField( roller, 'angle', 'angleVel', 0.05, { isAngle: true } ) );
 			this.anim.fields[prefix + l + '-block-angle'] = ( new PhysField( roller.block, 'angle', 'angleVel', 0.05, { isAngle: true } ) );
 			roller.angle = 0;
-			this.anim.default.targets[prefix + l + '-angle'] = new AnimTarget( roller.angle );
-			this.anim.default.targets[prefix + l + '-block-angle'] = new AnimTarget( 0 );
+			//this.anim.default.targets[prefix + l + '-angle'] = new AnimTarget( roller.angle );
+			//this.anim.default.targets[prefix + l + '-block-angle'] = new AnimTarget( 0 );
 
 			target.push( roller );
 			this.addSub( roller );
@@ -443,8 +388,8 @@ export class RollBoss extends Boss {
 
 		this.anim.fields['top1-pos'] = new PhysField( this.tops[1], 'pos', 'vel', 3 );
 		this.anim.fields['bottom1-pos'] = new PhysField( this.bottoms[1], 'pos', 'vel', 3 );
-		this.anim.default.targets['top1-pos'] = new AnimTarget( this.tops[1].pos.copy() );
-		this.anim.default.targets['bottom1-pos'] = new AnimTarget( this.bottoms[1].pos.copy() );
+		//this.anim.default.targets['top1-pos'] = new AnimTarget( this.tops[1].pos.copy() );
+		//this.anim.default.targets['bottom1-pos'] = new AnimTarget( this.bottoms[1].pos.copy() );
 
 		this.anim.addGroup( 'roller-angle', ['top0-angle', 'top1-angle', 'bottom0-angle', 'bottom1-angle'] );
 		this.anim.addGroup( 'top-arm-angle', ['top0-angle', 'top1-angle'] );
@@ -498,10 +443,6 @@ export class RollBoss extends Boss {
 		this.messages.push( 'The ROLL CORE lies dormant before you.\n' );
 		this.messages.push( 'Take heed, traveler!.\n' );
 		this.messages.push( 'Most only hear the clap of its terrible hands but once!\n' );
-
-		this.anim.pushFrame( new AnimFrame( {
-			'state': { value: BossState.DEFAULT, expireOnReach: true, readOnly: true }
-		} ) );
 	}
 
 	/* function overrides */
@@ -527,14 +468,6 @@ export class RollBoss extends Boss {
 
 		return result;
 	}
-
- 	/*increaseSpeed() {
-		let speed = this.anim.default.targets['axis-angleVel'].value as number;
-		if ( speed == 0 ) speed = this.angleVelBase;
-		if ( this.axis.angleVel * speed < 0 ) speed *= -1; 
-
-		( this.anim.default.targets['axis-angleVel'].value as number ) = speed * this.angleVelFactor;
-	}*/
 
 	getHealth(): number {
 		let health = Math.max( this.health, 0 );
@@ -1043,7 +976,7 @@ export class RollBoss extends Boss {
 			top.block.material.skewL = Math.max( this.flash, top.flash );
 		}
 		for ( let bottom of this.bottoms ) {
-			bottom.block.material.skewL =  Math.max( this.flash, bottom.flash );
+			bottom.block.material.skewL = Math.max( this.flash, bottom.flash );
 		}
 
 		super.shade();

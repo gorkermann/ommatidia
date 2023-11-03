@@ -1,13 +1,15 @@
-import { Entity } from "./lib/juego/Entity.js"
-import { Contact } from "./lib/juego/Contact.js"
-import { Shape } from "./lib/juego/Shape.js"
-import { Vec2 } from "./lib/juego/Vec2.js"
+import { Entity } from './lib/juego/Entity.js'
+import { Contact } from './lib/juego/Contact.js'
+import { Shape } from './lib/juego/Shape.js'
+import { Vec2 } from './lib/juego/Vec2.js'
+import { Anim, AnimField, PhysField, AnimFrame, AnimTarget, MilliCountdown, SpinDir } from './lib/juego/Anim.js'
 
+import { CenteredEntity } from './CenteredEntity.js'
+import { COL } from './collisionGroup.js'
 import { Coin } from './Coin.js'
 import { Bullet, Gutter } from './Bullet.js'
 
 export class Player extends Entity {
-
 	jumping: boolean = false;
 	maxJumpFrames: number = 20;
 	jumpFrames: number = 0;

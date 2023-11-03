@@ -38,7 +38,7 @@ export class InspectorPanel extends Panel {
 		} );
 	}
 
-	private static getTitle( targets: Array<Editable> ) {
+	private static _getTitle( targets: Array<Editable> ) {
 		let ids: Dict<Array<number>> = {};
 
 		for ( let obj of targets ) {
@@ -67,7 +67,7 @@ export class InspectorPanel extends Panel {
 	tryUpdate( c: GameControllerDom, newHash: string ) {
 		super.tryUpdate( c, newHash );
 
-		this.updateFields();
+		this._updateFields();
 	}
 
 	protected updateDom( c: GameControllerDom ) {
@@ -81,7 +81,7 @@ export class InspectorPanel extends Panel {
 		// subtitle
 		let subtitle = create( 'div', {}, body ) as HTMLDivElement;
 		subtitle.className = 'query-panel-title';
-		subtitle.innerHTML = InspectorPanel.getTitle( this._targets );
+		subtitle.innerHTML = InspectorPanel._getTitle( this._targets );
 
 		// add a checkbox to pin this panel
 		let pinBox = create( 'input', { type: 'checkbox' }, subtitle ) as HTMLInputElement;
@@ -107,17 +107,17 @@ export class InspectorPanel extends Panel {
 		}
 
 		for ( let varname of commonFields ) {
-			this.addField( this._targets, varname, true );
+			this._addField( this._targets, varname, true );
 		}
 
 		// if showing a single object, add display-only fields
 		if ( this._targets.length == 1 && this._targets[0].showFields ) {
 			for ( let varname in this._targets[0].showFields ) {
-				this.addField( this._targets, varname, false );
+				this._addField( this._targets, varname, false );
 			}
 		}
 
-		this.updateFields();
+		this._updateFields();
 	}
 
 	save( c: GameControllerDom ) {
@@ -156,7 +156,7 @@ export class InspectorPanel extends Panel {
 		}
 	}
 
-	updateFields() {
+	private _updateFields() {
 		let anyEdited = false;
 
 		for ( let field of this._fields ) {
@@ -178,7 +178,7 @@ export class InspectorPanel extends Panel {
 		}
 	}
 
-	private addField( objs: Array<Editable>, varname: string, edit: boolean=false ) {
+	private _addField( objs: Array<Editable>, varname: string, edit: boolean=false ) {
 		if ( objs.length < 1 ) {
 			return;
 		}

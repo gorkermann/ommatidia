@@ -1,12 +1,14 @@
-import { Chrono, Anim, AnimField, AnimFrame } from './lib/juego/Anim.js'
-import { Material } from './lib/juego/Material.js'
-import { Vec2 } from './lib/juego/Vec2.js'
-import { Shape } from './lib/juego/Shape.js'
-import { Sound } from './lib/juego/Sound.js'
-import { Dict } from './lib/juego/util.js'
+import { Chrono, Anim, AnimField, AnimFrame } from '../lib/juego/Anim.js'
+import { Material } from '../lib/juego/Material.js'
+import { Vec2 } from '../lib/juego/Vec2.js'
+import { Shape } from '../lib/juego/Shape.js'
+import { Sound } from '../lib/juego/Sound.js'
+import { Dict } from '../lib/juego/util.js'
 
-import { CenteredEntity } from './CenteredEntity.js'
-import { Explosion } from './Explosion.js'
+import { CenteredEntity } from '../CenteredEntity.js'
+import { Explosion } from '../Explosion.js'
+
+import { Attack } from './Attack.js'
 
 export enum BossState {
 	DEFAULT = 0,
@@ -16,6 +18,7 @@ export enum BossState {
 }
 
 export class Boss extends CenteredEntity {
+	invuln: boolean = false;
 	health: number = 20;
 	maxHealth: number; // need to set in constructor
 
@@ -28,6 +31,9 @@ export class Boss extends CenteredEntity {
 	pupilMaterial = new Material( 0, 0.0, 0.0 );
 
 	state: number = BossState.DEFAULT;
+
+	attack: Attack = null;
+	counter: Attack = null;
 
 	messages: Array<string> = [];
 
@@ -237,12 +243,10 @@ export class Boss extends CenteredEntity {
 			this.whiteMaterial.skewL = 0.0;
 		}
 
-		super.shade();
-	}
+		this.coreMaterial.alpha = this.alpha;
+		this.whiteMaterial.alpha = this.alpha;
+		this.pupilMaterial.alpha = this.alpha;
 
-	draw( context: CanvasRenderingContext2D ) {
-		context.globalAlpha = this.alpha;
-		super.draw( context );
-		context.globalAlpha = 1.0;
+		super.shade();
 	}
 }

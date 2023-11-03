@@ -18,7 +18,11 @@ import { Vec2 } from './lib/juego/Vec2.js'
 
 import * as tp from './lib/toastpoint.js'
 
-import { Boss } from './Boss.js'
+import { Boss } from './boss/Boss.js'
+import { RollBoss, Barrier } from './boss/RollBoss.js' 
+import { LockBoss, LockWall } from './boss/LockBoss.js'
+import { ShellBoss } from './boss/ShellBoss.js'
+
 import { Bullet, PlayerBullet } from './Bullet.js'
 import { CenteredEntity, RandomPoly } from './CenteredEntity.js'
 import { Coin } from './Coin.js'
@@ -27,8 +31,6 @@ import { Player } from './Player.js'
 import { shapecast, renderFromEye, renderRays, whiteText, vals } from './render.js'
 
 import { Orbiter, Blocker, Elevator, Tumbler, Door } from './TutorialEntity.js'
-import { RollBoss, Barrier } from './RollBoss.js' 
-import { LockBoss, LockWall } from './LockBoss.js'
 
 import * as Debug from './Debug.js'
 
@@ -242,13 +244,15 @@ export class Level extends Scene {
 					coin.collisionMask = 0x00;
 					this.em.insert( coin );
 
-				} else if ( index == 4 || index == 6 ) {
+				} else if ( index == 4 || index == 6 || index == 16 ) {
 					let boss: Boss;
 
 					if ( index == 4 ) {
 						boss = new RollBoss( pos.copy(), true );
 					} else if ( index == 6 ) {
 						boss = new LockBoss( pos.copy(), true );
+					} else if ( index == 16 ) {
+						boss = new ShellBoss( pos.copy(), true );
 					}
 
 					if ( boss ) {
@@ -455,7 +459,7 @@ export class Level extends Scene {
 			if ( this.controlMode == MODE_GRAVITY ) {
 				this.controlMode = MODE_SQUARE;
 			} else {
-				this.controlMode = MODE_FREE;
+				this.controlMode = MODE_GRAVITY;
 			}
 		}
 
@@ -489,7 +493,9 @@ export class Level extends Scene {
 
 			} else {
 				this.player.jumping = false;
-			}*/
+			}
+
+			this.player.vel.y += this.grav.y;*/
 
 		} else if ( this.controlMode == MODE_SQUARE ) {
 			this.player.vel.setValues( 0, 0 );
@@ -590,8 +596,6 @@ export class Level extends Scene {
 				}
 			}
 
-			entity.watch( this.player.pos );
-
 			if ( entity instanceof Boss ) {
 				while ( entity.messages.length > 0 ) {
 					this.messageAnim.pushFrame( new AnimFrame( {
@@ -610,6 +614,12 @@ export class Level extends Scene {
 		let result = solveCollisionsFor( this.player, this.em.entities, COL.ENEMY_BODY | COL.LEVEL, frameStep );
 
 		this.em.advance( frameStep );
+		for ( let entity of this.em.entities ) {
+			entity.watch( this.player.pos );
+		}
+
+		// no position changes from here on (animate only sets velocities)
+
 		this.em.animate( frameStep, elapsed );
 		this.em.update();
 
@@ -741,9 +751,7 @@ export class Level extends Scene {
 		let shapes = [];
 
 		for ( let entity of this.em.entities ) {
-			if ( entity != this.player ) {
-				shapes.push( ...entity.getShapes( 0.0 ) );
-			}
+			shapes.push( ...entity.getShapes( 0.0 ) );
 		}
 
 		return shapes;
@@ -906,6 +914,14 @@ export class Level extends Scene {
 			}
 
 			if ( Debug.flags.DRAW_FROM_EYE ) {
+				let shapes = [];
+
+				for ( let entity of this.em.entities ) {
+					if ( entity == this.player ) continue;
+
+					shapes.push( ...entity.getShapes( 0.0 ) );
+				}
+
 				context.save();
 					context.translate( this.camera.viewportW / 2, this.camera.viewportH / 2 );
 

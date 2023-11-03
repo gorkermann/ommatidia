@@ -45,7 +45,8 @@ export let validators: Dict<( x: DebugField ) => boolean> = {};
 
 export let fields: Dict<DebugField> = {
 	ROLL_ATK: { value: '', default: 'default' },
-	LOCK_ATK: { value: '', default: 'default' }
+	LOCK_ATK: { value: '', default: 'default' },
+	SHELL_ATK: { value: '', default: 'default' },
 }
 
 for ( let flagName in juegoDebug ) {
