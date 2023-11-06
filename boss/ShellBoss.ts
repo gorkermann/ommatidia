@@ -3,7 +3,8 @@ import { Newable } from '../lib/juego/constructors.js'
 import { Entity, cullList, TransformOrder } from '../lib/juego/Entity.js'
 import { Range } from '../lib/juego/Editable.js'
 import { Contact } from '../lib/juego/Contact.js'
-import { Material } from '../lib/juego/Material.js'  
+import { Material } from '../lib/juego/Material.js'
+import { FuncCall } from '../lib/juego/serialization.js'  
 import { Shape } from '../lib/juego/Shape.js'
 import { Vec2 } from '../lib/juego/Vec2.js'
 import { Dict } from '../lib/juego/util.js'
@@ -20,9 +21,7 @@ import { Boss, BossState } from './Boss.js'
 
 let fieldWidth = 600;
 let interiorWidth = 200;
-let hallWidth = fieldWidth - interiorWidth * 2;
 let wallUnit = 20;
-let trackWidth = interiorWidth + hallWidth; // track is a line going down the center of the hall
 
 let attacks = [
 	new Attack(
@@ -32,6 +31,14 @@ let attacks = [
 	new Attack(
 		'closed_charge',
 		[]
+	),
+	new Attack(
+		'tornado',
+		[]
+	),
+	new Attack(
+		'chambers',
+		[ {'allOf': ['lalala'] } ]
 	),
 ]
 
@@ -113,11 +120,12 @@ export class ShellBossBarrier extends CenteredEntity {
 }
 
 class ShellBossRing extends CenteredEntity {
-	radius: number = hallWidth / 2 - wallUnit / 2;
+	closedRadius: number = wallUnit / Math.tan( Math.PI * 2 / 6 / 2 );
+	radius: number = 100 - wallUnit / 2;
 
 	alpha: number = 1.0;
 
-	radiusVec = new Vec2( this.radius, 0 );
+	radiusVec = new Vec2( this.closedRadius, 0 );
 	radiusVel = new Vec2();
 
 	walls: Array<Entity> = [];
@@ -137,7 +145,7 @@ class ShellBossRing extends CenteredEntity {
 	} );
 
 	constructor( pos: Vec2 ) {
-		super( pos, hallWidth, hallWidth );
+		super( pos, wallUnit, wallUnit );
 
 		let wallCount = 6;
 
@@ -153,6 +161,12 @@ class ShellBossRing extends CenteredEntity {
 			this.addSub( sub );
 			this.walls.push( sub );
 		}
+	}
+
+	getShapes( step: number=1.0 ): Array<Shape> {
+		if ( this.alpha == 0 ) return [];
+
+		else return super.getShapes( step );
 	}
 
 	advance( step: number ) {
@@ -178,18 +192,7 @@ class ShellBossRing extends CenteredEntity {
 type BossFlags = {
 	health: number
 	current_attack_damage: number
-}
-
-class FuncCall<Func extends ( this: any, ...args: any ) => any> { // TS doesn't check that Func has the correct this value, so leaving it as any
-	caller: any;
-	funcName: string;
-	args: Parameters<Func>;
-
-	constructor( caller: any, funcName: string, args: Parameters<Func> ) {
-		this.caller = caller;
-		this.funcName = funcName;
-		this.args = args;
-	}
+	retreating: boolean
 }
 
 export class ShellBoss extends Boss {
@@ -197,14 +200,10 @@ export class ShellBoss extends Boss {
 
 	flash: number = 0.0;
 
-	travelDir: SpinDir = SpinDir.CW;
-	trackPos: Vec2 = new Vec2( 0, interiorWidth / 2 + hallWidth / 2 );
-
-	waypoints: Array<Vec2> = [];
-
 	flags: BossFlags = {
 		health: 0,
-		current_attack_damage: 0
+		current_attack_damage: 0,
+		retreating: false
 	};
 
 	doFire: boolean = false;
@@ -216,7 +215,7 @@ export class ShellBoss extends Boss {
 
 	flavorName = 'SHELL CORE';
 
-	health = 80;
+	health = 40;
 
 	material = new Material( 60, 1.0, 0.5 );
 
@@ -240,22 +239,20 @@ export class ShellBoss extends Boss {
 		super( pos, 40, 40 );
 
 		this.center = this.pos.copy();
-
-		this.waypoints.push( this.pos.plus( new Vec2( -1, -1 ).scale( trackWidth ) ) );
-		this.waypoints.push( this.pos.plus( new Vec2( 1, -1 ).scale( trackWidth ) ) );
-		this.waypoints.push( this.pos.plus( new Vec2( 1, 1 ).scale( trackWidth ) ) );
-		this.waypoints.push( this.pos.plus( new Vec2( -1, 1 ).scale( trackWidth ) ) );
+		this.flags['health'] = this.getHealth();
 
 		for ( let i = 0; i < 4; i++ ) {
 			let ring = new ShellBossRing( this.pos.copy() );
 			this.anim.fields['ring' + i + '-pos'] = new PhysField( ring, 'pos', 'vel', 2 );
 			this.anim.fields['ring' + i + '-angle'] = new PhysField( ring, 'angle', 'angleVel', 0.04, { isAngle: true } );
-			this.anim.fields['ring' + i + '-radius'] = new PhysField( ring, 'radiusVec', 'radiusVel', 20 );
+			this.anim.fields['ring' + i + '-radius'] = new PhysField( ring.walls[0], 'pos', 'vel', 6 );
 			this.anim.fields['ring' + i + '-alpha'] = new AnimField( ring, 'alpha', 0.05 );
 			ring.alpha = 0;
 
 			this.rings.push( ring );
 		}
+
+		this.rings[0].alpha = 1;
 
 		for ( let i = 0; i < this.rings[0].walls.length; i++ ) {
 			this.anim.fields['ring0-wall' + i + '-angle'] = new PhysField( this.rings[0].walls[i], 'angle', 'angleVel', 0.1, { isAngle: true }  );
@@ -284,6 +281,12 @@ export class ShellBoss extends Boss {
 
 	defaultLogic() {
 		let present: Array<string> = [];
+
+		let health = this.getHealth();
+		if ( health < this.flags['health'] ) {
+			this.flags['current_attack_damage'] += this.flags['health'] - health;
+			this.flags['health'] = health;
+		}
 
 		if ( this.anim.isDone( [0] ) ) {
 			if ( Debug.flags.FORCE_BOSS_ATK ) {
@@ -324,100 +327,308 @@ export class ShellBoss extends Boss {
 
 			console.log( 'Beginning attack ' + this.attack.name ); // + ' (' + possibleAttacks.map( x => x.name ) + ')' );
 			this.flags['current_attack_damage'] = 0;
+			this.flags['retreating'] = false;
 
 			let start = Math.PI / 2;
 			this.anim.clear( { withoutTag: 'exit' } );
 
 			// open_charge
 			if ( this.attack.name == 'open_charge' ) {
+				let watchPos = this.watchTarget.plus( this.pos );
+ 
+ 				/*let newPos: Vec2;
+ 				let r = this.rings[0].radius;
+ 				let count = 0;
+
+				do {
+					count++;
+
+					if ( count > 10 ) {
+						console.error( 'ShellBoss open_charge: Unable to find valid initial position' );
+						break;
+					}
+
+					newPos = Vec2.fromPolar( Math.random() * Math.PI * 2, Math.random() * ( fieldWidth / 2 - r * 2 ) )
+									.plus( this.center );
+				} while ( newPos.distTo( watchPos ) < this.rings[0].radius + wallUnit * 2 )*/
+
+				//let watchAngle = this.watchTarget.plus( this.pos ).sub( newPos ).angle();
+				let slice = Math.PI * 2 / 12;
+
+				// close
 				this.anim.pushFrame( new AnimFrame( {
-					'ring0-radius': { value: new Vec2( fieldWidth, 0 ) }
+					'ring0-radius': { value: new Vec2( this.rings[0].closedRadius, 0 ) },
 				} ) );
 
-				// more spinning, boss fades out
-				this.anim.pushFrame( new AnimFrame( {
-					'alpha': { value: 0, expireOnReach: true },
-					'ring0-angle': { value: 0.1, overrideDelta: true }
-				} ) );	
+				// shoot 1 or more times
+				for ( let i = 0; i < 1 + Math.random() * 3; i++ ) {
+					this.anim.pushFrame( new AnimFrame( {
+						'ring0-radius': { value: new Vec2( this.rings[0].radius, 0 ), expireOnCount: 1000 }
+					}, [
+						new FuncCall<typeof this.pushAlignFrame>( this, 'pushAlignFrame', [] )
+					] ) );
+
+					this.anim.pushFrame( new AnimFrame( {
+						'ring0-radius': { value: new Vec2( this.rings[0].radius, 0 ) }
+					}, [
+						new FuncCall<typeof this.spreadShot>( this, 'spreadShot', [6, Math.PI * 2 * 5 / 6] ),
+						//new FuncCall<typeof this.pushFollowFrame>( this, 'pushFollowFrame', [] )
+					] ) );
+				}
 
 				// fade in ring
-				this.anim.pushFrame( new AnimFrame( {
+				/*this.anim.pushFrame( new AnimFrame( {
 					'alpha': { value: 1, expireOnReach: true },
 					'ring0-alpha': { value: 1, expireOnReach: true },
-					'ring0-angle': { value: 0.1, overrideDelta: true }
-				} ) );				
-
-				let r = this.rings[0].radius;
-				let pos = Vec2.fromPolar( Math.random() * Math.PI * 2, r + Math.random() * ( fieldWidth / 2 - r * 2 ) )
-							.plus( this.center );
+					'ring0-angle': { value: 0.1, overrideDelta: true },
+				} ) );*/
 
 				// reposition
-				this.anim.pushFrame( new AnimFrame( {
-					'pos': { value: pos, overrideRate: 0  },
-					'ring0-pos': { value: pos, overrideRate: 0 },
+				/*this.anim.pushFrame( new AnimFrame( {
+					'pos': { value: newPos, overrideRate: 0  },
+					'ring0-pos': { value: newPos, overrideRate: 0 },
 					'ring0-radius': { value: new Vec2( this.rings[0].radius, 0 ), overrideRate: 0 },
+					'ring0-angle': { value: watchAngle, overrideRate: 0 },
+					'ring0-wall0-angle': { value: slice * 0, overrideRate: 0 },
+					'ring0-wall1-angle': { value: slice * 2, overrideRate: 0 },
+					'ring0-wall2-angle': { value: slice * 4, overrideRate: 0 },
+					'ring0-wall3-angle': { value: slice * 6, overrideRate: 0 },
+					'ring0-wall4-angle': { value: slice * 8,  overrideRate: 0 },
+					'ring0-wall5-angle': { value: slice * 10, overrideRate: 0 },					
 					'ring1-pos': { value: this.parking.copy(), overrideRate: 0 },
 					'ring2-pos': { value: this.parking.copy(), overrideRate: 0 },
 					'ring3-pos': { value: this.parking.copy(), overrideRate: 0 },
-				} ) );
+				} ) );*/
 
 				// fade out everything
-				this.anim.pushFrame( new AnimFrame( {
+				/*this.anim.pushFrame( new AnimFrame( {
 					'alpha': { value: 0  },
 					'ring0-alpha': { value: 0 },
 					'ring1-alpha': { value: 0 },
 					'ring2-alpha': { value: 0 },
 					'ring3-alpha': { value: 0 },
-				} ) );
+				} ) );*/
 
 			} else if ( this.attack.name == 'closed_charge' ) {
+				/*let positions = [new Vec2( 0, -1 ), new Vec2( -0.866, -0.5 ), new Vec2( -0.866, 0.5 ), new Vec2( 0, 1 )]
+								.map( x => x.rotate( this.watchTarget.angle() )
+											.times( fieldWidth / 2 * 0.5 )
+											.plus( this.center ) );
+
+				let newIndex = Math.floor( Math.random() * positions.length );
+
+				positions.unshift( positions.splice( newIndex, 1 )[0] );
+
 				let r = this.rings[0].radius;
-				let newPos = Vec2.fromPolar( Math.random() * Math.PI * 2, r + Math.random() * ( fieldWidth / 2 - r * 2 ) )
-							.plus( this.center );
+				//let newPos = Vec2.fromPolar( Math.random() * Math.PI * 2, r + Math.random() * ( fieldWidth / 2 - r * 2 ) )
+				//			.plus( this.center );
+				let newPos = positions[0];*/
+
+				let watchPos = this.watchTarget.plus( this.pos );
+				let newPos: Vec2;
+ 				let r = this.rings[0].closedRadius + wallUnit * 2;
+ 				let count = 0;
+
+ 				let positions = [this.pos.copy()];
+ 				let overlap = false;
+
+ 				for ( let i = 0; i < 2; i++ ) {
+					do {
+						count++;
+
+						if ( count > 10 ) {
+							console.error( 'ShellBoss open_charge: Unable to find valid initial position' );
+							break;
+						}
+
+						newPos = Vec2.fromPolar( Math.random() * Math.PI * 2, Math.random() * ( fieldWidth / 2 - r ) )
+										.plus( this.center );
+
+						overlap = newPos.distTo( watchPos ) < r;
+						for ( let position of positions ) {
+							overlap = overlap || newPos.distTo( position ) < r * 2;
+						}
+
+					} while ( overlap );
+
+					positions.push( newPos );
+				}
 
 				let watchAngle = this.watchTarget.plus( this.pos ).sub( newPos ).angle();
 				let slice = Math.PI * 2 / 12;
 
+				// close
 				this.anim.pushFrame( new AnimFrame( {
-					'alpha': { value: 1, expireOnCount: 1000 } // wait
+					'ring0-radius': { value: new Vec2( this.rings[0].closedRadius, 0 ) },
+					'ring0-wall0-angle': { value: slice * 0 },
+					'ring0-wall1-angle': { value: slice * 2 },
+					'ring0-wall2-angle': { value: slice * 4 },
+					'ring0-wall3-angle': { value: slice * 6 },
+					'ring0-wall4-angle': { value: slice * 8 },
+					'ring0-wall5-angle': { value: slice * 10 },
 				} ) );
 
-				this.anim.pushFrame( new AnimFrame( {}, [
-					new FuncCall<typeof this.spreadShot>( this, 'spreadShot', [3, 3] )
+				// shoot
+				this.anim.pushFrame( new AnimFrame( {
+					'alpha': { value: 1, expireOnCount: 500 }
+				}, [
+					new FuncCall<typeof this.spreadShot>( this, 'spreadShot', [7, 1.4] )
 				] ) );
 
 				this.anim.pushFrame( new AnimFrame( {
-					'alpha': { value: 1, expireOnCount: 500 } // wait
+					'alpha': { value: 1, expireOnCount: 1000 }
 				}, [
-					{ caller: this, funcName: 'spreadShot', args: [7, 1.4] }
+					new FuncCall<typeof this.spreadShot>( this, 'spreadShot', [7, 1.4] ),
+					{ caller: this, funcName: 'pushWatchFrame', eachUpdate: true }
 				] ) );
 
+				// disappear decoys
 				this.anim.pushFrame( new AnimFrame( {
 					'alpha': { value: 1, expireOnReach: true },
-					'ring0-alpha': { value: 1, expireOnReach: true },
+					'ring0-radius': { value: new Vec2( this.rings[0].radius, 0 ) },
 					'ring0-wall0-angle': { value: slice * 3.5, expireOnReach: true },
 					'ring0-wall1-angle': { value: slice * 4.5, expireOnReach: true },
 					'ring0-wall2-angle': { value: slice * 5.5, expireOnReach: true },
 					'ring0-wall3-angle': { value: slice * -5.5, expireOnReach: true },
 					'ring0-wall4-angle': { value: slice * -4.5, expireOnReach: true },
 					'ring0-wall5-angle': { value: slice * -3.5, expireOnReach: true },
+					'ring1-alpha': { value: 0, expireOnReach: true },
+					'ring2-alpha': { value: 0, expireOnReach: true },
 				}, [{ caller: this, funcName: 'pushWatchFrame', eachUpdate: true }] ) );
+
+				// swap
+				let indices = [0, 1, 2];
+				let index = Math.floor( Math.random() * ( positions.length - 1 ) ) + 1;
+				let temp = indices[0];
+				indices[0] = indices[index];
+				indices[index] = temp;
+
+				this.anim.pushFrame( new AnimFrame( {
+					'pos': { value: positions[indices[0]], overrideRate: 0 },
+					'ring0-pos': { value: positions[indices[0]], overrideRate: 0 },
+					'ring1-pos': { value: positions[indices[1]], overrideRate: 0 },
+					'ring2-pos': { value: positions[indices[2]], overrideRate: 0 },
+				} ) );
+
+				// appear decoys
+				this.anim.pushFrame( new AnimFrame( {
+					'ring1-alpha': { value: 1, expireOnReach: true },
+					'ring2-alpha': { value: 1, expireOnReach: true },
+				} ) );
 
 				// reposition
 				this.anim.pushFrame( new AnimFrame( {
-					'pos': { value: newPos.copy(), overrideRate: 0  },
+					/*'pos': { value: newPos.copy(), overrideRate: 0  },
 					'ring0-pos': { value: newPos.copy(), overrideRate: 0 },
-					'ring0-radius': { value: new Vec2( this.rings[0].radius, 0 ), overrideRate: 0 },
+					'ring0-radius': { value: new Vec2( this.rings[0].closedRadius, 0 ), overrideRate: 0 },
 					'ring0-angle': { value: watchAngle, overrideRate: 0 },
 					'ring0-wall0-angle': { value: slice * 1, overrideRate: 0 },
 					'ring0-wall1-angle': { value: slice * 3, overrideRate: 0 },
 					'ring0-wall2-angle': { value: slice * 5, overrideRate: 0 },
 					'ring0-wall3-angle': { value: slice * 7, overrideRate: 0 },
 					'ring0-wall4-angle': { value: slice * 9, overrideRate: 0 },
-					'ring0-wall5-angle': { value: slice * 11, overrideRate: 0 },	
-					'ring1-pos': { value: this.parking.copy(), overrideRate: 0 },
-					'ring2-pos': { value: this.parking.copy(), overrideRate: 0 },
-					'ring3-pos': { value: this.parking.copy(), overrideRate: 0 },
+					'ring0-wall5-angle': { value: slice * 11, overrideRate: 0 },*/	
+					'ring1-pos': { value: positions[1], overrideRate: 0 },
+					'ring1-radius': { value: new Vec2( this.rings[1].closedRadius, 0 ), overrideRate: 0 },
+					'ring2-pos': { value: positions[2], overrideRate: 0 },
+					'ring2-radius': { value: new Vec2( this.rings[2].closedRadius, 0 ), overrideRate: 0 },
+				} ) );
+
+				/*// fade out everything
+				this.anim.pushFrame( new AnimFrame( {
+					'alpha': { value: 0  },
+					'ring0-alpha': { value: 0 },
+					'ring1-alpha': { value: 0 },
+					'ring2-alpha': { value: 0 },
+					'ring3-alpha': { value: 0 },
+				} ) );*/
+
+			} else if ( this.attack.name == 'tornado' ) {
+				let slice = Math.PI * 2 / 12;
+				let newPos = this.center.copy();
+
+				// fade in, spin, wait
+				this.anim.pushFrame( new AnimFrame( {
+					'alpha': { value: 1, expireOnCount: 100000 },
+
+					'ring0-angle': { value: 0.01, overrideDelta: true },
+					'ring1-angle': { value: -0.02, overrideDelta: true },
+					'ring2-angle': { value: 0.03, overrideDelta: true },
+					'ring3-angle': { value: -0.04, overrideDelta: true },
+				} ) );
+
+				// fade in, expand
+				this.anim.pushFrame( new AnimFrame( {
+					'ring1-alpha': { value: 1 },
+					'ring2-alpha': { value: 1 },
+					'ring3-alpha': { value: 1 },
+
+					'ring0-radius': { value: new Vec2( this.rings[0].radius, 0 ) },
+					'ring1-radius': { value: new Vec2( this.rings[0].radius + wallUnit * 3, 0 ) },
+					'ring2-radius': { value: new Vec2( this.rings[0].radius + wallUnit * 6, 0 ) },
+					'ring3-radius': { value: new Vec2( this.rings[0].radius + wallUnit * 9, 0 ) },
+				} ) );
+
+				// reposition
+				this.anim.pushFrame( new AnimFrame( {
+					//'pos': { value: newPos.copy(), overrideRate: 0  },
+					//'ring0-pos': { value: newPos.copy(), overrideRate: 0 },
+					//'ring0-radius': { value: new Vec2( this.rings[0].radius - wallUnit * 0, 0 ), overrideRate: 0 },
+					//'ring0-angle': { value: Math.random() * Math.PI * 2, overrideRate: 0 },
+					//'ring0-wall0-angle': { value: slice * 0, overrideRate: 0 },
+					// 'ring0-wall1-angle': { value: slice * 2, overrideRate: 0 },
+					// 'ring0-wall2-angle': { value: slice * 4, overrideRate: 0 },
+					// 'ring0-wall3-angle': { value: slice * 6, overrideRate: 0 },
+					// 'ring0-wall4-angle': { value: slice * 8, overrideRate: 0 },
+					// 'ring0-wall5-angle': { value: slice * 10, overrideRate: 0 },
+
+					'ring1-pos': { value: this.pos.copy(), overrideRate: 0 },
+					'ring1-radius': { value: new Vec2( this.rings[0].closedRadius, 0 ), overrideRate: 0 },
+					'ring1-angle': { value: Math.random() * Math.PI * 2, overrideRate: 0 },
+
+					'ring2-pos': { value: this.pos.copy(), overrideRate: 0 },
+					'ring2-radius': { value: new Vec2( this.rings[0].closedRadius, 0 ), overrideRate: 0 },
+					'ring2-angle': { value: Math.random() * Math.PI * 2, overrideRate: 0 },
+
+					'ring3-pos': { value: this.pos.copy(), overrideRate: 0 },
+					'ring3-radius': { value: new Vec2( this.rings[0].closedRadius, 0 ), overrideRate: 0 },
+					'ring3-angle': { value: Math.random() * Math.PI * 2, overrideRate: 0 }
+				} ) );
+
+				/*// fade out everything
+				this.anim.pushFrame( new AnimFrame( {
+					'alpha': { value: 0  },
+					'ring0-alpha': { value: 0 },
+					'ring1-alpha': { value: 0 },
+					'ring2-alpha': { value: 0 },
+					'ring3-alpha': { value: 0 },
+				} ) );*/
+
+			} else if ( this.attack.name == 'chambers' ) {
+				let slice = Math.PI * 2 / 12;
+				let watchPos = this.watchTarget.plus( this.pos );
+
+				// close
+				this.anim.pushFrame( new AnimFrame( {
+					'ring0-radius': { value: new Vec2( 0, 0 ), overrideRate: 1 },
+					'ring0-alpha': { value: 1 },
+				} ) );
+
+				this.anim.pushFrame( new AnimFrame( {
+					'alpha': { value: 1 },
+				} ) );
+
+				// reposition
+				this.anim.pushFrame( new AnimFrame( {
+					'pos': { value: this.center.copy(), overrideRate: 0  },
+					'ring0-pos': { value: watchPos, overrideRate: 0 },
+					'ring0-radius': { value: new Vec2( this.rings[0].radius + wallUnit * 2, 0 ), overrideRate: 0 },
+					'ring0-wall0-angle': { value: slice * 0, overrideRate: 0 },
+					'ring0-wall1-angle': { value: slice * 2, overrideRate: 0 },
+					'ring0-wall2-angle': { value: slice * 4, overrideRate: 0 },
+					'ring0-wall3-angle': { value: slice * 6, overrideRate: 0 },
+					'ring0-wall4-angle': { value: slice * 8, overrideRate: 0 },
+					'ring0-wall5-angle': { value: slice * 10, overrideRate: 0 },
 				} ) );
 
 				// fade out everything
@@ -431,35 +642,81 @@ export class ShellBoss extends Boss {
 			}
 		}
 
-		/*if ( this.attack ) {
-			if ( this.attack.name == 'open_charge' ) {
-				if ( this.anim.isDone( [1] ) ) {
-					for ( let i = 0; i < 6; i++ ) {
-						let angle = ( i + 0.5 ) / 6 * Math.PI * 2 + this.ring.angle;
-						let bullet = new Bullet( this.pos.copy(), Vec2.fromPolar( angle, 5 ) );
+		if ( this.attack ) {
+			if ( this.attack.name == 'chambers' && this.alpha == 1 ) {
+				let pos = this.watchTarget.plus( this.pos ).sub( this.rings[0].pos );
+				if ( pos.length() > this.rings[0].radiusVec.length() ) {
+					this.anim.clear();
 
-						this.spawnEntity( bullet );
-						bullet.collisionGroup = COL.ENEMY_BULLET;
-					}
-
+					// fade out everything
 					this.anim.pushFrame( new AnimFrame( {
-						'doFire': { value: false, expireOnCount: 2000 }
-					} ), { threadIndex: 1 } )
+						'alpha': { value: 0  },
+						'ring0-alpha': { value: 0 },
+						'ring1-alpha': { value: 0 },
+						'ring2-alpha': { value: 0 },
+						'ring3-alpha': { value: 0 },
+					} ) );
+				}
+
+			} else if ( this.attack.name == 'tornado' ) {
+				if ( this.flags['current_attack_damage'] > 0 && !this.flags['retreating'] ) {
+					this.flags['retreating'] = true;
+
+					this.anim.clear(); // (stop spin)
+
+					// close outside
+					this.anim.pushFrame( new AnimFrame( {
+						'ring3-radius': { value: new Vec2( this.rings[3].closedRadius, 0 ) },
+						'ring2-radius': { value: new Vec2( this.rings[2].closedRadius, 0 ) },
+						'ring1-radius': { value: new Vec2( this.rings[1].closedRadius, 0 ) },
+						'ring0-radius': { value: new Vec2( this.rings[0].closedRadius, 0 ) },
+					} ) );
+				}
+
+				if ( this.flags['retreating'] ) {
+					let pos = this.watchTarget.plus( this.pos ).minus( this.rings[3].pos );
+
+					if ( pos.length() > this.rings[3].radiusVec.length() ) {
+						this.anim.clear();
+
+						// fade out outers
+						this.anim.pushFrame( new AnimFrame( {
+							'ring1-alpha': { value: 0 },
+							'ring2-alpha': { value: 0 },
+							'ring3-alpha': { value: 0 },
+						} ) );
+					}
 				}
 			}
-		}*/
+		}
 	}
 
 	spreadShot( count: number, spread: number ) {
 		let halfSpread = ( count - 1 ) / 2;
 
 		for ( let i = 0; i < count; i++ ) {
-			let angle = ( -halfSpread + i ) / ( count - 1 ) * spread + this.rings[0].angle;
+			let angle = this.rings[0].angle;
+
+			if ( count > 1 ) {
+				angle += ( -halfSpread + i ) / ( count - 1 ) * spread;
+			}
+
 			let bullet = new Bullet( this.pos.copy(), Vec2.fromPolar( angle, 10 ) );
 
 			this.spawnEntity( bullet );
 			bullet.collisionGroup = COL.ENEMY_BULLET;
 		}
+	}
+
+	pushFollowFrame() {
+		this.anim.clear( { withTag: 'follow' } );
+
+		let pos = this.watchTarget.plus( this.pos );
+
+		this.anim.pushFrame( new AnimFrame( {
+			'pos': { value: pos, expireOnReach: true },
+			'ring0-pos': { value: pos, expireOnReach: true },
+		} ), { tag: 'follow', threadIndex: 3 } );
 	}
 
 	pushWatchFrame() {
@@ -469,6 +726,20 @@ export class ShellBoss extends Boss {
 			'ring0-angle': { value: this.watchTarget.angle(), expireOnReach: true },
 		} ), { tag: 'watch', threadIndex: 2 } );
 	}
+
+	pushAlignFrame() {
+		this.anim.clear( { withTag: 'watch' } );
+
+		let slice = Math.PI / 3;
+
+		let diff = ( this.watchTarget.angle() + slice / 2 - this.rings[0].angle ) % slice;
+		if ( diff > slice / 2 ) diff = diff - slice;
+		let closest = this.rings[0].angle + diff;
+
+		this.anim.pushFrame( new AnimFrame( {
+			'ring0-angle': { value: closest, expireOnReach: true },
+		} ), { tag: 'watch', threadIndex: 2 } );
+	}	
 
 	hitWith( otherEntity: Entity, contact: Contact ): void {
 		if ( otherEntity instanceof Bullet ) {
@@ -496,6 +767,8 @@ export class ShellBoss extends Boss {
 			if ( this.health <= 0 ) {
 				this.doEyeDead();
 				this.state = BossState.EXPLODE;
+
+				this.anim.clear();
 			}
 		}
 	}

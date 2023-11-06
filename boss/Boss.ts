@@ -10,6 +10,9 @@ import { Explosion } from '../Explosion.js'
 
 import { Attack } from './Attack.js'
 
+export let bossBodyMaterial = new Material( 0, 1.0, 0.3 );
+export let bossBodyAltMaterial = new Material( 0, 1.0, 0.5 );
+
 export enum BossState {
 	DEFAULT = 0,
 	EXPLODE,

@@ -8,7 +8,7 @@ export let REWIND_SECS = 5;
 	invisible wall: collisionGroup = COL.LEVEL/COL.ENEMY_BODY, material.alpha = 0
 		set collisionMask to select whether the wall blocks player/bullets
 
-	two part door: isGhost = true, set collisionGroup to that COL.LEVEL for subentity door halves
+	two part door: isGhost = true for root, set collisionGroup to COL.LEVEL for subentity door halves
 	shaft of light: collisionGroup = COL.ETHEREAL
  */
 
