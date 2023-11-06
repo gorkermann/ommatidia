@@ -6,7 +6,7 @@ import { Shape } from '../lib/juego/Shape.js'
 import { Vec2 } from '../lib/juego/Vec2.js'
 import { Dict } from '../lib/juego/util.js'
 
-import { Boss, BossState } from './Boss.js'
+import { Boss, BossState, bossBodyMaterial, bossBodyAltMaterial } from './Boss.js'
 import { CenteredEntity } from '../CenteredEntity.js'
 import { COL } from '../collisionGroup.js'
 import { Explosion } from '../Explosion.js'
@@ -100,7 +100,7 @@ export class LockBulb extends CenteredEntity {
 		super( pos, wallUnit * 0.6, wallUnit * 0.6 );
 
 		this.material = new Material( 0, 0.0, 0.5 );
-		this.onMaterial = new Material( 30, 0.6, 0.5 );
+		this.onMaterial = new Material( 90, 0.3, 0.5 );
 		this.onMaterial.emit = 0.0;
 
 		this.anim = new Anim( {
@@ -122,17 +122,20 @@ export class LockBulb extends CenteredEntity {
 	push() {
 		if ( this.pushed ) return;
 
+		// turning switch
 		/*this.anim.pushFrame( new AnimFrame( {
 			'alpha': { value: 0.0, expireOnReach: true, setDefault: true }
 		} ) );
 		this.anim.pushFrame( new AnimFrame( {
 			'angle': { value: this.angle + Math.PI, expireOnReach: true, setDefault: true }
 		} ) );*/
-		this.anim.pushFrame( new AnimFrame( {
+
+		// sliding switch
+		/*this.anim.pushFrame( new AnimFrame( {
 			'alpha': { value: 0.0, expireOnReach: true, setDefault: true }
-		} ) );		
+		} ) );*/		
 		this.anim.pushFrame( new AnimFrame( {
-			'hue': { value: 90, expireOnReach: true, setDefault: true },
+			'sat': { value: 1.0, expireOnReach: true, setDefault: true },
 			//'sat': { value: 1.0, expireOnReach: true, setDefault: true },
 			'openAngle': { value: this.width / 2, expireOnReach: true, setDefault: true },
 		} ) );
@@ -223,8 +226,8 @@ export class LockWall extends LockWave {
 
 	isGhost = true;
 
-	material = new Material( 210, 1.0, 0.3 );
-	altMaterial = new Material( 210, 1.0, 0.5 );
+	material = bossBodyMaterial.copy();
+	altMaterial = bossBodyAltMaterial.copy();
 
 	constructor( pos: Vec2=new Vec2(), speed: number=0 ) {
 		super( pos, fieldWidth, wallUnit );

@@ -556,6 +556,8 @@ export class RollBoss extends Boss {
 				if ( this.health <= 0 ) {
 					this.doEyeDead();
 					this.state = BossState.EXPLODE;
+
+					this.anim.clear();
 				}
 			}
 

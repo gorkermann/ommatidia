@@ -221,7 +221,7 @@ function highlightCorners( hit: ShapeHit, prevHit: ShapeHit, nextHit: ShapeHit, 
 
 	// specular highlight
 	if ( hit.incidentDot < 0 ) {
-		hit.material.lum *= 1 - vals.shading.val * hit.incidentDot;
+		//hit.material.lum *= 1 - vals.shading.val * hit.incidentDot;
 	}
 }
 
@@ -370,8 +370,13 @@ export function renderFromEye( context: CanvasRenderingContext2D,
 			lumFactor = Math.min( ( distCutoff - hits[j].dist ) / ( distCutoff - 10 ), 1.0 );
 			lumFactor = Math.max( lumFactor, vals.lumMin.val );
 
-			hits[j].material.lum *= Math.max( hits[j].material.emit, lumFactor );
+			// specular highlight
+			if ( hits[j].incidentDot < 0 ) {
+				lumFactor *= 1 + vals.shading.val * ( hits[j].incidentDot ** 2 );
+				lumFactor = Math.min( lumFactor, 1.0 );
+			}
 
+			hits[j].material.lum *= Math.max( hits[j].material.emit, lumFactor );
 
 			let color = hits[j].material.getRGBA();
 
