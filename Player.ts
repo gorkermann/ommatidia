@@ -34,6 +34,11 @@ export class Player extends Entity {
 
 			this.causeOfDeath = 'You have been incinerated by the GUTTER';
 			
+		} else if ( otherEntity.collisionGroup == COL.ENEMY_BULLET ) {
+			this.health -= 1;
+
+			this.causeOfDeath = 'You have been hit by an unidentified BULLET';
+
 		} else if ( otherEntity instanceof Coin ) {
 			otherEntity.removeThis = true;
 		}

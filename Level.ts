@@ -633,8 +633,8 @@ export class Level extends Scene {
 
 		this.checkForSuccess();
 
-		this.em.cull();
 		this.em.insertSpawned();
+		this.em.cull();
 
 		let boundary = 400;
 

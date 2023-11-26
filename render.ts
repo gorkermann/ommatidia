@@ -233,8 +233,18 @@ let minPeriod = 200; // milliseconds
 let zeroVector = new Vec2( 0, 0 );
 
 function approachFlash( eyeVel: Vec2, hit: ShapeHit, angle: number, hitDist: number ) {
-	if ( hit.shape && hit.shape.parent && 
-		 hit.shape.parent.collisionGroup != COL.ENEMY_BULLET ) return;
+	let group = 0;
+
+	if ( hit.shape && hit.shape.parent ) {
+		if ( hit.shape.parent.collisionGroup == COL.USE_ROOT ) {
+			group = hit.shape.parent.getRoot().collisionGroup;
+
+		} else {
+			group = hit.shape.parent.collisionGroup;
+		}
+	}
+
+	if ( group != COL.ENEMY_BULLET ) return;
 
 	let dir = new Vec2( Math.cos( angle ), Math.sin( angle ) );
 

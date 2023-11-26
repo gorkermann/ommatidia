@@ -10,6 +10,8 @@ export class CenteredEntity extends Entity {
 		super( pos, width, height );
 	}
 
+	watch( target: Vec2 ) {}
+
 	getOwnShapes(): Array<Shape> {
 		if ( this.isGhost ) return [];
 

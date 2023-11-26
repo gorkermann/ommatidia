@@ -5,15 +5,24 @@ export let REWIND_SECS = 5;
 /*
 	Examples:
 
-	invisible wall: collisionGroup = COL.LEVEL/COL.ENEMY_BODY, material.alpha = 0
+	INVISIBLE WALL
+		collisionGroup = COL.LEVEL/COL.ENEMY_BODY, material.alpha = 0
 		set collisionMask to select whether the wall blocks player/bullets
 
-	two part door: isGhost = true for root, set collisionGroup to COL.LEVEL for subentity door halves
-	shaft of light: collisionGroup = COL.ETHEREAL
+	TWO PART DOOR (opens and closes)
+		root
+			collisionGroup doesn't matter
+			isGhost = true
+
+		children (doors)
+			collisionGroup = COL.LEVEL
+	
+	SHAFT OF LIGHT
+		collisionGroup = COL.ETHEREAL
  */
 
 export let COL = {
-	USE_ROOT: 0,
+	USE_ROOT: 0, // shouldn't be used for entities with no parent TODO: make test for this
 	PLAYER_BODY: 1,
 	PLAYER_BULLET: 2,
 	ENEMY_BODY: 4,
