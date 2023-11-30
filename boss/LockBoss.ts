@@ -6,7 +6,7 @@ import { Shape } from '../lib/juego/Shape.js'
 import { Vec2 } from '../lib/juego/Vec2.js'
 import { Dict } from '../lib/juego/util.js'
 
-import { Boss, BossState, bossBodyMaterial, bossBodyAltMaterial } from './Boss.js'
+import { Boss, BossState } from './Boss.js'
 import { CenteredEntity } from '../CenteredEntity.js'
 import { COL } from '../collisionGroup.js'
 import { Explosion } from '../Explosion.js'
@@ -100,14 +100,17 @@ export class LockBulb extends CenteredEntity {
 		super( pos, wallUnit * 0.6, wallUnit * 0.6 );
 
 		this.material = new Material( 0, 0.0, 0.5 );
-		this.onMaterial = new Material( 90, 0.3, 0.5 );
+		this.onMaterial = new Material( 90, 0.0, 0.2 );
 		this.onMaterial.emit = 0.0;
+
+		//this.openAngle = this.width / 8;
 
 		this.anim = new Anim( {
 			'openAngle': new AnimField( this, 'openAngle', 1 ),
 			'angle': new PhysField( this, 'angle', 'angleVel', 0.2 ),
 			'hue': new AnimField( this.onMaterial, 'hue', 6 ),
 			'sat': new AnimField( this.onMaterial, 'sat', 0.1 ),
+			'lum': new AnimField( this.onMaterial, 'lum', 0.1 ),
 			'alpha': new AnimField( this.onMaterial, 'alpha', 0.1 ),
 		},
 		new AnimFrame( {
@@ -120,27 +123,39 @@ export class LockBulb extends CenteredEntity {
 	}
 
 	push() {
-		if ( this.pushed ) return;
+		if ( this.pushed ) {
+			this.anim.clear();
+			this.anim.pushFrame( new AnimFrame( {
+				//'sat': { value: 1.0, expireOnReach: true, setDefault: true },
+				'lum': { value: 0.0, expireOnReach: true, setDefault: true },
+				//'sat': { value: 1.0, expireOnReach: true, setDefault: true },
+				'openAngle': { value: 0, expireOnReach: true, setDefault: true },
+			} ) );
 
-		// turning switch
-		/*this.anim.pushFrame( new AnimFrame( {
-			'alpha': { value: 0.0, expireOnReach: true, setDefault: true }
-		} ) );
-		this.anim.pushFrame( new AnimFrame( {
-			'angle': { value: this.angle + Math.PI, expireOnReach: true, setDefault: true }
-		} ) );*/
+			this.pushed = false;
+		} else {
+			this.anim.clear();
+			// turning switch
+			/*this.anim.pushFrame( new AnimFrame( {
+				'alpha': { value: 0.0, expireOnReach: true, setDefault: true }
+			} ) );
+			this.anim.pushFrame( new AnimFrame( {
+				'angle': { value: this.angle + Math.PI, expireOnReach: true, setDefault: true }
+			} ) );*/
 
-		// sliding switch
-		/*this.anim.pushFrame( new AnimFrame( {
-			'alpha': { value: 0.0, expireOnReach: true, setDefault: true }
-		} ) );*/		
-		this.anim.pushFrame( new AnimFrame( {
-			'sat': { value: 1.0, expireOnReach: true, setDefault: true },
-			//'sat': { value: 1.0, expireOnReach: true, setDefault: true },
-			'openAngle': { value: this.width / 2, expireOnReach: true, setDefault: true },
-		} ) );
+			// sliding switch
+			/*this.anim.pushFrame( new AnimFrame( {
+				'alpha': { value: 0.0, expireOnReach: true, setDefault: true }
+			} ) );*/		
+			this.anim.pushFrame( new AnimFrame( {
+				//'sat': { value: 1.0, expireOnReach: true, setDefault: true },
+				'lum': { value: 1.0, expireOnReach: true, setDefault: true },
+				//'sat': { value: 1.0, expireOnReach: true, setDefault: true },
+				'openAngle': { value: this.width / 4, expireOnReach: true, setDefault: true },
+			} ) );
 
-		this.pushed = true;
+			this.pushed = true;
+		}
 	}
 
 	/*getOwnShapes(): Array<Shape> {
@@ -226,8 +241,8 @@ export class LockWall extends LockWave {
 
 	isGhost = true;
 
-	material = bossBodyMaterial.copy();
-	altMaterial = bossBodyAltMaterial.copy();
+	material =  new Material( 210, 1.0, 0.3 );
+	altMaterial =  new Material( 210, 1.0, 0.5 );
 
 	constructor( pos: Vec2=new Vec2(), speed: number=0 ) {
 		super( pos, fieldWidth, wallUnit );
@@ -329,8 +344,10 @@ export class LockWall extends LockWave {
 		if ( otherEntity instanceof Bullet ) {
 			otherEntity.removeThis = true;
 
-			if ( contact.sub instanceof LockBulb ) {
-				contact.sub.push();
+			if ( this.getBulbCount() > 0 ) {
+				if ( contact.sub instanceof LockBulb ) {
+					contact.sub.push();
+				}
 			}
 		}
 	}
@@ -718,6 +735,8 @@ export class LockBoss extends Boss {
 	barrageSpeedRise: number = 4;
 	barrageSpeedMax: number = 20;
 
+	invisibleWall: CenteredEntity;
+
 	/* property overrides */
 
 	anim = new Anim( {}, new AnimFrame( {} ) );
@@ -740,11 +759,11 @@ export class LockBoss extends Boss {
 					this.pos.plus( new Vec2( 0, fieldHeight / 2 - this.height / 2 ) ), fieldWidth, fieldHeight ) );
 		}
 
-		let invisibleWall = new CenteredEntity( 
+		this.invisibleWall = new CenteredEntity( 
 			new Vec2( 0, this.height / 2 + wallUnit ), fieldWidth, wallUnit );
-		invisibleWall.material.alpha = 0.0;
-		invisibleWall.collisionGroup = COL.ENEMY_BODY;
-		this.addSub( invisibleWall );
+		this.invisibleWall.material.alpha = 0.0;
+		this.invisibleWall.collisionGroup = COL.ENEMY_BODY;
+		this.addSub( this.invisibleWall );
 
 		let gutter = new Gutter( new Vec2( 0, -this.height / 2 + fieldHeight - wallUnit / 2 ), fieldWidth, 10 );
 		gutter.collisionGroup = COL.ENEMY_BULLET;
@@ -779,31 +798,16 @@ export class LockBoss extends Boss {
 			this.doLook();
 		}
 
-     	// update and end waves
+		if ( !this.watchTarget ) return;
+		let watchPos = this.watchTarget.plus( this.pos );
+
+		// update waves
 		for ( let wave of this.waves ) {
-			let fade = false;
+			if ( wave instanceof LockRing ) {
+				let dist = wave.pos.minus( watchPos ).length();
 
-			if ( wave instanceof LockWall ) {
-				fade = this.watchTarget && (
-
-					   this.pos.plus( this.watchTarget ).y < wave.pos.y - wave.height ||
-
-					   // player is at invisible wall
-					   ( wave.getBulbCount() == 0 &&
-					   	 this.watchTarget.y < this.height / 2 + wallUnit * 2.5 ) );
-			
-			} else if ( wave instanceof LockJaw ) {
-				fade = this.watchTarget &&
-				 	   this.pos.plus( this.watchTarget ).y < wave.pos.y - wave.height &&
-				 	   this.pos.plus( this.watchTarget ).y < wave.bottom.applyTransform( new Vec2() ).y - wave.height;
-			
-			} else if ( wave instanceof LockRing ) {
-				fade = this.watchTarget &&
-			 	   	   this.pos.plus( this.watchTarget ).y < wave.pos.y - fieldWidth / 2;
-
-			 	let waveToWatch = wave.pos.minus( this.pos.plus( this.watchTarget ) );
-
-			 	if ( waveToWatch.length() < wave.exteriorRadius - wallUnit ) {
+				// if player is inside ring, close ring
+			 	if ( dist < wave.exteriorRadius - wallUnit ) {
 			 		if ( Math.abs( wave.radiusVec.length() - wave.exteriorRadius ) < 0.01 &&
 			 			 wave.state == LockWallState.DEFAULT &&
 			 			 wave.getBulbCount() > 0 ) {
@@ -815,10 +819,42 @@ export class LockBoss extends Boss {
 				 		} ) );
 				 	}
 			 	}
+			}
+		}
 
+     	// end waves
+		for ( let wave of this.waves ) {
+			let fade = false;
+
+			// player is at invisible wall
+			if ( watchPos.y < this.invisibleWall.pos.y + this.invisibleWall.height / 2 + wallUnit ) {
+				fade = true;
+			}
+
+			// wall
+			if ( wave instanceof LockWall ) {
+				if ( watchPos.y < wave.pos.y - wave.height ) {
+					fade = true;
+				}
+
+			// top and bottom of jaw
+			} else if ( wave instanceof LockJaw ) {
+				if ( watchPos.y < wave.pos.y - wave.height &&
+				 	 watchPos.y < wave.bottom.applyTransform( new Vec2() ).y - wave.height ) {
+					fade = true;
+				}
+			
+			// ring
+			} else if ( wave instanceof LockRing ) {
+				if ( watchPos.y < wave.pos.y - fieldWidth / 2 ) {
+					fade = true;
+				}
+
+			 // barrage
 			} else if ( wave instanceof LockBarrage ) {
-				fade = this.watchTarget &&
-			 	   this.pos.plus( this.watchTarget ).y < wave.pos.y - wave.height;
+				if ( watchPos.y < wave.pos.y - wave.height ) {
+					fade = true;
+				}
 			}
 
 			if ( wave.state != LockWallState.FADING && fade ) {
