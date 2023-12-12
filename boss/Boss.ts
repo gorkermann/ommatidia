@@ -165,6 +165,26 @@ export class Boss extends CenteredEntity {
 		}
 	}
 
+	damage( value: number ) {
+		this.health -= value;
+
+		this.anim.pushFrame( new AnimFrame( {
+			'flash': { value: 0.0, expireOnReach: true, overrideRate: 0.1 },
+		} ), { threadIndex: 1, tag: 'exit' } );
+		this.anim.pushFrame( new AnimFrame( {
+			'flash': { value: 0.5, expireOnReach: true },
+		} ), { threadIndex: 1 } );
+
+		this.doEyeStrain();
+
+		if ( this.health <= 0 ) {
+			this.doEyeDead();
+			this.state = BossState.EXPLODE;
+
+			this.anim.clear();
+		}
+	}
+
 	doLook() {
 		this.counts['attention'].count = 0;
 	}
@@ -231,6 +251,7 @@ export class Boss extends CenteredEntity {
 			this.coreMaterial.skewH = 15 * Math.sin( Math.PI * 2 * ( now % 1000 ) / 1000 );
 		}
 
+		// white of eye flashing red
 		if ( this.blink < 0 ) {
 			this.pupilMaterial.skewL = Math.sin( Math.PI * ( now % 200 ) / 200 );
 
@@ -238,6 +259,7 @@ export class Boss extends CenteredEntity {
 			this.whiteMaterial.skewS = 1.0;
 			this.whiteMaterial.skewL = -0.2 * Math.sin( Math.PI * ( now % 133 ) / 133 );
 			
+		// normal
 		} else {
 			this.pupilMaterial.skewL = 0.0;
 			

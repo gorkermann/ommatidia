@@ -2,7 +2,6 @@ import { Entity } from './lib/juego/Entity.js'
 import { Contact } from './lib/juego/Contact.js'
 import { Shape } from './lib/juego/Shape.js'
 import { Vec2 } from './lib/juego/Vec2.js'
-import { Anim, AnimField, PhysField, AnimFrame, AnimTarget, MilliCountdown, SpinDir } from './lib/juego/Anim.js'
 
 import { CenteredEntity } from './CenteredEntity.js'
 import { COL } from './collisionGroup.js'

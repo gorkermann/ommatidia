@@ -7,6 +7,8 @@ import { Vec2 } from '../lib/juego/Vec2.js'
 import { Dict } from '../lib/juego/util.js'
 
 import { Boss, BossState } from './Boss.js'
+import { Switch } from './Switch.js'
+
 import { CenteredEntity } from '../CenteredEntity.js'
 import { COL } from '../collisionGroup.js'
 import { Explosion } from '../Explosion.js'
@@ -80,121 +82,6 @@ export class LockBossBarrier extends CenteredEntity {
 		for ( let shape of this.getShapes() ) {
 			shape.stroke( context );
 		}
-	}
-}
-
-export class LockBulb extends CenteredEntity {
-	flashOffset: number = Math.random();
-
-	onMaterial: Material;
-
-	pushed: boolean = false;
-
-	openAngle: number = 0;
-
-	/* property overrides */
-
-	transformOrder = TransformOrder.ROTATE_THEN_TRANSLATE;
-
-	constructor( pos: Vec2=new Vec2() ) {
-		super( pos, wallUnit * 0.6, wallUnit * 0.6 );
-
-		this.material = new Material( 0, 0.0, 0.5 );
-		this.onMaterial = new Material( 90, 0.0, 0.2 );
-		this.onMaterial.emit = 0.0;
-
-		//this.openAngle = this.width / 8;
-
-		this.anim = new Anim( {
-			'openAngle': new AnimField( this, 'openAngle', 1 ),
-			'angle': new PhysField( this, 'angle', 'angleVel', 0.2 ),
-			'hue': new AnimField( this.onMaterial, 'hue', 6 ),
-			'sat': new AnimField( this.onMaterial, 'sat', 0.1 ),
-			'lum': new AnimField( this.onMaterial, 'lum', 0.1 ),
-			'alpha': new AnimField( this.onMaterial, 'alpha', 0.1 ),
-		},
-		new AnimFrame( {
-
-		} ) );		
-	}
-
-	isDone(): boolean {
-		return this.pushed;
-	}
-
-	push() {
-		if ( this.pushed ) {
-			this.anim.clear();
-			this.anim.pushFrame( new AnimFrame( {
-				//'sat': { value: 1.0, expireOnReach: true, setDefault: true },
-				'lum': { value: 0.0, expireOnReach: true, setDefault: true },
-				//'sat': { value: 1.0, expireOnReach: true, setDefault: true },
-				'openAngle': { value: 0, expireOnReach: true, setDefault: true },
-			} ) );
-
-			this.pushed = false;
-		} else {
-			this.anim.clear();
-			// turning switch
-			/*this.anim.pushFrame( new AnimFrame( {
-				'alpha': { value: 0.0, expireOnReach: true, setDefault: true }
-			} ) );
-			this.anim.pushFrame( new AnimFrame( {
-				'angle': { value: this.angle + Math.PI, expireOnReach: true, setDefault: true }
-			} ) );*/
-
-			// sliding switch
-			/*this.anim.pushFrame( new AnimFrame( {
-				'alpha': { value: 0.0, expireOnReach: true, setDefault: true }
-			} ) );*/		
-			this.anim.pushFrame( new AnimFrame( {
-				//'sat': { value: 1.0, expireOnReach: true, setDefault: true },
-				'lum': { value: 1.0, expireOnReach: true, setDefault: true },
-				//'sat': { value: 1.0, expireOnReach: true, setDefault: true },
-				'openAngle': { value: this.width / 4, expireOnReach: true, setDefault: true },
-			} ) );
-
-			this.pushed = true;
-		}
-	}
-
-	/*getOwnShapes(): Array<Shape> {
-		let shape = Shape.makeCircle( new Vec2(), this.width, 6, 0 );
-		//let shape = Shape.makeRectangle( new Vec2( -this.width / 2, -this.height / 2 ), this.width, this.height );
-
-		//shape.points[0].x *= 0.75;
-		//shape.points[3].x *= 0.75;
-
-		for ( let point of shape.points ) {
-		//	point.y *= ( 1 - this.compression );
-		}
-
-		shape.material = this.material;
-		shape.parent = this;
-
-		shape.edges[1].material = this.onMaterial;
-		//shape.edges[2].material = this.altMaterial;
-
-		return [shape];
-	}*/
-	
-	getOwnShapes(): Array<Shape> {
-		let shape = Shape.makeRectangle( new Vec2( -this.width / 2, -1 ), this.width, 2 );
-		shape.parent = this;
-		shape.material = this.material;
-
-		let shape2 = Shape.makeRectangle( new Vec2( -this.openAngle, -this.width / 4 ), this.width / 2, this.width / 2 );
-		shape2.parent = this;
-		shape2.material = this.onMaterial;
-
-		return [shape, shape2]
-	}
-
-	shade() {
-		let now = new Date().getTime();
-		let sec = ( now % 1000 ) / 1000 + this.flashOffset;
-
-		//this.altMaterial.skewL = 0.5 * Math.sin( Math.PI * 2 * sec );
 	}
 }
 
@@ -295,7 +182,7 @@ export class LockWall extends LockWave {
 		for ( let i = 0; i < bulbCount; i++ ) {
 			let x = possibleBulbLocs.splice( Math.floor( Math.random() * possibleBulbLocs.length ), 1 )[0];
 
-			let bulb = new LockBulb( new Vec2( ( x + 0.5 ) * wallUnit, wallUnit / 2 ) );
+			let bulb = new Switch( new Vec2( ( x + 0.5 ) * wallUnit, wallUnit / 2 ) );
 			bulb.collisionGroup = COL.ENEMY_BODY;
 			bulb.collisionMask = COL.PLAYER_BULLET;
 
@@ -315,11 +202,11 @@ export class LockWall extends LockWave {
 		let count = 0;
 
 		for ( let sub of this.left.getSubs() ) {
-			if ( sub instanceof LockBulb && !sub.isDone() ) count++;
+			if ( sub instanceof Switch && !sub.isDone() ) count++;
 		}
 
 		for ( let sub of this.right.getSubs() ) {
-			if ( sub instanceof LockBulb && !sub.isDone() ) count++;
+			if ( sub instanceof Switch && !sub.isDone() ) count++;
 		}
 
 		return count;
@@ -345,7 +232,7 @@ export class LockWall extends LockWave {
 			otherEntity.removeThis = true;
 
 			if ( this.getBulbCount() > 0 ) {
-				if ( contact.sub instanceof LockBulb ) {
+				if ( contact.sub instanceof Switch ) {
 					contact.sub.push();
 				}
 			}
@@ -524,7 +411,7 @@ export class LockRing extends LockWave {
 
 		let index = Math.floor( Math.random() * this.moons.length );
 		for ( let i = 0; i < bulbCount; i++ ) {
-			let bulb = new LockBulb( new Vec2( -wallUnit / 2, 0 ) );
+			let bulb = new Switch( new Vec2( -wallUnit / 2, 0 ) );
 			bulb.angle = Math.PI / 2;
 			bulb.collisionGroup = COL.ENEMY_BODY;
 			bulb.collisionMask = COL.PLAYER_BULLET;
@@ -559,7 +446,7 @@ export class LockRing extends LockWave {
 		let result = 0;
 
 		for ( let moon of this.moons ) {
-			result += moon._subs.filter( x => x instanceof LockBulb && !x.isDone() ).length;
+			result += moon._subs.filter( x => x instanceof Switch && !x.isDone() ).length;
 		}
 
 		return result;
@@ -595,7 +482,7 @@ export class LockRing extends LockWave {
 		if ( otherEntity instanceof Bullet ) {
 			otherEntity.removeThis = true;
 
-			if ( contact.sub instanceof LockBulb ) {
+			if ( contact.sub instanceof Switch ) {
 				contact.sub.push();
 			}
 		}
@@ -736,10 +623,13 @@ export class LockBoss extends Boss {
 	barrageSpeedMax: number = 20;
 
 	invisibleWall: CenteredEntity;
+	wait: number = 0;
 
 	/* property overrides */
 
-	anim = new Anim( {}, new AnimFrame( {} ) );
+	anim = new Anim( {
+		'wait': new AnimField( this, 'wait' )
+	}, new AnimFrame( {} ) );
 
 	flavorName = 'LOCK CORE';
 
@@ -791,7 +681,7 @@ export class LockBoss extends Boss {
 	defaultLogic() {
 		if ( this.anim.isDone() && this.waves.length == 0 ) {
 			this.anim.pushFrame( new AnimFrame( {},
-				[ { caller: this, funcName: 'createWave' } ] ), { delay: 1000 } ); 
+				[ { caller: this, funcName: 'createWave' } ] ), { delay: 1000 } ); // TODO: remove frame delays?
 
 			this.eyeAnim.clear( { withoutTag: 'exit' } );
 

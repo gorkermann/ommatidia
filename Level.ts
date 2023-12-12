@@ -22,6 +22,7 @@ import { Boss } from './boss/Boss.js'
 import { RollBoss, Barrier } from './boss/RollBoss.js' 
 import { LockBoss, LockWall } from './boss/LockBoss.js'
 import { ShellBoss } from './boss/ShellBoss.js'
+import { SwitchBoss } from './boss/SwitchBoss.js'
 
 import { Bullet, PlayerBullet } from './Bullet.js'
 import { CenteredEntity, RandomPoly } from './CenteredEntity.js'
@@ -244,7 +245,7 @@ export class Level extends Scene {
 					coin.collisionMask = 0x00;
 					this.em.insert( coin );
 
-				} else if ( index == 4 || index == 6 || index == 16 ) {
+				} else if ( index == 4 || index == 6 || index == 16 || index == 17 ) {
 					let boss: Boss;
 
 					if ( index == 4 ) {
@@ -253,7 +254,10 @@ export class Level extends Scene {
 						boss = new LockBoss( pos.copy(), true );
 					} else if ( index == 16 ) {
 						boss = new ShellBoss( pos.copy(), true );
+					} else if ( index == 17 ) {
+						boss = new SwitchBoss( pos.copy(), true );
 					}
+
 
 					if ( boss ) {
 						this.em.insert( boss );

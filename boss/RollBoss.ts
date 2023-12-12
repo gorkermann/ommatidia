@@ -1,4 +1,4 @@
-import { Anim, AnimField, PhysField, AnimFrame, AnimTarget, MilliCountdown, SpinDir } from '../lib/juego/Anim.js'
+import { Anim, AnimField, PhysField, AnimFrame, AnimTarget, MilliCountdown, TurnDir } from '../lib/juego/Anim.js'
 import { Entity, cullList, TransformOrder } from '../lib/juego/Entity.js'
 import { Contact } from '../lib/juego/Contact.js'
 import { Material } from '../lib/juego/Material.js'  
@@ -891,19 +891,19 @@ export class RollBoss extends Boss {
 				} ), { tag: 'exit' } );
 
 				this.anim.pushFrame( new AnimFrame( {
-					'top-arm-angle': { value: targetAngle, expireOnReach: true, overrideRate: 0.1, spinDir: SpinDir.CCW },
-					'bottom-arm-angle': { value: targetAngle, expireOnReach: true, overrideRate: 0.1, spinDir: SpinDir.CW },
+					'top-arm-angle': { value: targetAngle, expireOnReach: true, overrideRate: 0.1, turnDir: TurnDir.CCW },
+					'bottom-arm-angle': { value: targetAngle, expireOnReach: true, overrideRate: 0.1, turnDir: TurnDir.CW },
 				} ), { tag: 'exit' } );
 
 				// attack
 				this.anim.pushFrame( new AnimFrame( {
-					'top-arm-angle': { value: targetAngle + Math.PI / 2 - 0.01, expireOnReach: true, overrideRate: 0.2, spinDir: SpinDir.CW },
-					'bottom-arm-angle': { value: targetAngle - Math.PI / 2 + 0.01, expireOnReach: true, overrideRate: 0.2, spinDir: SpinDir.CCW },
+					'top-arm-angle': { value: targetAngle + Math.PI / 2 - 0.01, expireOnReach: true, overrideRate: 0.2, turnDir: TurnDir.CW },
+					'bottom-arm-angle': { value: targetAngle - Math.PI / 2 + 0.01, expireOnReach: true, overrideRate: 0.2, turnDir: TurnDir.CCW },
 				} ) );
 
 				this.anim.pushFrame( new AnimFrame( {
-					'top-arm-angle': { value: targetAngle, expireOnReach: true, overrideRate: 0.05, spinDir: SpinDir.CW },
-					'bottom-arm-angle': { value: targetAngle, expireOnReach: true, overrideRate: 0.05, spinDir: SpinDir.CCW },
+					'top-arm-angle': { value: targetAngle, expireOnReach: true, overrideRate: 0.05, turnDir: TurnDir.CW },
+					'bottom-arm-angle': { value: targetAngle, expireOnReach: true, overrideRate: 0.05, turnDir: TurnDir.CCW },
 				} ) );
 
 				// aim

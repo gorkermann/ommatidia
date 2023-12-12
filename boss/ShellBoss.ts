@@ -1,4 +1,4 @@
-import { Anim, AnimField, PhysField, AnimFrame, AnimTarget, MilliCountdown, SpinDir } from '../lib/juego/Anim.js'
+import { Anim, AnimField, PhysField, AnimFrame, AnimTarget } from '../lib/juego/Anim.js'
 import { Angle } from '../lib/juego/Angle.js'
 import { Newable } from '../lib/juego/constructors.js'
 import { Entity, cullList, TransformOrder } from '../lib/juego/Entity.js'
@@ -316,7 +316,6 @@ export class ShellBoss extends Boss {
 	};
 
 	center: Vec2;
-	parking = new Vec2( fieldWidth * 2, 0 );
 
 	wait: number = 0;
 
