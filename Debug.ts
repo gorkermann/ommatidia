@@ -1,4 +1,7 @@
 import { Dict } from './lib/juego/util.js'
+import { Entity } from './lib/juego/Entity.js'
+import { Material } from './lib/juego/Material.js'
+
 import { Debug as juegoDebug } from './lib/juego/Debug.js'
 
 import { store } from './store.js'
@@ -20,6 +23,7 @@ export let flags: Dict<boolean> = {
 	LOG_STATE_SAVELOAD: false, 
 	MOUSE_SELECT: false,
 	SHOW_DEATH: false,
+	DRAW_ROOMS: false,
 }
 
 export type DebugField = {
@@ -144,5 +148,23 @@ export function init() {
 
 			store['config'] = JSON.stringify( config );
 		} );
+	}
+}
+
+export function strokeAll( entities: Array<Entity> ) {
+	let canvas = ( window as any ).canvas;
+	let context = ( window as any ).context;
+
+	context.clearRect( 0, 0, canvas.width, canvas.height );
+
+	for ( let entity of entities ) {
+		let shapes = entity.getShapes( 0.0 );
+
+		context.strokeStyle = 'gray';
+		context.lineWidth = 1;
+
+		for ( let shape of shapes ) {
+			shape.stroke( context, { setStyle: false } );
+		}
 	}
 }

@@ -24,14 +24,16 @@ import { LockBoss, LockWall } from './boss/LockBoss.js'
 import { ShellBoss } from './boss/ShellBoss.js'
 import { SwitchBoss } from './boss/SwitchBoss.js'
 
+import { HorizDoor } from './Door.js'
+import { RoomManager } from './RoomManager.js'
+
 import { Bullet, PlayerBullet } from './Bullet.js'
-import { CenteredEntity, RandomPoly } from './CenteredEntity.js'
-import { Coin } from './Coin.js'
+import { CenteredEntity } from './CenteredEntity.js'
 import { COL, MILLIS_PER_FRAME, REWIND_SECS } from './collisionGroup.js'
 import { Player } from './Player.js'
 import { shapecast, renderFromEye, renderRays, whiteText, vals } from './render.js'
 
-import { Orbiter, Blocker, Elevator, Tumbler, Door } from './TutorialEntity.js'
+import { Orbiter, Blocker, Elevator, Tumbler, Door, StaticBumpkin, SniperBumpkin } from './TutorialEntity.js'
 
 import * as Debug from './Debug.js'
 
@@ -67,6 +69,24 @@ enum LevelState {
 	SUCCESS_MENU,
 }
 
+class Message extends Entity {
+	text: string;
+	index: number;
+
+	/* property overrides */
+
+	isGhost: boolean = true;
+
+	constructor( pos: Vec2=new Vec2(), index: number=0, text: string='' ) {
+		super( pos, 0, 0 );
+
+		this.index = index;
+		this.text = text;
+
+		this.collisionGroup = COL.ITEM;
+	}
+}
+
 let playerBulletMaterial = new Material( 45, 0.0, 1.0 );
 playerBulletMaterial.alpha = 0.3;
 
@@ -74,8 +94,18 @@ let playerMaterial = new Material( 0, 0, 1.0 );
 
 let optionPanel = document.getElementById( 'optionpanel' ) as HTMLDivElement;
 
+class LevelGrid extends GridArea {
+	hitWith( otherEntity: Entity ) {
+		if ( otherEntity instanceof Bullet ) {
+			otherEntity.removeThis = true;
+		}
+	}
+}
+
 export class Level extends Scene {
-	grid: GridArea = new GridArea();
+	grid: LevelGrid = new LevelGrid();
+
+	rooms: Array<RoomManager> = [];
 
 	// level info
 	player: Player = null;
@@ -117,17 +147,17 @@ export class Level extends Scene {
 	replayIndex: number = 0;
 	replayAlpha: number = 1.0;
 
-	newMsg: string = '';
-	messageQueue: Array<string> = [];
+	newChar: boolean = false;
+	messageQueue: Array<string> = []; // can have newlines
+	stringIndex: number = 0; // character index of messageQueue[0] as it is transferred to displayText[-1]
+	displayText: Array<string> = [] // one line each
 
 	sounds: Array<Sound> = [];
 
 	messageAnim = new Anim( {
-		'newMsg': new AnimField( this, 'newMsg', 1 )
+		'newChar': new AnimField( this, 'newChar' )
 	},
-	new AnimFrame( {
-
-	} ) ); 
+	new AnimFrame( {} ) ); 
 
 	anim = new Anim( {
 		'healthBar': new AnimField( this, 'healthBar', 3 ),
@@ -181,7 +211,7 @@ export class Level extends Scene {
 
 	load(): Promise<any> {
 		this.em.clear();
-		this.grid = new GridArea();
+		this.grid = new LevelGrid();
 
 		this.grid.load( this.data );
 
@@ -193,11 +223,40 @@ export class Level extends Scene {
 		let gridEnt = new Entity( new Vec2( 0, 0 ), 0, 0 );
 		gridEnt.isGhost = true;
 		gridEnt.collisionGroup = COL.LEVEL;
+		gridEnt.collisionMask = COL.PLAYER_BULLET | COL.ENEMY_BULLET;
 
-		for (let c = 0; c <= this.grid.hTiles; c++ ) {
-			for (let r = 0; r <= this.grid.vTiles; r++ ) {
-				let index = this.grid.collisionLayer.get( r, c );
+		gridEnt.hitWith = function( otherEntity: Entity ) {
+			if ( otherEntity instanceof Bullet ) {
+				otherEntity.removeThis = true;
+			}
+		}
 
+		let pos: Vec2 = new Vec2();	
+
+		this.rooms = [];
+		let roomW = this.grid.roomWidth * this.grid.tileWidth;
+		let roomH = this.grid.roomHeight * this.grid.tileHeight;
+		let roomRowLen = Math.ceil( this.grid.hTiles / this.grid.roomWidth );
+		for ( let r = 0; r < Math.ceil( this.grid.vTiles / this.grid.roomHeight ); r++ ) {
+			for ( let c = 0; c < roomRowLen; c++ ) {
+				this.rooms.push( new RoomManager(
+					Shape.makeRectangle( new Vec2( c * roomW - this.grid.tileWidth / 2, r * roomH - this.grid.tileHeight / 2 ), roomW, roomH ) ) );
+			}
+		}
+
+		let messages = [];
+
+		for ( let c = 0; c <= this.grid.hTiles; c++ ) {
+			for ( let r = 0; r <= this.grid.vTiles; r++ ) {
+				let index = this.grid.spawnLayer.get( r, c );
+
+				pos.setValues( ( c + 0.0 ) * this.grid.tileWidth,
+							   ( r + 0.0 ) * this.grid.tileHeight );
+
+				let room = this.rooms[Math.floor( r / this.grid.roomHeight ) * roomRowLen + 
+									  Math.floor( c / this.grid.roomWidth )];
+
+				// regular wall
 				if ( index == 1 ) {
 					let block = new CenteredEntity(
 									new Vec2( c * this.grid.tileWidth, r * this.grid.tileHeight ),
@@ -208,141 +267,97 @@ export class Level extends Scene {
 					if ( Debug.flags.LEVEL_ALT_MAT ) block.altMaterial = new Material( this.data.hue, 1.0, 0.5 );
 					gridEnt.addSub( block );
 
+				// horizontal door
 				} else if ( index == 2 ) {
-					let block = new CenteredEntity(
-									new Vec2( c * this.grid.tileWidth, r * this.grid.tileHeight ),
-									this.grid.tileWidth,
-									this.grid.tileHeight );
+					let door = new HorizDoor( pos.plus( new Vec2( 10, 0 ) ) );
+					room.doors.push( door );
 
-					block.material = new Material( this.data.hue + 30, 1.0, 0.3 );
-					if ( Debug.flags.LEVEL_ALT_MAT ) block.altMaterial = new Material( this.data.hue + 30, 1.0, 0.5 );
-					gridEnt.addSub( block );
-				}
-			}
-		}
+					this.em.insert( door );
+					
+				// vertical door
+				} else if ( index == 3 ) {
+					let door = new HorizDoor( pos.plus( new Vec2( 0, 10 ) ) );
+					door.angle = Math.PI / 2;
+					room.doors.push( door );
 
-		this.em.insert( gridEnt );
+					this.em.insert( door );
 
-		let pos: Vec2 = new Vec2();	
-
-		for ( let c = 0; c <= this.grid.hTiles; c++ ) {
-			for ( let r = 0; r <= this.grid.vTiles; r++ ) {
-				let index = this.grid.spawnLayer.get( r, c );
-
-				pos.setValues( ( c + 0.0 ) * this.grid.tileWidth, 
-							   ( r + 0.0 ) * this.grid.tileHeight );
-
-				if ( index == 2 ) {
-					this.player = new Player( pos.copy() );
+				// player
+				} else if ( index == 10 ) {
+					this.player = new Player( pos.plus( new Vec2( 10, 0 ) ) );
 					this.player.collisionGroup = COL.PLAYER_BODY;
 					this.player.collisionMask = COL.ENEMY_BODY | COL.ENEMY_BULLET | COL.LEVEL | COL.ITEM;
 					this.player.material = playerMaterial.copy();
 					this.em.insert( this.player );
+				
+				// static bumpkin
+				} else if ( index == 20 ) {
+					let entity = new StaticBumpkin( pos.copy() );
+					room.entities.push( entity );
 
-				} else if ( index == 3 ) {
-					let coin = new Coin( pos.copy() );
-					coin.collisionGroup = COL.ITEM;
-					coin.collisionMask = 0x00;
-					this.em.insert( coin );
+					this.em.insert( entity );
 
-				} else if ( index == 4 || index == 6 || index == 16 || index == 17 ) {
-					let boss: Boss;
+				// bumpkin sniper
+				} else if ( index == 21 ) {
+					let entity = new SniperBumpkin( pos.copy() );
+					room.entities.push( entity );
 
-					if ( index == 4 ) {
-						boss = new RollBoss( pos.copy(), true );
-					} else if ( index == 6 ) {
-						boss = new LockBoss( pos.copy(), true );
-					} else if ( index == 16 ) {
-						boss = new ShellBoss( pos.copy(), true );
-					} else if ( index == 17 ) {
-						boss = new SwitchBoss( pos.copy(), true );
+					this.em.insert( entity );
+				
+				} else if ( index == 22 ) {
+
+				// maze bumpkin
+				} else if ( index == 23 ) {
+
+				// waterfall bumpkin
+				} else if ( index == 24 ) {
+
+				// big boss bumpkin
+				} else if ( index == 25 ) {
+					let boss = new LockBoss( pos.plus( new Vec2( -this.grid.tileWidth / 2, 0 ) ), true );
+
+					this.em.insert( boss );
+
+					this.healthBarMax = boss.getHealth();
+
+					if ( boss.messages.length > 0 ) {
+						this.messageQueue = this.messageQueue.concat( boss.messages );
+						boss.messages = [];
 					}
 
+					this.anim.pushFrame( new AnimFrame( {
+						'healthBar': {
+							value: this.healthBarMax, 
+							expireOnReach: true,
+							setDefault: true
+						}
+					} ) );
+				} else if ( index >= 50 ) {
+					let msgIndex = index - 50;
 
-					if ( boss ) {
-						this.em.insert( boss );
+					if ( this.data.messages && msgIndex >= 0 && msgIndex < this.data.messages.length ) {
+						if ( !messages[msgIndex] ) {
+							messages[msgIndex] = new Message( new Vec2(), msgIndex, this.data.messages[msgIndex] );
 
-						this.healthBarMax = boss.getHealth();
-
-						while ( boss.messages.length > 0 ) {
-							this.messageAnim.pushFrame( new AnimFrame( {
-								'newMsg': { value: boss.messages.pop(), expireOnReach: true }
-							} ) );
+							this.em.insert( messages[msgIndex] );
 						}
 
-						this.anim.pushFrame( new AnimFrame( {
-							'healthBar': {
-								value: this.healthBarMax, 
-								expireOnReach: true,
-								setDefault: true
-							}
-						} ) );
+						let box = new CenteredEntity( pos.copy(), this.grid.tileWidth, this.grid.tileHeight );
+						box.material.alpha = 0.0;
+						messages[msgIndex].addSub( box );
+
+					} else {
+						console.error( 'Level.load: Invalid message index ' + msgIndex );
 					}
-
-				} else if ( index == 5 ) {
-					let entity = new RandomPoly( pos.copy(), 3 + Math.floor( Math.random() * 6 ) );
-					entity.angleVel = -0.04 + Math.random() * 0.08;
-					entity.material = new Material( Math.random() * 360, 1.0, 0.5 );
-					entity.collisionGroup = COL.ENEMY_BODY;
-					this.em.insert( entity );
-
-				} else if ( index == 7 ) {
-					let fieldWidth = 4000;
-					let fieldHeight = 4000;
-					let planets: Array<Entity> = [];
-
-					for ( let i = 0; i < 10; i++ ) {
-						let overlapsAny = true;
-
-						while ( true ) {
-							let planet = new Barrier( new Vec2( Math.random() * fieldWidth - fieldWidth / 2,
-																Math.random() * fieldHeight - fieldHeight / 2 ),
-													  Math.random() * 400 + 100 );
-
-							let overlapsAny = false;
-							for ( let otherPlanet of planets ) {
-								if ( planet.overlaps( otherPlanet, 0.0 ).length > 0 ) {
-									overlapsAny = true;
-									break;
-								}
-							}
-
-							if ( !overlapsAny ) {
-								planets.push( planet );
-								break;
-							}
-						}
-					}
-
-					this.em.insertList( planets );
-				} else if ( index == 10 ) {
-					let entity = new Orbiter( pos.plus( new Vec2( this.grid.tileWidth, this.grid.tileHeight ) ), this.grid.tileWidth );
-					this.em.insert( entity );
-
-				} else if ( index == 11 ) {
-					let entity = new LockWall( pos.plus( new Vec2( this.grid.tileWidth / 2, 0 ) ), 0 );
-					entity.collisionGroup = COL.LEVEL;
-					this.em.insert( entity );
-
-				} else if ( index == 12 ) {
-					let entity = new Blocker( pos.copy() );
-					this.em.insert( entity );
-
-				} else if ( index == 13 ) {
-					let entity = new Tumbler( pos.copy() );
-					this.em.insert( entity );
-
-				} else if ( index == 14 ) {
-					let entity = new Door( pos.copy(), this.data.width * this.grid.tileWidth, 3 * this.grid.tileWidth );
-					entity.collisionGroup = COL.LEVEL;
-					this.em.insert( entity );
-
-				} else if ( index == 15 ) {
-					let entity = new Elevator( pos.copy(), this.grid.tileWidth );
-					this.em.insert( entity );
 				}
 			}
 		}
+
+		for ( let room of this.rooms ) {
+			room.freeze();
+		}
+
+		this.em.insert( gridEnt );
 
 		this.or = 320;
 		this.ir = 300;
@@ -355,11 +370,6 @@ export class Level extends Scene {
 		return new Promise( function(resolve, reject) {
 			resolve(0);
 		});
-	}
-
-	postMessage( msg: string ) {
-		this.messageQueue.unshift( msg );
-		this.messageQueue = this.messageQueue.slice( 0, 2 );
 	}
 
 	update() {
@@ -376,6 +386,34 @@ export class Level extends Scene {
 		if ( !this.paused ) {
 			this.anim.update( frameStep, elapsed );
 			this.messageAnim.update( frameStep, elapsed );
+
+			if ( this.messageAnim.isDone() ) {
+				if ( this.messageQueue.length > 0 ) {
+					if ( this.stringIndex == 0 ) {
+						this.displayText.push( '' );
+					}
+
+					if ( this.stringIndex >= this.messageQueue[0].length ) {
+						this.stringIndex = 0;
+						this.messageQueue.shift();
+
+					} else {
+						let char = this.messageQueue[0][this.stringIndex];
+
+						if ( char == '\n' ) {
+							this.displayText.push( '' );
+						} else {
+							this.displayText[this.displayText.length - 1] += char;
+						}
+
+						this.stringIndex += 1;
+					}
+
+					this.messageAnim.pushFrame( new AnimFrame( {
+						'newChar': { value: true, expireOnCount: 50 }
+					} ) );
+				}
+			}
 		}
 
 		if ( this.state == LevelState.DEATH_REPLAY ) {
@@ -459,49 +497,7 @@ export class Level extends Scene {
 
 		this.updateSounds();
 
-		if ( Keyboard.keyHit( KeyCode.A ) ) {
-			if ( this.controlMode == MODE_GRAVITY ) {
-				this.controlMode = MODE_SQUARE;
-			} else {
-				this.controlMode = MODE_GRAVITY;
-			}
-		}
-
-		if ( this.controlMode == MODE_GRAVITY ) {
-			/*this.player.vel.x = 0;
-			if ( this.player.collideDown ) this.player.vel.y = 0;
-
-			// left/right
-			if ( Keyboard.keyHeld( KeyCode.LEFT ) && !this.player.collideLeft ) {
-				this.player.vel.x = -5;
-			}
-
-			if ( Keyboard.keyHeld( KeyCode.RIGHT ) && !this.player.collideRight ) {
-				this.player.vel.x = 5;
-			}
-
-			// up/down
-			if ( this.player.collideDown ) {
-				this.player.jumpFrames = this.player.maxJumpFrames;
-			} else {
-				this.player.vel.y += this.grav.y;
-			}
-
-			if ( Keyboard.keyHeld( KeyCode.UP ) && !this.player.collideUp && this.player.collideDown ) {
-				this.player.jumping = true;
-			}
-
-			if ( Keyboard.keyHeld( KeyCode.UP ) && this.player.jumping && this.player.jumpFrames > 0 ) {
-				this.player.vel.y = -5;
-				this.player.jumpFrames -= 1;
-
-			} else {
-				this.player.jumping = false;
-			}
-
-			this.player.vel.y += this.grav.y;*/
-
-		} else if ( this.controlMode == MODE_SQUARE ) {
+		if ( this.controlMode == MODE_SQUARE ) {
 			this.player.vel.setValues( 0, 0 );
 			this.player.angleVel = 0;
 
@@ -526,10 +522,17 @@ export class Level extends Scene {
 			this.player.vel.scale( 5 );
 			this.player.vel.rotate( this.player.angle );
 
-			if ( Keyboard.getHits( KeyCode.X ) > 0 ) {
+			let shootVel = new Vec2();
+
+			if ( Keyboard.getHits( KeyCode.W ) > 0 ) shootVel.add( new Vec2( 0, -10 ) );
+			if ( Keyboard.getHits( KeyCode.A ) > 0 ) shootVel.add( new Vec2( -10, 0 ) );
+			if ( Keyboard.getHits( KeyCode.S ) > 0 ) shootVel.add( new Vec2( 0, 10 ) );
+			if ( Keyboard.getHits( KeyCode.D ) > 0 ) shootVel.add( new Vec2( 10, 0 ) );
+
+			if ( shootVel.length() > 0 ) {
 				let bullet = new PlayerBullet( 
 						this.player.pos.copy().plus( new Vec2( 0, 0 ) ),
-						new Vec2( 0, -10 ).rotate( this.player.angle ),
+						shootVel,
 						playerBulletMaterial.copy() );
 
 				this.player.spawnEntity( bullet );
@@ -553,24 +556,7 @@ export class Level extends Scene {
 		// insert player bullets
 		this.em.insertSpawned();
 
-		// debug {
-			let canvas = ( window as any ).canvas;
-			let context = ( window as any ).context;
-
-			context.clearRect( 0, 0, canvas.width, canvas.height );
-
-			for ( let entity of this.em.entities ) {
-				let shapes = entity.getShapes( 0.0 );
-
-				for ( let shape of shapes ) {
-					shape.material = new Material( 0, 0, 0.5 );
-				}
-
-				for ( let shape of shapes ) {
-					shape.stroke( context );
-				}
-			}
-		// }
+		Debug.strokeAll( this.em.entities );
 
 		let treeGroup: Array<number> = this.em.entities.map( x => x.treeCollisionGroup() );
 		let treeMask: Array<number> = this.em.entities.map( x => x.treeCollisionMask() );
@@ -586,25 +572,16 @@ export class Level extends Scene {
 				let contacts = entity.overlaps( otherEntity, frameStep );
 
 				if ( contacts.length > 0 ) {
-					// debug {
-						for ( let entity of this.em.entities ) {
-							let shapes = entity.getShapes( frameStep );
-
-							for ( let shape of shapes ) {
-								shape.stroke( context );
-							}
-						}
-					//}
+					Debug.strokeAll( this.em.entities );
 
 					entity.hitWithMultiple( otherEntity, contacts );
 				}
 			}
 
-			if ( entity instanceof Boss ) {
-				while ( entity.messages.length > 0 ) {
-					this.messageAnim.pushFrame( new AnimFrame( {
-						'newMsg': { value: entity.messages.pop(), expireOnReach: true }
-					} ) );
+			if ( entity instanceof Boss || entity instanceof Player ) {
+				if ( entity.messages.length > 0 ) {
+					this.messageQueue = this.messageQueue.concat( entity.messages );
+					entity.messages = [];
 				}
 			}
 		}
@@ -620,6 +597,19 @@ export class Level extends Scene {
 		this.em.advance( frameStep );
 		for ( let entity of this.em.entities ) {
 			entity.watch( this.player.pos );
+		}
+
+		let playerShape = this.player.getShapes()[0];
+		for ( let room of this.rooms ) {
+			room.update( playerShape );
+		}
+
+		let messages = this.em.entities.filter( x => x instanceof Message ) as Array<Message>;
+		for ( let msg of messages ) {
+			if ( this.player.overlaps( msg, 0.0 ).length > 0 ) {
+				this.messageQueue.push( msg.text );
+				msg.destructor();
+			}
 		}
 
 		// no position changes from here on (animate only sets velocities)
@@ -666,13 +656,8 @@ export class Level extends Scene {
 
 		this.anim.clear();
 
-		this.messageAnim.pushFrame( new AnimFrame( {
-			'newMsg': { value: 'Press Z to go back ' + REWIND_SECS + ' seconds or R to restart level\n', expireOnReach: true }
-		} ) );
-
-		this.messageAnim.pushFrame( new AnimFrame( {
-			'newMsg': { value: this.player.causeOfDeath + '\n', expireOnReach: true }
-		} ) );
+		this.messageQueue.push( 'Press Z to go back ' + REWIND_SECS + ' seconds or R to restart level\n' );
+		this.messageQueue.push( this.player.causeOfDeath + '\n' );
 
 		// change state
 		this.anim.pushFrame( new AnimFrame( {
@@ -723,24 +708,14 @@ export class Level extends Scene {
 					defeatedNames.push( entity.flavorName );
 				}
 			}
-
-			if ( entity instanceof Coin ) {
-				success = false;
-			}
 		}
 
 		if ( success ) {
 			if ( defeatedNames.length > 0 ) {
 				this.anim.clear();
 
-				this.messageAnim.pushFrame( new AnimFrame( {
-					'newMsg': { value: 'Press Z to proceed\n', expireOnReach: true }
-				} ) );
-
-				this.messageAnim.pushFrame( new AnimFrame( {
-					'newMsg': { value: 'You have defeated the ' + defeatedNames.join( ', ' ) + '\n', expireOnReach: true }
-				} ) );
-
+				this.messageQueue.push( 'You have defeated the ' + defeatedNames.join( ', ' ) + '\nPress Z to proceed\n' );
+				
 				this.anim.pushFrame( new AnimFrame( {
 					'state': { value: LevelState.SUCCESS_MENU, expireOnReach: true }
 				} ) );
@@ -789,7 +764,7 @@ export class Level extends Scene {
 			this.em.shade();
 
 			if ( !this.paused ) {
-				this.appendReplayFrame( context );
+				//this.appendReplayFrame( context );
 			}
 
 			this.defaultDraw( context );
@@ -800,19 +775,12 @@ export class Level extends Scene {
 			}
 		}
 
-		if ( this.newMsg.indexOf( '\n' ) >= 0 ) {
-			this.postMessage( this.newMsg );
-			this.newMsg = '';
-		}
+		// draw newest messages lowest
+		let y = this.camera.viewportH / 2 + 20;
+		let ir = this.ir * this.camera.viewportW / 400;
 
-		let y = this.camera.viewportH - 20;
-		if ( this.newMsg.length > 0 ) {
-			whiteText( context, this.newMsg, 4, y );
-			y -= 20;
-		}
-
-		for ( let msg of this.messageQueue ) {
-			whiteText( context, msg, 4, y );
+		for ( let i = this.displayText.length - 1; i >= this.displayText.length - 4 && i >= 0; i-- ) {
+			whiteText( context, this.displayText[i], this.camera.viewportW / 2 - ir * 0.9, y );
 			y -= 20;
 		}
 	}
@@ -908,6 +876,15 @@ export class Level extends Scene {
 				if ( Debug.flags.DRAW_RAYS ) {
 					renderRays( context, shapes, origin, slices );
 				}
+
+				if ( Debug.flags.DRAW_ROOMS ) {
+					context.lineWidth = 1;
+					context.strokeStyle = 'white';
+
+					for ( let room of this.rooms ) { 
+						room.area.stroke( context, { setStyle: false } );
+					}
+				}
 			this.camera.unMoveContext( context );
 
 		// draw from eye
@@ -930,6 +907,16 @@ export class Level extends Scene {
 					context.translate( this.camera.viewportW / 2, this.camera.viewportH / 2 );
 
 					renderFromEye( context, shapes, origin, this.player.vel, slices, or, ir );
+
+					if ( this.player.wince > 0 ) {
+						context.lineWidth = or - ir;
+						context.globalAlpha = this.player.wince;
+						context.strokeStyle = 'red';
+						context.beginPath();
+						context.arc( 0, 0, ( or + ir ) / 2, 0, Math.PI * 2 );
+						context.stroke();
+						context.globalAlpha = 1.0;
+					}
 
 					ir = or + 2;
 					or = ir + this.haloWidth;
@@ -1039,7 +1026,7 @@ export class Level extends Scene {
 		let w = meas.width;
 		let h = meas.actualBoundingBoxAscent + meas.actualBoundingBoxDescent;
 		
-		context.fillText( text, this.camera.viewportW / 2 - w / 2, this.camera.viewportH / 2 + h / 2 );
+		context.fillText( text, this.camera.viewportW / 2 - w / 2, this.camera.viewportH / 2 - 100 + h / 2 );
 	}
 
 	deathDraw( context: CanvasRenderingContext2D ) {

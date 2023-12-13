@@ -1,3 +1,6 @@
+import { Newable } from './lib/juego/constructors.js'
+import { Dict } from './lib/juego/util.js'
+
 import { Anim, AnimField, PhysField, AnimFrame } from './lib/juego/Anim.js'
 import { Entity } from './lib/juego/Entity.js'
 import { Shape } from './lib/juego/Shape.js'
@@ -321,4 +324,280 @@ export class Blocker extends CenteredEntity {
 			} ) );
 		}
 	}
+}
+
+class BumpkinChunk extends Bullet {
+	
+	/* property overrides */
+	material = new Material( 30, 1.0, 0.5 );
+
+	constructor( pos: Vec2=new Vec2(), vel: Vec2=new Vec2() ) {
+		super( pos, vel );
+
+		this.width = 3;
+		this.height = 3;
+	}
+}
+
+export class StaticBumpkin extends CenteredEntity {
+	watchTarget: Vec2 = null; // relative to this.pos
+
+	alpha: number = 1.0;
+	whiteMaterial = new Material( 0, 0.0, 1.0 );
+
+	canFire: boolean = false;
+
+	/* property overrides */
+
+	collisionGroup = COL.ENEMY_BODY;
+	collisionMask = COL.PLAYER_BULLET | COL.LEVEL;
+	isPliant = true;
+
+	material = new Material( 30, 1.0, 0.5 );
+
+	anim = new Anim( { 
+		'angle': new PhysField( this, 'angle', 'angleVel', 0.2 ),
+		'skewL': new AnimField( this.material, 'skewL', 0 ),
+		'alpha': new AnimField( this, 'alpha', 0.35 ),
+		'canFire': new AnimField( this, 'canFire' ),
+	},
+	new AnimFrame( {
+		'skewL': { value: 0 },
+		'canFire': { value: true },
+	} ) );
+
+	constructor( pos: Vec2=new Vec2() ) {
+		super( pos, 10, 20 );
+	}
+
+	getOwnShapes(): Array<Shape> {
+		let shape = Shape.makeCircle( new Vec2( 0, 0 ), 10, 12 );
+
+		shape.material = this.material;
+		shape.parent = this;
+
+		shape.edges[0].material = this.whiteMaterial;
+		shape.edges[11].material = this.whiteMaterial;
+
+		return [shape];
+	}
+
+	watch( target: Vec2 ) {
+		this.watchTarget = target.minus( this.pos );
+	}
+
+	update() {
+		if ( this.alpha == 0 ) {
+			this.removeThis = true;
+			this.vel.zero();
+		}
+
+		if ( this.alpha == 1.0 ) {
+			if ( this.canFire && this.watchTarget.length() < 20 ) {
+				let bullet = new Bullet( this.pos.copy(), this.watchTarget.unit().times( 5 ) );
+
+				this.spawnEntity( bullet );
+
+				bullet.collisionGroup = COL.ENEMY_BULLET;
+
+				this.anim.pushFrame( new AnimFrame( {
+					'canFire': { value: true },
+				} ), { threadIndex: 1 } );
+				this.anim.pushFrame( new AnimFrame( {
+					'canFire': { value: false, expireOnCount: 3000 },
+				} ), { threadIndex: 1 } );
+			}
+
+			if ( this.anim.isDone( [0] ) ) {
+				this.vel = this.watchTarget.unit();
+				this.anim.pushFrame( new AnimFrame( {
+					'angle': { value: this.watchTarget.angle(), expireOnCount: 1000 }
+				} ) );
+			}
+		}
+	}
+
+	shade() {
+		let now = new Date().getTime();
+
+		this.material.skewH = 15 * Math.sin( Math.PI * 2 * ( now % 1000 ) / 1000 );
+
+		this.material.alpha = this.alpha;
+		this.whiteMaterial.alpha = this.alpha;
+	}
+
+	hitWith( otherEntity: Entity ) {
+		if ( otherEntity instanceof Bullet ) {
+			otherEntity.removeThis = true;
+
+			if ( this.alpha == 1.0 ) {
+				let incidentAngle = otherEntity.vel.angle();
+
+				for ( let i = 0; i < 5; i++ ) {
+					let chunk = new BumpkinChunk( this.pos.copy(), Vec2.fromPolar( incidentAngle + Math.random() * 0.8 - 0.4, 5 ) );
+					this.spawnEntity( chunk );
+
+					chunk.collisionGroup = COL.ENEMY_BULLET;
+				}
+
+				this.anim.clear();
+				this.anim.pushFrame( new AnimFrame( {
+					'alpha': { value: 0.0 }
+				} ) );
+			}
+		}
+	}
+}
+
+export class SniperBumpkin extends CenteredEntity {
+	watchTarget: Vec2 = null; // relative to this.pos
+
+	alpha: number = 1.0;
+	whiteMaterial = new Material( 0, 0.0, 1.0 );
+
+	canFire: boolean = false;
+
+	health: number = 10;
+
+	blink: number = 0;
+
+	/* property overrides */
+
+	collisionGroup = COL.ENEMY_BODY;
+	collisionMask = COL.PLAYER_BULLET | COL.LEVEL;
+	isPliant = true;
+
+	material = new Material( 90, 1.0, 0.5 );
+
+	anim = new Anim( { 
+		'angle': new PhysField( this, 'angle', 'angleVel', 0.2, { isAngle: true } ),
+		'skewL': new AnimField( this.material, 'skewL', 0 ),
+		'alpha': new AnimField( this, 'alpha', 0.35 ),
+		'canFire': new AnimField( this, 'canFire' ),
+		'blink': new AnimField( this, 'blink', 0.1 ),
+	},
+	new AnimFrame( {
+		'skewL': { value: 0 },
+		'canFire': { value: true },
+	} ) );
+
+	constructor( pos: Vec2=new Vec2() ) {
+		super( pos, 10, 20 );
+	}
+
+	getOwnShapes(): Array<Shape> {
+		let shape = Shape.makeCircle( new Vec2( 0, 0 ), 10, 12 );
+
+		shape.material = this.material;
+		shape.parent = this;
+
+		shape.edges[0].material = this.whiteMaterial;
+		shape.edges[11].material = this.whiteMaterial;
+
+		let angle = Math.PI * 2 / 12;
+
+		shape.points[1].rotate( -angle * this.blink );
+		shape.points[11].rotate( angle * this.blink );
+
+		return [shape];
+	}
+
+	watch( target: Vec2 ) {
+		this.watchTarget = target.minus( this.pos );
+	}
+
+	update() {
+		if ( this.alpha <= 0 ) {
+			this.destructor();
+			this.vel.zero();
+		}
+
+		if ( this.alpha == 1.0 ) {
+			if ( this.canFire && this.anim.isDone( [1] ) ) {
+				let bullet = new Bullet( this.pos.copy(), Vec2.fromPolar( this.angle, 3 ) );
+
+				this.spawnEntity( bullet );
+
+				bullet.collisionGroup = COL.ENEMY_BULLET;
+
+				this.anim.pushFrame( new AnimFrame( {
+					'canFire': { value: true },
+				} ), { threadIndex: 1 } );
+				this.anim.pushFrame( new AnimFrame( {
+					'blink': { value: 0.6, expireOnCount: 500 },
+				} ), { threadIndex: 1 } );
+				this.anim.pushFrame( new AnimFrame( {
+					'blink': { value: 0.0, expireOnCount: 3000 },
+				} ), { threadIndex: 1 } );
+				this.anim.pushFrame( new AnimFrame( {
+					'canFire': { value: false, expireOnCount: 500 },
+				} ), { threadIndex: 1 } );
+			}
+
+			if ( this.anim.isDone( [0] ) ) {
+				this.vel = this.watchTarget.unit().scale( 0.2 );
+				this.anim.pushFrame( new AnimFrame( {
+					'angle': { value: this.watchTarget.angle(), expireOnCount: 1000 }
+				} ) );
+			}
+		}
+	}
+
+	shade() {
+		let now = new Date().getTime();
+
+		this.material.skewH = 15 * Math.sin( Math.PI * 2 * ( now % 1000 ) / 1000 );
+
+		this.material.alpha = this.alpha;
+		this.whiteMaterial.alpha = this.alpha;
+
+		// white of eye flashing red
+		if ( this.blink < 0 ) {
+			this.whiteMaterial.skewH = 30 * Math.sin( Math.PI * ( now % 200 ) / 200 );
+			this.whiteMaterial.skewS = 1.0;
+			this.whiteMaterial.skewL = -0.2 * Math.sin( Math.PI * ( now % 133 ) / 133 );
+
+		} else {
+			this.whiteMaterial.skewH = 0.0;
+			this.whiteMaterial.skewS = 0.0;
+			this.whiteMaterial.skewL = 0.0;
+		}
+	}
+
+	hitWith( otherEntity: Entity ) {
+		if ( otherEntity instanceof Bullet ) {
+			otherEntity.removeThis = true;
+
+			this.health -= 1;
+
+			this.anim.pushFrame( new AnimFrame( {
+				'skewL': { value: 0.0, expireOnReach: true, overrideRate: 0.1 },
+			} ), { threadIndex: 2, tag: 'exit' } );
+			this.anim.pushFrame( new AnimFrame( {
+				'skewL': { value: 0.5, expireOnReach: true },
+			} ), { threadIndex: 2 } );
+
+			if ( this.health <= 0 && this.alpha == 1.0 ) {
+				let incidentAngle = otherEntity.vel.angle();
+
+				for ( let i = 0; i < 5; i++ ) {
+					let chunk = new BumpkinChunk( this.pos.copy(), Vec2.fromPolar( incidentAngle + Math.random() * 0.8 - 0.4, 5 ) );
+					chunk.material.hue = this.material.hue;
+					this.spawnEntity( chunk );
+
+					chunk.collisionGroup = COL.ENEMY_BULLET;
+				}
+
+				this.anim.clear();
+				this.anim.pushFrame( new AnimFrame( {
+					'alpha': { value: 0.0 }
+				} ) );
+			}
+		}
+	}
+}
+
+export let constructors: Dict<Newable> = { 
+	'StaticBumpkin': StaticBumpkin,
+	'SniperBumpkin': SniperBumpkin,
 }

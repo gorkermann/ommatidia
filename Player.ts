@@ -1,3 +1,4 @@
+import { Anim, AnimField, PhysField, AnimFrame } from './lib/juego/Anim.js'
 import { Entity } from './lib/juego/Entity.js'
 import { Contact } from './lib/juego/Contact.js'
 import { Shape } from './lib/juego/Shape.js'
@@ -14,32 +15,52 @@ export class Player extends Entity {
 	jumpFrames: number = 0;
 	blockedDirs: Array<Vec2> = [];
 
-	health = 1;
+	health = 10;
+	wince: number = 0;
 	causeOfDeath: string = '';
+
+	messages: Array<string> = [];
+
+	/* property overrides */
+	anim = new Anim( {
+		'wince': new AnimField( this, 'wince', 0.02 )
+	}, new AnimFrame( {
+		'wince': { value: 0.0 }
+	} ) );
 
 	constructor( pos: Vec2 ) {
 		super( pos, 16, 16 );
 	}
 
 	hitWith( otherEntity: Entity, contact: Contact ): void {
+		let damage = 0;
+
 		if ( otherEntity instanceof Bullet ) {
-			this.health -= 1;
-			if ( this.health > 0 ) otherEntity.removeThis = true;
+			damage = 1;
+			otherEntity.removeThis = true;
 
 			this.causeOfDeath = 'You have been run through by a LASER BURST from the ROLL CORE';
 
 		} else if ( otherEntity instanceof Gutter ) {
-			this.health -= 1;
+			damage = 1;
 
 			this.causeOfDeath = 'You have been incinerated by the GUTTER';
 			
 		} else if ( otherEntity.collisionGroup == COL.ENEMY_BULLET ) {
-			this.health -= 1;
+			damage = 1;
 
 			this.causeOfDeath = 'You have been hit by an unidentified BULLET';
 
 		} else if ( otherEntity instanceof Coin ) {
 			otherEntity.removeThis = true;
+		}
+
+		if ( damage > 0 && this.wince == 0.0 ) {
+			this.health -= damage;
+
+			this.wince += damage * 0.3;
+
+			this.messages.push( 'Remaining health: ' + this.health );
 		}
 	}
 
@@ -67,5 +88,5 @@ export class Player extends Entity {
 			context.lineTo( a.x, a.y );
 			context.stroke(); 
 		}
-	}
+	}	
 }

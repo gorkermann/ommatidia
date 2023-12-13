@@ -16,8 +16,8 @@ import { Bullet, Gutter } from '../Bullet.js'
 
 import * as Debug from '../Debug.js'
 
-let fieldWidth = 200;
-let fieldHeight = fieldWidth * 2;
+let fieldWidth = 160;
+let fieldHeight = 360;
 let wallUnit = 20;
 
 // wall sections
@@ -27,8 +27,8 @@ export class LockBossBarrier extends CenteredEntity {
 
 	/* property overrides */
 	
-	material = new Material( 210, 0.3, 0.7 );
-	altMaterial = new Material( 210, 0.3, 0.9 );
+	material = new Material( 150, 0.3, 0.7 );
+	altMaterial = new Material( 150, 0.3, 0.9 );
 	drawWireframe = true;
 
 	constructor( pos: Vec2=new Vec2(), width: number=0, height: number=0 ) {
@@ -96,6 +96,10 @@ let LockWallState = {
 export class LockWave extends CenteredEntity {
 	alpha: number = 0.0;
 
+	/* property overrides */
+
+	editFields: Array<string> = this.editFields.concat( ['vel'] );
+
 	constructor( pos: Vec2=new Vec2(), width: number=0, height: number=0 ) {
 		super( pos, width, height );
 	}
@@ -128,8 +132,8 @@ export class LockWall extends LockWave {
 
 	isGhost = true;
 
-	material =  new Material( 210, 1.0, 0.3 );
-	altMaterial =  new Material( 210, 1.0, 0.5 );
+	material =  new Material( 150, 1.0, 0.3 );
+	altMaterial =  new Material( 150, 1.0, 0.5 );
 
 	constructor( pos: Vec2=new Vec2(), speed: number=0 ) {
 		super( pos, fieldWidth, wallUnit );
@@ -254,8 +258,8 @@ export class LockJaw extends LockWave {
 
 	isGhost = true;
 
-	material = new Material( 210, 1.0, 0.3 );
-	altMaterial = new Material( 210, 1.0, 0.5 );
+	material = new Material( 150, 1.0, 0.3 );
+	altMaterial = new Material( 150, 1.0, 0.5 );
 
 	constructor( pos: Vec2=new Vec2(), speed: number=0 ) {
 		super( pos, fieldWidth, wallUnit );
@@ -366,8 +370,8 @@ export class LockRing extends LockWave {
 
 	isGhost = true;
 
-	material = new Material( 210, 1.0, 0.3 );
-	altMaterial = new Material( 210, 1.0, 0.5 );
+	material = new Material( 150, 1.0, 0.3 );
+	altMaterial = new Material( 150, 1.0, 0.5 );
 
 	constructor( pos: Vec2=new Vec2(), speed: number=0 ) {
 		super( pos, fieldWidth, wallUnit );
@@ -489,6 +493,68 @@ export class LockRing extends LockWave {
 	}
 }
 
+export class LockHole extends LockWave {
+	bits: Array<CenteredEntity> = [];
+
+	state: number = LockWallState.DEFAULT;
+
+	/* property overrides */
+
+	flavorName: string = 'HOLEWALL of the LOCK CORE';
+
+	isGhost = true;
+
+	material = new Material( 150, 1.0, 0.5 );
+	altMaterial = new Material( 150, 1.0, 0.3 );
+
+	constructor( pos: Vec2=new Vec2(), speed: number=0 ) {
+		super( pos, fieldWidth, wallUnit );
+
+		this.material.alpha = this.alpha;
+		this.altMaterial.alpha = this.alpha;
+
+		/* create subentities */
+
+		let bitCount = 8;
+		let bitWidth = wallUnit;
+		let totalWidth = bitCount * bitWidth;
+		let index = 1 + Math.floor( Math.random() * ( bitCount - 2 ) );
+
+		for ( let i = 0; i < bitCount; i++ ) {
+			if ( i == index ) continue;
+
+			let bit = new CenteredEntity( new Vec2( ( i + 0.5 ) * bitWidth - totalWidth / 2, 0 ), bitWidth, wallUnit );
+
+			bit.material = this.material;
+			bit.altMaterial = this.altMaterial;
+
+			this.bits.push( bit );
+			this.addSub( bit );
+		}
+
+		/* animation */
+
+		this.anim = new Anim( {
+			'alpha': new AnimField( this, 'alpha', 0.1 ),
+			'vel': new AnimField( this, 'vel', 0.5 ),
+		},
+		new AnimFrame( {
+			'alpha': { value: this.alpha },
+			'vel': { value: new Vec2( 0, 0 ) },
+		} ) );
+
+		// move bits down together
+		this.anim.pushFrame( new AnimFrame( {
+			'vel': { value: new Vec2( 0, speed ), setDefault: true, expireOnReach: true },
+		} ) );
+
+		// fade in
+		this.anim.pushFrame( new AnimFrame( {
+			'alpha': { value: 1.0, setDefault: true, expireOnReach: true },
+		} ) );
+	}
+}
+
 export class LockBarrage extends LockWave {
 	bits: Array<CenteredEntity> = [];
 
@@ -500,8 +566,8 @@ export class LockBarrage extends LockWave {
 
 	isGhost = true;
 
-	material = new Material( 210, 1.0, 0.5 );
-	altMaterial = new Material( 210, 1.0, 0.3 );
+	material = new Material( 150, 1.0, 0.5 );
+	altMaterial = new Material( 150, 1.0, 0.3 );
 
 	constructor( pos: Vec2=new Vec2(), speed: number=0 ) {
 		super( pos, fieldWidth, wallUnit );
@@ -512,9 +578,10 @@ export class LockBarrage extends LockWave {
 		/* create subentities */
 
 		let bitCount = 5;
+		let width = bitCount * wallUnit * 2;
 
 		for ( let i = 0; i < bitCount; i++ ) {
-			let bit = new CenteredEntity( new Vec2( ( i + 0.5 ) * wallUnit * 2 - fieldWidth / 2, 0 ), wallUnit * 2, wallUnit );
+			let bit = new CenteredEntity( new Vec2( ( i + 0.5 ) * wallUnit * 2 - width / 2, 0 ), wallUnit * 2, wallUnit );
 
 			bit.material = this.material;
 			bit.altMaterial = this.altMaterial;
@@ -548,7 +615,7 @@ export class LockBarrage extends LockWave {
 
 			let frame = new AnimFrame( {} );
 			frame.targets['bit' + i + 'pos'] = new AnimTarget(
-				new Vec2( ( i + 0.5 ) * wallUnit * 2 - fieldWidth / 2, y * wallUnit ) );
+				new Vec2( ( i + 0.5 ) * wallUnit * 2 - width / 2, y * wallUnit ) );
 				//setDefault: true
 
 			this.anim.pushFrame( frame );
@@ -591,44 +658,55 @@ let waves = {
 	},
 	'barrage': {
 
+	},
+	'hole': {
+
 	}
 };
 
 type WaveType = keyof typeof waves;
 let waveTypes: Array<WaveType> = Object.keys( waves ) as Array<WaveType>;
 
+let availableWaves: Array<WaveType> = ['hole', 'jaw', 'barrage'];
+
 Debug.fields['LOCK_ATK'].default = waveTypes.join( ',' );
 Debug.validators['LOCK_ATK'] = Debug.arrayOfStrings( waveTypes );
 
 // TODO: clear wall wave if boss takes damage 
 export class LockBoss extends Boss {
-	waves: Array<LockWall | LockJaw | LockRing | LockBarrage> = []; 
+	waves: Array<LockWall | LockJaw | LockRing | LockBarrage | LockHole> = []; 
 
-	waveQueue: Array<WaveType> = ['wall', 'wall', 'jaw', 'barrage', 'wall', 'jaw', 'barrage', 'ring'];
+	waveQueue: Array<WaveType> = ['hole', 'hole'];
 
 	wallSpeed: number = 0.5;
 	wallSpeedRise: number = 0.5;
 	wallSpeedMax: number = 3;
 
-	jawSpeed: number = 2;
+	jawSpeed: number = 1;
 	jawSpeedRise: number = 0.4;
-	jawSpeedMax: number = 5;
+	jawSpeedMax: number = 3;
 
 	ringSpeed: number = 0.5;
 	ringSpeedRise: number = 0.5;
 	ringSpeedMax: number = 1;
 
-	barrageSpeed: number = 8;
-	barrageSpeedRise: number = 4;
-	barrageSpeedMax: number = 20;
+	barrageSpeed: number = 2;
+	barrageSpeedRise: number = 2;
+	barrageSpeedMax: number = 12;
+
+	holeSpeed: number = 1;
+	holeSpeedRise: number = 0.2;
+	holeSpeedMax: number = 2;
 
 	invisibleWall: CenteredEntity;
+	gutter: CenteredEntity;
 	wait: number = 0;
 
 	/* property overrides */
 
 	anim = new Anim( {
-		'wait': new AnimField( this, 'wait' )
+		'wait': new AnimField( this, 'wait' ),
+		'alpha': new AnimField( this, 'alpha', 0.1 ),
 	}, new AnimFrame( {} ) );
 
 	flavorName = 'LOCK CORE';
@@ -640,14 +718,11 @@ export class LockBoss extends Boss {
 	collisionGroup = COL.ENEMY_BODY;
 	collisionMask = COL.PLAYER_BULLET;
 
+	alpha: number = 0.0;
+	frozen: boolean = true;
+
 	constructor( pos: Vec2=new Vec2( 0, 0 ), spawn: boolean=false ) {
 		super( pos, 40, 40 );
-
-		if ( spawn ) {
-			this.spawnEntity( 
-				new LockBossBarrier( 
-					this.pos.plus( new Vec2( 0, fieldHeight / 2 - this.height / 2 ) ), fieldWidth, fieldHeight ) );
-		}
 
 		this.invisibleWall = new CenteredEntity( 
 			new Vec2( 0, this.height / 2 + wallUnit ), fieldWidth, wallUnit );
@@ -655,21 +730,40 @@ export class LockBoss extends Boss {
 		this.invisibleWall.collisionGroup = COL.ENEMY_BODY;
 		this.addSub( this.invisibleWall );
 
-		let gutter = new Gutter( new Vec2( 0, -this.height / 2 + fieldHeight - wallUnit / 2 ), fieldWidth, 10 );
-		gutter.collisionGroup = COL.ENEMY_BULLET;
-		gutter.collisionMask = 0x00;
-		this.addSub( gutter );
+		this.gutter = new Gutter( new Vec2( 0, -wallUnit * 2 + fieldHeight ), fieldWidth, wallUnit );
+		this.gutter.collisionGroup = COL.ENEMY_BULLET;
+		this.gutter.collisionMask = 0x00;
+		this.gutter.material.alpha = 0.0;
+		this.gutter.isGhost = true;
+		this.addSub( this.gutter );
+
+		this.anim.fields['gutterAlpha'] = new AnimField( this.gutter.material, 'alpha', 0.01 );
 
 		this.maxHealth = this.getHealth();
+	}
 
-		this.messages.push( 'You are in a long narrow chamber.\n' );
-		this.messages.push( 'An intense heat emanates from below.\n' );
-		this.messages.push( 'Above, the LOCK CORE looks on.\n' );
-		this.messages.push( 'Beware, traveler!\n' );
-		this.messages.push( 'Many have perished before its diabolical doors!\n' );
+	watch( target: Vec2 ) {
+		super.watch( target );
 
-		this.anim.pushFrame( new AnimFrame( {},
-			[ { caller: this, funcName: 'createWave' } ] ), { delay: 3000 } ); 
+		if ( this.frozen && this.watchTarget.length() < wallUnit * 3 ) {
+			this.frozen = false;
+
+			// fade in gutter on first hit
+			this.anim.pushFrame( new AnimFrame( {
+				'gutterAlpha': { value: 1.0 }
+			} ) )
+			this.anim.pushFrame( new AnimFrame( {},
+				[ { caller: this, funcName: 'createWave' } ] ) );
+			this.anim.pushFrame( new AnimFrame( {
+				'alpha': { value: 1.0 },
+			} ) )
+
+			this.gutter.isGhost = false;
+
+			this.messages.push( 'Ah! A giant eye!' );
+			this.messages.push( 'And those green walls are moving!' );
+			this.messages.push( 'Pushing you down toward...a pit of fire!' );
+		}
 	}
 
 	animate( step: number, elapsed: number ) {
@@ -690,6 +784,13 @@ export class LockBoss extends Boss {
 
 		if ( !this.watchTarget ) return;
 		let watchPos = this.watchTarget.plus( this.pos );
+
+		let gutterShape = this.getShapes().filter( x => x.parent == this.gutter )[0];
+		if ( gutterShape ) {
+			if ( gutterShape.contains( watchPos, 0.0, false ) ) {
+				this.stopWave();
+			}
+		}
 
 		// update waves
 		for ( let wave of this.waves ) {
@@ -721,6 +822,12 @@ export class LockBoss extends Boss {
 				fade = true;
 			}
 
+			wave.doForAllChildren( ( entity: Entity ) => {
+				if ( entity.applyTransform( new Vec2() ).y - this.pos.y > fieldHeight ) {
+					entity.destructor();
+				}
+			} );
+
 			// wall
 			if ( wave instanceof LockWall ) {
 				if ( watchPos.y < wave.pos.y - wave.height ) {
@@ -740,17 +847,34 @@ export class LockBoss extends Boss {
 					fade = true;
 				}
 
-			 // barrage
+			// barrage
 			} else if ( wave instanceof LockBarrage ) {
+				if ( watchPos.y < wave.pos.y - wave.height ) {
+					fade = true;
+				}
+
+			// hole
+			} else if ( wave instanceof LockHole ) {
 				if ( watchPos.y < wave.pos.y - wave.height ) {
 					fade = true;
 				}
 			}
 
+
 			if ( wave.state != LockWallState.FADING && fade ) {
 				wave.state = LockWallState.FADING;
 				wave.anim.pushFrame( new AnimFrame( { 'alpha': { value: 0.0, expireOnReach: true } } ) );
 			}	
+		}
+	}
+
+	stopWave() {
+		for ( let wave of this.waves ) {
+			wave.anim.clear();
+			wave.vel.zero();
+
+			wave.state = LockWallState.FADING;
+			wave.anim.pushFrame( new AnimFrame( { 'alpha': { value: 0.0, expireOnReach: true } } ) );
 		}
 	}
 
@@ -772,7 +896,7 @@ export class LockBoss extends Boss {
 		
 		} else {
 			if ( this.waveQueue.length > 0 ) type = this.waveQueue.shift();
-			else type = waveTypes[Math.floor( Math.random() * waveTypes.length )];
+			else type = availableWaves[Math.floor( Math.random() * availableWaves.length )];
 		}
 		
 		let pos = this.pos.copy().plus( new Vec2( 0, this.height / 2 + wallUnit / 2 ) );
@@ -812,6 +936,15 @@ export class LockBoss extends Boss {
 
 			this.waves.push( wall );
 			this.spawnEntity( wall );
+		
+		} else if ( type == 'hole' ) {
+			let wall = new LockHole( pos, this.holeSpeed );
+
+			this.holeSpeed += this.holeSpeedRise;
+			this.holeSpeed = Math.min( this.holeSpeed, this.holeSpeedMax );
+
+			this.waves.push( wall );
+			this.spawnEntity( wall );
 		}
 	}
 
@@ -822,6 +955,8 @@ export class LockBoss extends Boss {
 	}
 
 	hitWith( otherEntity: Entity, contact: Contact ) {
+		if ( this.frozen ) return;
+
 		if ( otherEntity instanceof Bullet ) {
 			if ( contact.sub == this ) {
 				otherEntity.removeThis = true;

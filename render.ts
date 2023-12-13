@@ -204,7 +204,7 @@ function highlightCorners( hit: ShapeHit, prevHit: ShapeHit, nextHit: ShapeHit, 
 			}
 
 			// interior corner or flat made by two shapes
-			if ( Debug.flags.HIGHLIGHT_INTERIOR_CORNERS ) {
+			if ( Debug.flags.HIGHLIGHT_INTERIOR_CORNERS || hit.material.cornerShaderIndex == 2 ) {
 				if ( hit.shape != comp.shape && hit.normal.dot( comp.normal ) > -0.1 ) {
 					score = 1.0;
 				}

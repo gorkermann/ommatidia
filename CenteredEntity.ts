@@ -47,7 +47,7 @@ export class CenteredEntity extends Entity {
 	}
 }
 
-export class RandomPoly extends CenteredEntity {
+/*export class RandomPoly extends CenteredEntity {
 	points: Array<Vec2> = [];
 
 	constructor( pos: Vec2, pointCount: number, radius: number=100 ) {
@@ -72,4 +72,4 @@ export class RandomPoly extends CenteredEntity {
 
 		return [shape];
 	}
-}
+}*/

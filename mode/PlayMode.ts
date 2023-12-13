@@ -113,13 +113,13 @@ export class PlayMode extends GenericMode {
 		// save recent game states
 		if ( gc.currentScene instanceof Level ) {
 			if ( gc.currentScene.elapsedTotal - gc.lastStateTime > gc.saveStateInterval ) {
-				let json = gc.getJSON();
+				/*let json = gc.getJSON();
 
 				if ( json ) {
 					gc.recentStates.push( json );
 
 					if ( Debug.flags.LOG_STATE_SAVELOAD ) console.log( 'pushed state at ' + gc.currentScene.elapsedTotal );
-				}
+				}*/
 
 				// keep only the most recent states
 				if ( gc.recentStates.length > REWIND_SECS ) {

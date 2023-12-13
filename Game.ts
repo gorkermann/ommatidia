@@ -86,7 +86,7 @@ let update = function() {
 	if ( Keyboard.keyHit( KeyCode.P ) ) Debug.toggleFlag( 'DEBUG_MODE' );
 
 	if ( Debug.flags.DEBUG_MODE ) {
-		if ( Keyboard.keyHit( KeyCode.D ) ) Debug.toggleFlag( 'DRAW_NORMAL' );
+		if ( Keyboard.keyHit( KeyCode.F ) ) Debug.toggleFlag( 'DRAW_NORMAL' );
 		if ( Keyboard.keyHit( KeyCode.Y ) ) Debug.toggleFlag( 'DRAW_RAYS' );
 		if ( Keyboard.keyHit( KeyCode.E ) ) document.dispatchEvent( new CustomEvent( 'complete' ) );
 
