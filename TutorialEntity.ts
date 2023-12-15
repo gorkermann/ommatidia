@@ -350,7 +350,7 @@ export class StaticBumpkin extends CenteredEntity {
 	/* property overrides */
 
 	collisionGroup = COL.ENEMY_BODY;
-	collisionMask = COL.PLAYER_BULLET | COL.LEVEL;
+	collisionMask = COL.ENEMY_BODY | COL.PLAYER_BULLET | COL.PLAYER_BODY | COL.LEVEL;
 	isPliant = true;
 
 	material = new Material( 30, 1.0, 0.5 );

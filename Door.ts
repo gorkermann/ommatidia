@@ -70,7 +70,7 @@ export class HorizDoor extends Door {
 			'right-pos': { value: new Vec2( wallUnit * 0.5, 0 ) },
 		} ) );
 		this.anim.pushFrame( new AnimFrame( {
-			'sat': { value: 0.0 }
+			'sat': { value: 0.2 }
 		} ) );
 		this.anim.pushFrame( new AnimFrame( {
 			'locked': { value: true }

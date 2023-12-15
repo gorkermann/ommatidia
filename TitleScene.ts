@@ -52,10 +52,6 @@ export class TitleScene extends Scene {
 
 		this.camera.moveContext( context );
 
-			let slices = [];
-			slices[179] = 0;
-			slices.fill( Math.PI * 2 / 180 );
-
 			let shapes = [];
 			for ( let floater of this.floaters ) {
 				let shape = Shape.makeRectangle( floater.pos,
@@ -70,7 +66,7 @@ export class TitleScene extends Scene {
 						   shapes, 
 						   this.origin,
 						   new Vec2(),
-						   slices, or, ir );
+						   180, or, ir );
 
 			context.globalAlpha = 1.0;
 			context.fillStyle = 'white';
@@ -108,9 +104,9 @@ export class TitleScene extends Scene {
 
 		let y = this.camera.viewportH;
 
-		whiteText( context, "Use the arrow keys to move. Press X to shoot", 5, y - 60 );
-		whiteText( context, "Press space to pause", 5, y - 40 );
-		whiteText( context, "Press Z to start", 5, y - 20 );
+		whiteText( context, "Use the [arrow keys] to move and [WASD] to shoot", 5, y - 60 );
+		whiteText( context, "Press [space] to pause", 5, y - 40 );
+		whiteText( context, "Press [Z] to start", 5, y - 20 );
 
 		whiteText( context, "Graham Smith 2023", this.camera.viewportW - 5, y - 20, true );
 	}

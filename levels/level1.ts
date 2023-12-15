@@ -75,7 +75,7 @@ export let levelDataList = [
 			'Much danger awaits you in the dungeon.\nBut there is also hope.\nOutside, there is only cold.',
 			'Good. Now open the door by shooting it with [W]',
 			'A orange and white BUMPKIN has seen you!',
-			'You can shoot in every direction using [W][A][S][D]',
+			'You can shoot in every direction using [WASD]',
 			'More BUMPKINS!',
 			'Careful, this one can shoot! Its bullets are yellow!',
 			'There\'s something different about this next room...',

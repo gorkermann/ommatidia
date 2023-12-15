@@ -128,8 +128,6 @@ export class Level extends Scene {
 	
 	cursorPos: Vec2 = new Vec2( 0, 0 );
 	
-	sliceCount: number = 360;
-
 	healthBar: number = 0;
 	healthBarMax: number = 0;
 	haloWidth: number = 40;
@@ -177,7 +175,7 @@ export class Level extends Scene {
 	} ) );
 
 	discardFields: Array<string> = ['em', 'textBox', 'textBoxHeight', 'text', 'textIndex', 'speaker',
-					 'updateQueue', 'boundKeyHandler', 'cursorPos', 'sliceCount', 'oldTime',
+					 'updateQueue', 'boundKeyHandler', 'cursorPos', 'oldTime',
 					 'replayImages', 'replayCount', 'replayIndex', 'replayAlpha'];
 	//saveFields = ['grid', 'player', 'controlMode', 'grav', 'data', 'bossHealthMax'];
 
@@ -555,6 +553,7 @@ export class Level extends Scene {
 
 		// insert player bullets
 		this.em.insertSpawned();
+		this.em.updateShapeCache();
 
 		Debug.strokeAll( this.em.entities );
 
@@ -569,7 +568,7 @@ export class Level extends Scene {
 				if ( ( treeMask[i] & treeGroup[j] ) == 0 ) continue;
 
 				let otherEntity = this.em.entities[j];
-				let contacts = entity.overlaps( otherEntity, frameStep );
+				let contacts = entity.overlaps( otherEntity, frameStep, true );
 
 				if ( contacts.length > 0 ) {
 					Debug.strokeAll( this.em.entities );
@@ -588,11 +587,11 @@ export class Level extends Scene {
 
 		for ( let entity of this.em.entities ) {
 			if ( entity.isPliant ) {
-				solveCollisionsFor( entity, this.em.entities, COL.LEVEL, frameStep );
+				solveCollisionsFor( entity, this.em.entities, COL.ENEMY_BODY | COL.LEVEL | COL.PLAYER_BODY, COL.LEVEL, frameStep );
 			}
 		}
 
-		let result = solveCollisionsFor( this.player, this.em.entities, COL.ENEMY_BODY | COL.LEVEL, frameStep );
+		let result = solveCollisionsFor( this.player, this.em.entities, COL.ENEMY_BODY | COL.LEVEL, COL.LEVEL, frameStep );
 
 		this.em.advance( frameStep );
 		for ( let entity of this.em.entities ) {
@@ -656,8 +655,9 @@ export class Level extends Scene {
 
 		this.anim.clear();
 
-		this.messageQueue.push( 'Press Z to go back ' + REWIND_SECS + ' seconds or R to restart level\n' );
-		this.messageQueue.push( this.player.causeOfDeath + '\n' );
+		this.messageQueue.push( this.player.causeOfDeath )
+		//this.messageQueue.push( 'Press Z to go back ' + REWIND_SECS + ' seconds or R to restart level' );
+		this.messageQueue.push( 'Press R to restart level' );
 
 		// change state
 		this.anim.pushFrame( new AnimFrame( {
@@ -775,12 +775,18 @@ export class Level extends Scene {
 			}
 		}
 
+
 		// draw newest messages lowest
-		let y = this.camera.viewportH / 2 + 20;
-		let ir = this.ir * this.camera.viewportW / 400;
+		let y = this.camera.viewportH - 20;
+		let x = 10;
+
+		if ( !Debug.flags.DRAW_NORMAL ) {
+			y = this.camera.viewportH / 2 + 20;
+			x = this.camera.viewportW / 2 - this.ir * this.camera.viewportW / 400 * 0.9;
+		}
 
 		for ( let i = this.displayText.length - 1; i >= this.displayText.length - 4 && i >= 0; i-- ) {
-			whiteText( context, this.displayText[i], this.camera.viewportW / 2 - ir * 0.9, y );
+			whiteText( context, this.displayText[i], x, y );
 			y -= 20;
 		}
 	}
@@ -857,14 +863,10 @@ export class Level extends Scene {
 		let or = this.or * camera.viewportW / 400;
 		let haloW = this.haloWidth * camera.viewportW / 400;
 
-		let slices: Array<number> = [];
-		let defaultSlice = Math.PI * 2 / this.sliceCount;
-
-		for ( let i = 0; i < this.sliceCount; i++ ) {
-			slices.push( defaultSlice );
-		}
-
 		let shapes = this.getShapes();
+
+		let sliceCount = parseInt( Debug.fields['SLICE_COUNT'].value );
+		if ( isNaN( sliceCount ) ) sliceCount = 360;
 
 		/* Draw Scene */
 
@@ -874,7 +876,7 @@ export class Level extends Scene {
 				this.em.draw( context );
 			
 				if ( Debug.flags.DRAW_RAYS ) {
-					renderRays( context, shapes, origin, slices );
+					renderRays( context, shapes, origin, sliceCount );
 				}
 
 				if ( Debug.flags.DRAW_ROOMS ) {
@@ -906,7 +908,7 @@ export class Level extends Scene {
 				context.save();
 					context.translate( this.camera.viewportW / 2, this.camera.viewportH / 2 );
 
-					renderFromEye( context, shapes, origin, this.player.vel, slices, or, ir );
+					renderFromEye( context, shapes, origin, this.player.vel, sliceCount, or, ir );
 
 					if ( this.player.wince > 0 ) {
 						context.lineWidth = or - ir;

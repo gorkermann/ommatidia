@@ -187,7 +187,7 @@ export class LockWall extends LockWave {
 			let x = possibleBulbLocs.splice( Math.floor( Math.random() * possibleBulbLocs.length ), 1 )[0];
 
 			let bulb = new Switch( new Vec2( ( x + 0.5 ) * wallUnit, wallUnit / 2 ) );
-			bulb.collisionGroup = COL.ENEMY_BODY;
+			bulb.collisionGroup = COL.LEVEL;
 			bulb.collisionMask = COL.PLAYER_BULLET;
 
 			if ( x < openingIndex ) {
@@ -417,7 +417,7 @@ export class LockRing extends LockWave {
 		for ( let i = 0; i < bulbCount; i++ ) {
 			let bulb = new Switch( new Vec2( -wallUnit / 2, 0 ) );
 			bulb.angle = Math.PI / 2;
-			bulb.collisionGroup = COL.ENEMY_BODY;
+			bulb.collisionGroup = COL.LEVEL;
 			bulb.collisionMask = COL.PLAYER_BULLET;
 
 			this.moons[(index + i) % this.moons.length].addSub( bulb );
@@ -715,7 +715,7 @@ export class LockBoss extends Boss {
 
 	state: State = BossState.DEFAULT;
 
-	collisionGroup = COL.ENEMY_BODY;
+	collisionGroup = COL.LEVEL;
 	collisionMask = COL.PLAYER_BULLET;
 
 	alpha: number = 0.0;
@@ -727,7 +727,7 @@ export class LockBoss extends Boss {
 		this.invisibleWall = new CenteredEntity( 
 			new Vec2( 0, this.height / 2 + wallUnit ), fieldWidth, wallUnit );
 		this.invisibleWall.material.alpha = 0.0;
-		this.invisibleWall.collisionGroup = COL.ENEMY_BODY;
+		this.invisibleWall.collisionGroup = COL.LEVEL;
 		this.addSub( this.invisibleWall );
 
 		this.gutter = new Gutter( new Vec2( 0, -wallUnit * 2 + fieldHeight ), fieldWidth, wallUnit );

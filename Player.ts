@@ -39,17 +39,17 @@ export class Player extends Entity {
 			damage = 1;
 			otherEntity.removeThis = true;
 
-			this.causeOfDeath = 'You have been run through by a LASER BURST from the ROLL CORE';
+			this.causeOfDeath = 'You have died';
 
 		} else if ( otherEntity instanceof Gutter ) {
 			damage = 1;
 
-			this.causeOfDeath = 'You have been incinerated by the GUTTER';
+			this.causeOfDeath = 'You have been incinerated';
 			
 		} else if ( otherEntity.collisionGroup == COL.ENEMY_BULLET ) {
 			damage = 1;
 
-			this.causeOfDeath = 'You have been hit by an unidentified BULLET';
+			this.causeOfDeath = 'You have died';
 
 		} else if ( otherEntity instanceof Coin ) {
 			otherEntity.removeThis = true;
