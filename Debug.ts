@@ -16,8 +16,8 @@ export let flags: Dict<boolean> = {
 	SUPER_SHOT: false,
 	FORCE_BOSS_ATK: false,
 	HIGHLIGHT_CORNERS: true,
-	HIGHLIGHT_INTERIOR_CORNERS: false,
-	AUTO_BRIGHT_ADJUST: true,
+	HIGHLIGHT_INTERIOR_CORNERS: true,
+	AUTO_BRIGHT_ADJUST: false,
 	LEVEL_ALT_MAT: true,
 	LOG_PANEL_UPDATES: true,
 	LOG_STATE_SAVELOAD: false, 
@@ -52,7 +52,10 @@ export let fields: Dict<DebugField> = {
 	LOCK_ATK: { value: '', default: 'default' },
 	SHELL_ATK: { value: '', default: 'default' },
 	SWITCH_ATK: { value: '', default: 'default' },
+	SLICE_COUNT: { value: '', default: '360' },
 }
+
+validators['SLICE_COUNT'] = ( x: DebugField ) => !isNaN( parseInt( x.value ) );
 
 for ( let flagName in juegoDebug ) {
 	flags[flagName] = juegoDebug[flagName];

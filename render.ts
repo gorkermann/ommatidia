@@ -2,7 +2,7 @@ import { Angle } from './lib/juego/Angle.js'
 import { Entity } from './lib/juego/Entity.js'
 import { Vec2 } from './lib/juego/Vec2.js'
 import { Line } from './lib/juego/Line.js'
-import { Material, RGBAtoFillStyle} from './lib/juego/Material.js'
+import { RGBA, Material, RGBAtoFillStyle} from './lib/juego/Material.js'
 import { RayHit, closestTo } from "./lib/juego/RayHit.js"
 import { Shape, ShapeHit } from './lib/juego/Shape.js'
 import { Dict } from './lib/juego/util.js'
@@ -61,6 +61,22 @@ class SliceInfo {
 	}
 }
 
+function getSlices( sliceCount: number ): Array<number> {
+	sliceCount = Math.floor( sliceCount );
+	if ( sliceCount <= 0 ) {
+		console.error( 'render.getSlices(): Invalid slice count (' + sliceCount + ')' );
+		return;
+	}
+
+	let slices: Array<number> = [];
+	let slice = Math.PI * 2 / sliceCount;
+	for ( let i = 0; i < sliceCount; i++ ) {
+		slices.push( slice );
+	}
+
+	return slices;
+}
+
 function getHits( shapes: Array<Shape>,
 				  origin: Vec2,
 				  slices: Array<number> ): Array<SliceInfo> {
@@ -103,9 +119,9 @@ function getHits( shapes: Array<Shape>,
 export function renderRays( context: CanvasRenderingContext2D, 
 						    shapes: Array<Shape>,
 						    origin: Vec2,
-						    slices: Array<number> ) {
+						    sliceCount: number ) {
 	
-	let sliceInfos = getHits( shapes, origin, slices );
+	let sliceInfos = getHits( shapes, origin, getSlices( sliceCount ) );
 
 	for ( let sliceInfo of sliceInfos ) {
 		if ( !sliceInfo ) continue;
@@ -287,7 +303,6 @@ for ( let valName in vals ) {
 	}
 }
 
-let sliceWipe = 1;
 let rollingAvgDist = 0;
 let rollingFactor = 0.01;
 
@@ -295,13 +310,51 @@ export function renderFromEye( context: CanvasRenderingContext2D,
 							   shapes: Array<Shape>,
 							   origin: Vec2,
 							   vel: Vec2,
-							   slices: Array<number>,
+							   sliceCount: number,
 							   or: number, ir: number ) {
-	
+
+	let slices = getSlices( sliceCount );
+
+	let blendedSegments = getFrame( shapes, origin, vel, slices );
+	if ( blendedSegments.length != sliceCount ) {
+		console.error( 'render.renderFromEye(): Slice count mismatch: ' + blendedSegments.length + ' != ' + sliceCount );
+		return;
+	}
+
+	let angle = 0;
+
+	for ( let i = 0; i < sliceCount; i++ ) {
+		let slice = slices[i];
+		let sliceWipe = Math.atan( 1 / or ); // nudge the slices to cover the small gap between them
+		angle += slice / 2;
+
+		blendedSegments[i].a = 1.0;
+		context.strokeStyle = RGBAtoFillStyle( blendedSegments[i] );
+		context.fillStyle = RGBAtoFillStyle( blendedSegments[i] );
+		context.beginPath();
+		context.moveTo( Math.cos( angle - slice / 2 - sliceWipe ) * ir, Math.sin( angle - slice / 2 - sliceWipe ) * ir );
+		context.lineTo( Math.cos( angle - slice / 2 - sliceWipe ) * or, Math.sin( angle - slice / 2 - sliceWipe ) * or );
+		context.lineTo( Math.cos( angle + slice / 2 ) * or, Math.sin( angle + slice / 2 ) * or );
+		context.lineTo( Math.cos( angle + slice / 2 ) * ir, Math.sin( angle + slice / 2 ) * ir );
+		context.closePath();
+		context.fill();
+
+		angle += slice / 2;
+	}
+
+	context.globalAlpha = 1.0;
+}
+
+function getFrame( shapes: Array<Shape>,
+				   origin: Vec2,
+				   vel: Vec2,
+				   slices: Array<number> ): Array<RGBA> {
 	let sliceInfos = getHits( shapes, origin, slices );
 	let blended;
 	let maxDist = -1;
 	let lumFactor, satFactor: number;
+
+	let output: Array<RGBA> = [];
 
 	if ( Debug.flags.AUTO_BRIGHT_ADJUST ) {
 		for ( let i = 0; i < sliceInfos.length; i++ ) {
@@ -334,10 +387,12 @@ export function renderFromEye( context: CanvasRenderingContext2D,
 	}
 
 	for ( let i = 0; i < sliceInfos.length; i++ ) {
-		if ( !sliceInfos[i] ) continue;
+		if ( !sliceInfos[i] ) {
+			output.push( { r: 0, g: 0, b: 0, a: 0 } );
+			continue;
+		}
 
 		let angle = sliceInfos[i].angle;
-		let slice = sliceInfos[i].slice;
 		let hitDist = sliceInfos[i].hits[0].dist;
 
 		let hits = sliceInfos[i].hits;
@@ -396,57 +451,8 @@ export function renderFromEye( context: CanvasRenderingContext2D,
  			//hits[j].material.blendWith( blended );
 		}
 
-		// draw the segment
-		//blended.s *= Math.min( vals.satFactor.val / ( hitDist ** vals.satPower.val ), 1.0 ); 
-		//blended.l *= blended.a * Math.min( vals.lumFactor.val / ( hitDist ** vals.lumPower.val ), 1.0 );
-		blended.a = 1.0;
-		context.strokeStyle = RGBAtoFillStyle( blended );
-		context.fillStyle = RGBAtoFillStyle( blended );
-
-		context.beginPath();
-		context.moveTo( Math.cos( angle - slice * sliceWipe ) * ir, Math.sin( angle - slice * sliceWipe ) * ir );
-		context.lineTo( Math.cos( angle - slice * sliceWipe ) * or, Math.sin( angle - slice * sliceWipe ) * or );
-		context.lineTo( Math.cos( angle + slice / 2 ) * or, Math.sin( angle + slice / 2 ) * or );
-		context.lineTo( Math.cos( angle + slice / 2 ) * ir, Math.sin( angle + slice / 2 ) * ir );
-		context.closePath();
-		context.fill();
-		
-		context.globalAlpha = 1.0;
+		output.push( blended );
 	}
-
-	/*context.strokeStyle = 'black';
-	context.lineWidth = 1;
-	context.globalAlpha = 0.2;
-
-	for ( let i = 0; i < sliceInfos.length; i++ ) {
-		if ( !sliceInfos[i] ) continue;
-
-		let angle = sliceInfos[i].angle;
-		let slice = sliceInfos[i].slice;
-		let hit = sliceInfos[i].hit;
-		let hitDist = sliceInfos[i].hitDist;
-		let prevHit = sliceInfos[(i + sliceInfos.length - 1) % sliceInfos.length];
-		let nextHit = sliceInfos[(i + 1) % sliceInfos.length];
-
-		if ( prevHit === null || 
-			 prevHit.hit.normal.dot( hit.normal ) < 0.866 ) {
-
-			context.beginPath();
-			context.moveTo( Math.cos( angle - slice / 2 ) * ir, Math.sin( angle - slice / 2 ) * ir );
-			context.lineTo( Math.cos( angle - slice / 2 ) * or, Math.sin( angle - slice / 2 ) * or );
-			context.stroke();
-		}
-
-		if ( nextHit === null || 
-			 nextHit.hit.normal.dot( hit.normal ) < 0.866 ) {
-
-			context.beginPath();
-			context.moveTo( Math.cos( angle + slice / 2 ) * ir, Math.sin( angle + slice / 2 ) * ir );
-			context.lineTo( Math.cos( angle + slice / 2 ) * or, Math.sin( angle + slice / 2 ) * or );
-			context.stroke();
-		}
-	}
-	context.globalAlpha = 1.0;*/
 
 		/*let redness = 0;
 
@@ -470,6 +476,8 @@ export function renderFromEye( context: CanvasRenderingContext2D,
 			}
 		}
 		if ( redness > 1.0 ) redness = 1.0;*/
+
+	return output;
 }
 
 let canvasData: ImageData;
