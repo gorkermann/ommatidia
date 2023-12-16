@@ -14,29 +14,31 @@ import { GameControllerDom } from '../GameControllerDom.js'
 let _drag: Panel = null;
 let _dragOffset: Vec2 = new Vec2();
 
-document.addEventListener( 'mouseup', ( e: any ) => {
-	if ( e.button == 2 ) return; // right click
+if ( typeof document !== 'undefined' ) {
+	document.addEventListener( 'mouseup', ( e: any ) => {
+		if ( e.button == 2 ) return; // right click
 
-	if ( _drag ) {
-		_drag.dom.classList.remove( 'dragged' );
-	}
+		if ( _drag ) {
+			_drag.dom.classList.remove( 'dragged' );
+		}
 
-	_drag = null;
+		_drag = null;
 
-	document.dispatchEvent( new CustomEvent( 'ui-hide-shields' ) );
-} );
+		document.dispatchEvent( new CustomEvent( 'ui-hide-shields' ) );
+	} );
 
-document.addEventListener( 'mousemove', ( e: any ) => {
-	if ( _drag ) {//&& _drag.dom.classList.contains( 'detached' ) ) {
-		_drag.dom.classList.add( 'detached' );
+	document.addEventListener( 'mousemove', ( e: any ) => {
+		if ( _drag ) {//&& _drag.dom.classList.contains( 'detached' ) ) {
+			_drag.dom.classList.add( 'detached' );
 
-		document.body.appendChild( _drag.dom );
+			document.body.appendChild( _drag.dom );
 
-		_drag.dom.style.left = ( e.pageX - _dragOffset.x ) + '';
-		_drag.dom.style.top = ( e.pageY - _dragOffset.y ) + '';
-		_drag.dom.classList.add( 'detached' );
-	}
-} );
+			_drag.dom.style.left = ( e.pageX - _dragOffset.x ) + '';
+			_drag.dom.style.top = ( e.pageY - _dragOffset.y ) + '';
+			_drag.dom.classList.add( 'detached' );
+		}
+	} );
+}
 
 export function receivePanel( this: HTMLElement, target: HTMLElement, e: any ) {
 	if ( !_drag ) return; 

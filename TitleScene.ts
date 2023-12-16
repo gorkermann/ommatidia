@@ -1,5 +1,5 @@
 import { Entity } from './lib/juego/Entity.js'
-import { Scene } from './lib/juego/Scene.js'
+import { Scene } from './Scene.js'
 import { Keyboard, KeyCode } from './lib/juego/keyboard.js'
 import { Shape } from './lib/juego/Shape.js'
 import { Vec2 } from './lib/juego/Vec2.js'
@@ -9,19 +9,18 @@ import { titleData } from './titleData.js'
 import { renderFromEye, getDownsampled, whiteText } from './render.js'
 
 export class TitleScene extends Scene {
-	name: string = "";
+	name: string = '';
 
 	floaters: Array<Entity> = [];
 	titleDrift: number = 0;
 	origin = new Vec2( 0, 0 );
 
 	constructor() {
-		super( "Title" );
+		super( 'Title' );
 	}
 
 	update() {
-		//if ( Keyboard.keyHit( KeyCode.Z ) ) document.dispatchEvent( new CustomEvent( "start" ) );
-		if ( Keyboard.keyHit( KeyCode.Z ) ) document.dispatchEvent( new CustomEvent( "start" ) );
+		if ( Keyboard.keyHit( KeyCode.Z ) ) this.messages.push( 'start' );
 
 		if ( Keyboard.keyHeld( KeyCode.LEFT ) ) {
 			this.origin.add( new Vec2( -5, 0 ) );
@@ -104,10 +103,10 @@ export class TitleScene extends Scene {
 
 		let y = this.camera.viewportH;
 
-		whiteText( context, "Use the [arrow keys] to move and [WASD] to shoot", 5, y - 60 );
-		whiteText( context, "Press [space] to pause", 5, y - 40 );
-		whiteText( context, "Press [Z] to start", 5, y - 20 );
+		whiteText( context, 'Use the [arrow keys] to move and [WASD] to shoot', 5, y - 60 );
+		whiteText( context, 'Press [space] to pause', 5, y - 40 );
+		whiteText( context, 'Press [Z] to start', 5, y - 20 );
 
-		whiteText( context, "Graham Smith 2023", this.camera.viewportW - 5, y - 20, true );
+		whiteText( context, 'Graham Smith 2023', this.camera.viewportW - 5, y - 20, true );
 	}
 }

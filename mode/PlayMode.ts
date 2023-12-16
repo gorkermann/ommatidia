@@ -2,7 +2,7 @@ import { Vec2 } from '../lib/juego/Vec2.js'
 import { Keyboard, KeyCode } from '../lib/juego/keyboard.js'
 import { GenericMode } from '../lib/juego/mode/Mode.js'
 
-import { GameControllerDom } from '../GameControllerDom.js'
+import { GameController } from '../GameController.js'
 
 //import { EditMode } from './EditMode.js'
 
@@ -28,11 +28,11 @@ export class PlayMode extends GenericMode {
 		super( 'Play' );
 	}
 
-	begin( gc: GameControllerDom ) {
+	begin( gc: GameController ) {
 		this.oldPos.set( gc.cursor );
 	}
 
-	mousemove( gc: GameControllerDom ) {
+	mousemove( gc: GameController ) {
 		gc.updateHovered();
 
 		if ( gc.mouse.isHeld() ) {
@@ -55,17 +55,17 @@ export class PlayMode extends GenericMode {
 		this.oldPos.set( gc.cursor );
 	}
 
-	mousedown( gc: GameControllerDom ) {
+	mousedown( gc: GameController ) {
 		this.dragged = false;
 	}
 
-	mouseup( gc: GameControllerDom ) {
+	mouseup( gc: GameController ) {
 		if ( !this.dragged ) {
 			this.select( gc, 'up' );
 		}
 	}
 
-	select( gc: GameControllerDom, action: MouseAction ) {
+	select( gc: GameController, action: MouseAction ) {
 		let target = gc.sel.hoverlist.getTarget();
 
 		if ( this.allHovered ) {
@@ -83,7 +83,7 @@ export class PlayMode extends GenericMode {
 		}
 	}
 
-	keyboard( gc: GameControllerDom ) {
+	keyboard( gc: GameController ) {
 		super.keyboard( gc );
 
 		//gc.currentCommand = 'Select';
@@ -107,7 +107,7 @@ export class PlayMode extends GenericMode {
 		}
 	}
 
-	update( gc: GameControllerDom ) {
+	update( gc: GameController ) {
 		gc.currentScene.update();
 
 		// save recent game states
@@ -131,7 +131,5 @@ export class PlayMode extends GenericMode {
 
 			//gc.camera.pos.set( gc.currentScene.player.pos );
 		}
-
-		gc.floaterScene.update();
 	}
 }

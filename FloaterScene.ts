@@ -2,7 +2,7 @@ import { Entity } from './lib/juego/Entity.js'
 import { Material } from './lib/juego/Material.js'
 import { Vec2 } from './lib/juego/Vec2.js'
 
-import { Scene } from './lib/juego/Scene.js'
+import { Scene } from './Scene.js'
 
 import { getDownsampled } from './render.js'
  

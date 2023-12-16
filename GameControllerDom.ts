@@ -5,7 +5,7 @@ import { Editable } from './lib/juego/Editable.js'
 import { Entity } from './lib/juego/Entity.js'
 import { Keyboard, KeyCode } from './lib/juego/keyboard.js'
 import { constructors, nameMap } from './lib/juego/constructors.js'
-import { Scene } from './lib/juego/Scene.js'
+import { Scene } from './Scene.js'
 import { Selector } from './lib/juego/Selector.js'
 import { Dict } from './lib/juego/util.js'
 import { Vec2 } from './lib/juego/Vec2.js'
@@ -24,6 +24,7 @@ import { CommandPanel } from './ctlr/CommandPanel.js'
 
 import * as Debug from './Debug.js'
 import { gameCommands } from './gameCommands.js'
+import { GameController } from './GameController.js'
 import { FloaterScene } from './FloaterScene.js'
 import { Level } from './Level.js'
 import { levelDataList } from './levels/level1.js'
@@ -54,21 +55,8 @@ type ResetInterfaceOptions = {
 	soft?: boolean;
 }
 
-export class GameControllerDom extends Controller {
+export class GameControllerDom extends GameController {
 	context: CanvasRenderingContext2D = null;
-
-	currentScene: Scene = null;
-
-	title: TitleScene = new TitleScene();
-
-	levelIndex: number = 0;
-
-	floaterScene: FloaterScene;
-	hue: number = Math.random() * 360;
-
-	recentStates: Array<any> = [];
-	saveStateInterval: number = 1000;
-	lastStateTime: number = 0; // milliseconds of play time since scene started
 
 	watchers: Dict<Watcher> = {
 		'localStorage': new DictWatcher( 'localStorage', store )
@@ -77,17 +65,12 @@ export class GameControllerDom extends Controller {
 	inspector: InspectorPanel;
 	panels: Array<Panel> = [];
 
-	/* property overrides */
-
-	defaultMode = 'Play';
+	floaterScene: FloaterScene;
 
 	constructor() {
-		super( [] );
+		super();
 
 		this.initCanvas();
-
-		this.title.floaters = this.floaterScene.floaters;
-
 		this.initKeyboard();
 		this.initMouse();
 		this.initMenu();
@@ -110,32 +93,7 @@ export class GameControllerDom extends Controller {
 		this.inspector = new InspectorPanel();
 		this.addPanel( this.inspector, container );
 
-		document.addEventListener( 'start', ( e: any ) => { 
-			this.levelIndex = 0;
-
-			this.startLevel();
-		} );
-
-		document.addEventListener( 'restart', ( e: any ) => {
-			this.startLevel();
-		} );
-
-		document.addEventListener( 'rewind', ( e: any ) => {
-			if ( this.recentStates.length == 0 ) {
-				this.startLevel();
-
-			} else {
-				let json = this.recentStates[0];
-
-				this.loadLevelFromJSON( json );
-			}
-		} );
-
-		document.addEventListener( 'death', ( e: any ) => {
-			this.startLevel();
-		} );
-
-		document.addEventListener( 'complete', ( e: any ) => { 
+		this.addMessageHandler( 'complete', () => { 
 			this.levelIndex += 1;
 
 			if ( this.levelIndex < levelDataList.length ) {
@@ -191,6 +149,8 @@ export class GameControllerDom extends Controller {
 		this.floaterScene = new FloaterScene( this.canvas );
 		this.floaterScene.camera.setViewport( this.canvas.width, this.canvas.height );
 
+		this.title.floaters = this.floaterScene.floaters;
+
 		window.addEventListener( 'resize', ( e ) => {
 			this.resize();
 		} );
@@ -218,37 +178,6 @@ export class GameControllerDom extends Controller {
 
 			this.runCommand( e.detail.commandName, e.detail.options );
 		} );
-	}
-
-	/* save */
-
-	getJSON(): any {
-		//let toaster = new tp.Toaster( constructors, nameMap );
-		let scene = this.currentScene;
-
-		let output = null;
-
-		if ( scene instanceof Level ) {
-			try {
-				let flatLevel = tp.singleToJSON( scene, constructors, nameMap );
-
-				output = flatLevel;
-			} catch ( ex ) { 
-				console.error( ex );
-			}
-
-		} else {
-			console.warn( 'GameControllerDom.getJSON: Unhandled Scene type ' + 
-				scene.constructor.name );
-		}
-
-		//toaster.cleanAddrIndex();
-
-		if ( output ) {
-			output['levelIndex'] = this.levelIndex;
-		}
-
-		return output;
 	}
 
 	/* load */
@@ -295,70 +224,18 @@ export class GameControllerDom extends Controller {
 		}
 	}
 
-	startLevel() {
-		try {
-			let level = new Level( 'level' + this.levelIndex, levelDataList[this.levelIndex] );
-
-			this.loadScene( level );
-			this.resetInterface();
-
-		} catch ( e ) {
-			this.currentScene = null;
-
-			throw e;
-		}
-	}
-
-	loadLevelFromJSON( json: any, options: LoadLevelOptions={} ) {
-		let toaster = new tp.Toaster( constructors, nameMap );
-
-		let level = tp.fromJSON( json, toaster );
-		tp.resolveList( [level], toaster );
-		
-		for ( let error of toaster.errors ) {
-			console.error( error );
-			return;
-		}
-
-		for ( let entity of level['__entities'] ) {
-			entity.init();
-			level.em.insert( entity );
-		}
-
-		delete level['__entities'];
-
-		// check if we are in the same level as previously
-		let sameLevel = false;
-		if ( 'levelIndex' in json ) {
-			sameLevel = ( json['levelIndex'] == this.levelIndex );
-
-			this.levelIndex = json['levelIndex'];
-		}
-
-		this.loadScene( level, false );
-		this.resetInterface( { soft: sameLevel && !options.forceEraseHistory } );
-	}
-
 	loadScene( scene: Scene, doLoad: boolean=true ) {
-		if ( doLoad ) {
-			scene.load();
-		}
-		this.currentScene = scene;
-		this.camera = scene.camera;
-
+		super.loadScene( scene, doLoad );
+		
 		this.resize();
 	}
 
 	/* play */
 
 	update() {
-		if ( this.currentScene === null ) {
-			this.loadScene( this.title );
-		}
+		super.update();
 
-		if ( this.mode ) {
-			this.mode.update( this );
-		}
+		this.floaterScene.update();
 
 		this.mouse.update( this.canvas );
 

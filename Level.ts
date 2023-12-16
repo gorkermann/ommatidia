@@ -9,7 +9,6 @@ import { Line } from './lib/juego/Line.js'
 import { Material } from './lib/juego/Material.js'
 import { constructors, nameMap } from './lib/juego/constructors.js'
 import { RayHit } from './lib/juego/RayHit.js'
-import { Scene } from './lib/juego/Scene.js'
 import { ScrollBox } from './lib/juego/ScrollBox.js'
 import { Shape } from './lib/juego/Shape.js'
 import { Sound } from './lib/juego/Sound.js'
@@ -26,6 +25,7 @@ import { SwitchBoss } from './boss/SwitchBoss.js'
 
 import { HorizDoor } from './Door.js'
 import { RoomManager } from './RoomManager.js'
+import { Scene } from './Scene.js'
 
 import { Bullet, PlayerBullet } from './Bullet.js'
 import { CenteredEntity } from './CenteredEntity.js'
@@ -92,7 +92,10 @@ playerBulletMaterial.alpha = 0.3;
 
 let playerMaterial = new Material( 0, 0, 1.0 );
 
-let optionPanel = document.getElementById( 'optionpanel' ) as HTMLDivElement;
+let optionPanel: HTMLDivElement = null;
+if ( typeof document !== 'undefined' ) {
+	optionPanel = document.getElementById( 'optionpanel' ) as HTMLDivElement;
+}
 
 class LevelGrid extends GridArea {
 	hitWith( otherEntity: Entity ) {
@@ -418,8 +421,8 @@ export class Level extends Scene {
 			// do nothing, anim only
 
 		} else if ( this.state == LevelState.DEATH_MENU ) {
-			if ( Keyboard.keyHit( KeyCode.R ) ) document.dispatchEvent( new CustomEvent( 'restart' ) );
-			if ( Keyboard.keyHit( KeyCode.Z ) ) document.dispatchEvent( new CustomEvent( 'rewind' ) );
+			if ( Keyboard.keyHit( KeyCode.R ) ) this.messages.push( 'restart' );
+			if ( Keyboard.keyHit( KeyCode.Z ) ) this.messages.push( 'rewind' );
 
 			if ( Keyboard.keyHit( KeyCode.LEFT ) ) this.replayIndex -= 1;
 			if ( Keyboard.keyHit( KeyCode.RIGHT ) ) this.replayIndex += 1;
@@ -428,20 +431,20 @@ export class Level extends Scene {
 			if ( this.replayIndex > this.replayImages.length - 1 ) this.replayIndex = this.replayImages.length - 1;
 
 		} else if ( this.state == LevelState.SUCCESS_MENU ) {
-			if ( Keyboard.keyHit( KeyCode.Z ) ) document.dispatchEvent( new CustomEvent( 'complete' ) );
+			if ( Keyboard.keyHit( KeyCode.Z ) ) this.messages.push( 'complete' );
 
 		} else {
 			if ( Keyboard.keyHit( KeyCode.SPACE ) ) {
 				if ( this.paused ) {
 					this.paused = false;
-					optionPanel.classList.add( 'hidden' );
+					if ( optionPanel ) optionPanel.classList.add( 'hidden' );
 
 					for ( let sound of this.sounds ) {
 					//	sound.play();
 					}
 				} else {
 					this.paused = true;
-					optionPanel.classList.remove( 'hidden' );
+					if ( optionPanel ) optionPanel.classList.remove( 'hidden' );
 
 					for ( let sound of this.sounds ) {
 					//	sound.pause();
@@ -639,7 +642,7 @@ export class Level extends Scene {
 					 entity.pos.y > this.grid.vTiles * this.grid.tileWidth + boundary ) {
 
 					if ( entity == this.player ) {
-						document.dispatchEvent( new CustomEvent( 'death', {} ) );
+						this.messages.push( 'death' );
 						
 					} else if ( entity instanceof Bullet ) {
 						entity.removeThis = true;
@@ -721,7 +724,7 @@ export class Level extends Scene {
 				} ) );
 
 			} else {
-				document.dispatchEvent( new CustomEvent( 'complete' ) );
+				this.messages.push( 'complete' );
 			}
 		}
 	}

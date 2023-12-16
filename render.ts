@@ -157,42 +157,6 @@ type SliderVal = {
 	val: number;
 }
 
-export let vals: Dict<SliderVal> = {
-	satFactor: {
-		id: 'sat-factor',
-		val: 200,
-	},
-	satPower: {
-		id: 'sat-power',
-		val: 1.0,
-	},
-	satMin: {
-		id: 'sat-min',
-		val: 0.3,
-	},	
-	lumFactor: {
-		id: 'lum-factor',
-		val: 200,
-	},
-	lumPower: {
-		id: 'lum-power',
-		val: 1.0,
-	},
-	lumMin: {
-		id: 'lum-min',
-		val: 0.3,
-	},
-
-	shading: {
-		id: 'shading',
-		val: 0.3,
-	},
-	lens: {
-		id: 'lens',
-		val: 2,
-	},
-}
-
 let sliceCount = 360;
 let theta = Math.PI * 2 / sliceCount;
 let cosSl = Math.cos( theta );
@@ -283,23 +247,53 @@ function approachFlash( eyeVel: Vec2, hit: ShapeHit, angle: number, hitDist: num
 	}
 }
 
-/*let satFactorVal;
-let lumFactorVal;
+export let vals: Dict<SliderVal> = {
+	satFactor: {
+		id: 'sat-factor',
+		val: 200,
+	},
+	satPower: {
+		id: 'sat-power',
+		val: 1.0,
+	},
+	satMin: {
+		id: 'sat-min',
+		val: 0.3,
+	},	
+	lumFactor: {
+		id: 'lum-factor',
+		val: 200,
+	},
+	lumPower: {
+		id: 'lum-power',
+		val: 1.0,
+	},
+	lumMin: {
+		id: 'lum-min',
+		val: 0.3,
+	},
 
-function updateFactorVals() {
-	satFactorVal = satFactor ** ( satPower / 0.5 );
-	lumFactorVal = lumFactor ** ( lumPower / 0.5 );
-}*/
+	shading: {
+		id: 'shading',
+		val: 0.3,
+	},
+	lens: {
+		id: 'lens',
+		val: 2,
+	},
+}
 
-for ( let valName in vals ) {
-	let slider = document.getElementById( vals[valName].id ) as HTMLInputElement;
-	if ( !slider ) continue;
+if ( typeof document !== 'undefined' ) {
+	for ( let valName in vals ) {
+		let slider = document.getElementById( vals[valName].id ) as HTMLInputElement;
+		if ( !slider ) continue;
 
-	slider.value = vals[valName].val.toString();
+		slider.value = vals[valName].val.toString();
 
-	slider.onchange = function( e: any ) {
-		let inputVal = parseFloat( e.currentTarget.value );
-		if ( !isNaN( inputVal ) ) vals[valName].val = inputVal;
+		slider.onchange = function( e: any ) {
+			let inputVal = parseFloat( e.currentTarget.value );
+			if ( !isNaN( inputVal ) ) vals[valName].val = inputVal;
+		}
 	}
 }
 
