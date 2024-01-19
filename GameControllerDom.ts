@@ -27,7 +27,6 @@ import { gameCommands } from './gameCommands.js'
 import { GameController } from './GameController.js'
 import { FloaterScene } from './FloaterScene.js'
 import { Level } from './Level.js'
-import { levelDataList } from './levels/level1.js'
 import { store } from './store.js'
 import { TitleScene } from './TitleScene.js'
 import { Watcher, DictWatcher } from './Watcher.js'
@@ -96,7 +95,7 @@ export class GameControllerDom extends GameController {
 		this.addMessageHandler( 'complete', () => { 
 			this.levelIndex += 1;
 
-			if ( this.levelIndex < levelDataList.length ) {
+			if ( this.levelIndex < this.levelDataList.length ) {
 				let context = this.canvas.getContext( '2d' );
 
 				context.clearRect( 0, 0, this.canvas.width, this.canvas.height );
@@ -234,8 +233,6 @@ export class GameControllerDom extends GameController {
 
 	update() {
 		super.update();
-
-		this.floaterScene.update();
 
 		this.mouse.update( this.canvas );
 

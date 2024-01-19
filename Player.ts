@@ -14,6 +14,7 @@ export class Player extends Entity {
 	maxJumpFrames: number = 20;
 	jumpFrames: number = 0;
 	blockedDirs: Array<Vec2> = [];
+	collideDown: boolean = false;
 
 	health = 10;
 	wince: number = 0;

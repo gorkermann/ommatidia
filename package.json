@@ -1,12 +1,16 @@
 {
   "dependencies": {
     "md5": "^2.3.0",
+    "rpi-ws281x-native": "^1.0.4",
+    "rpio": "^2.4.2",
     "terser-webpack-plugin": "^5.3.9"
   },
   "devDependencies": {
     "@types/md5": "^2.3.3",
-    "webpack-cli": "^5.1.4",
-    "polyclip-ts": "^0.16.3"
+    "@types/rpi-ws281x-native": "^1.0.3",
+    "@types/rpio": "^2.4.6",
+    "polyclip-ts": "^0.16.3",
+    "webpack-cli": "^5.1.4"
   },
   "type": "module"
 }

@@ -1,14 +1,24 @@
+import ws281x from 'rpi-ws281x-native'
+
 import { Angle } from './lib/juego/Angle.js'
 import { Entity } from './lib/juego/Entity.js'
 import { Vec2 } from './lib/juego/Vec2.js'
 import { Line } from './lib/juego/Line.js'
-import { RGBA, Material, RGBAtoFillStyle} from './lib/juego/Material.js'
+import { RGBA, Material, RGBAtoFillStyle } from './lib/juego/Material.js'
 import { RayHit, closestTo } from "./lib/juego/RayHit.js"
 import { Shape, ShapeHit } from './lib/juego/Shape.js'
 import { Dict } from './lib/juego/util.js'
 
 import { COL, MILLIS_PER_FRAME } from './collisionGroup.js'
 import * as Debug from './Debug.js'
+
+import { XhrInterface } from './NodeServer.js'
+
+let channel: any;
+
+if ( typeof document === 'undefined' ) {
+	channel = ws281x(144, { stripType: 'ws2812', gpio: 18 } );
+}
 
 export function shapecast( line: Line, shapes: Array<Shape>, minSweep: Array<number>=null, maxSweep: Array<number>=null ): Array<ShapeHit> {
 	let closestRayHits: Array<ShapeHit> = [];
@@ -262,7 +272,7 @@ export let vals: Dict<SliderVal> = {
 	},	
 	lumFactor: {
 		id: 'lum-factor',
-		val: 200,
+		val: 100,
 	},
 	lumPower: {
 		id: 'lum-power',
@@ -270,7 +280,7 @@ export let vals: Dict<SliderVal> = {
 	},
 	lumMin: {
 		id: 'lum-min',
-		val: 0.3,
+		val: 0.2,
 	},
 
 	shading: {
@@ -300,6 +310,15 @@ if ( typeof document !== 'undefined' ) {
 let rollingAvgDist = 0;
 let rollingFactor = 0.01;
 
+function rescale( x: number ): number {
+	x *= 255;
+	x -= 32;
+
+	if ( x < 0 ) return 0;
+
+	return Math.min( 2 ^ ( x / 16 ), 255 );
+}
+
 export function renderFromEye( context: CanvasRenderingContext2D, 
 							   shapes: Array<Shape>,
 							   origin: Vec2,
@@ -315,28 +334,70 @@ export function renderFromEye( context: CanvasRenderingContext2D,
 		return;
 	}
 
-	let angle = 0;
-
 	for ( let i = 0; i < sliceCount; i++ ) {
-		let slice = slices[i];
-		let sliceWipe = Math.atan( 1 / or ); // nudge the slices to cover the small gap between them
-		angle += slice / 2;
-
 		blendedSegments[i].a = 1.0;
-		context.strokeStyle = RGBAtoFillStyle( blendedSegments[i] );
-		context.fillStyle = RGBAtoFillStyle( blendedSegments[i] );
-		context.beginPath();
-		context.moveTo( Math.cos( angle - slice / 2 - sliceWipe ) * ir, Math.sin( angle - slice / 2 - sliceWipe ) * ir );
-		context.lineTo( Math.cos( angle - slice / 2 - sliceWipe ) * or, Math.sin( angle - slice / 2 - sliceWipe ) * or );
-		context.lineTo( Math.cos( angle + slice / 2 ) * or, Math.sin( angle + slice / 2 ) * or );
-		context.lineTo( Math.cos( angle + slice / 2 ) * ir, Math.sin( angle + slice / 2 ) * ir );
-		context.closePath();
-		context.fill();
-
-		angle += slice / 2;
 	}
 
-	context.globalAlpha = 1.0;
+	if ( typeof document !== 'undefined' ) {
+		let angle = 0;
+
+		for ( let i = 0; i < sliceCount; i++ ) {
+			let slice = slices[i];
+			let sliceWipe = Math.atan( 1 / or ); // nudge the slices to cover the small gap between them
+			angle += slice / 2;
+
+			context.strokeStyle = RGBAtoFillStyle( blendedSegments[i] );
+			context.fillStyle = RGBAtoFillStyle( blendedSegments[i] );
+			context.beginPath();
+			context.moveTo( Math.cos( angle - slice / 2 - sliceWipe ) * ir, Math.sin( angle - slice / 2 - sliceWipe ) * ir );
+			context.lineTo( Math.cos( angle - slice / 2 - sliceWipe ) * or, Math.sin( angle - slice / 2 - sliceWipe ) * or );
+			context.lineTo( Math.cos( angle + slice / 2 ) * or, Math.sin( angle + slice / 2 ) * or );
+			context.lineTo( Math.cos( angle + slice / 2 ) * ir, Math.sin( angle + slice / 2 ) * ir );
+			context.closePath();
+			context.fill();
+
+			angle += slice / 2;
+		}
+
+		context.globalAlpha = 1.0;
+	}
+
+	let segs = [];
+	for ( let segment of blendedSegments ) {
+		let max = Math.max( segment.r, segment.g, segment.b );
+		//let factor = max * 255 - 0;
+		//if ( factor < 0 ) factor = 0;
+		//factor = Math.min( 2 ^ ( factor / 16 ), 255 );
+		let factor = 10;
+
+		segs.push( ( segment.r * factor << 16 ) + ( segment.g * factor << 8 ) + ( segment.b * factor ) );
+	}
+
+	// optionally send to external server
+	if ( Debug.flags.SEND_SERVER_FRAME ) {
+		XhrInterface.post( 'render', { slices: segs } );
+	}
+
+	// optionally send to local GPIO
+	if ( typeof document === 'undefined' ) {
+		let offset = parseInt( Debug.fields['SLICE_OFFSET'].value );
+		if ( isNaN( offset ) ) offset = 0;
+
+		for ( let i = 0; i < channel.array.length; i++ ) {
+	        channel.array[i] = 0;
+	    }
+	    for (let i = 0; i < channel.array.length; i++) {
+	    	if ( i >= segs.length ) break;
+
+	        channel.array[i] = segs[(i + offset ) % sliceCount] & 0xffffff;
+	    }
+
+	    ws281x.render();
+	
+		//console.log( 'leds' );
+	}
+
+	//console.log( 'render' );
 }
 
 function getFrame( shapes: Array<Shape>,
@@ -436,6 +497,10 @@ function getFrame( shapes: Array<Shape>,
 			}
 
 			hits[j].material.lum *= Math.max( hits[j].material.emit, lumFactor );
+
+			/*let hue = hits[j].dist / distCutoff;
+			hue = Math.min( hue, 1.0 );
+			hits[j].material.hue = hue * 360;*/
 
 			let color = hits[j].material.getRGBA();
 

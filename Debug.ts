@@ -24,6 +24,7 @@ export let flags: Dict<boolean> = {
 	MOUSE_SELECT: false,
 	SHOW_DEATH: false,
 	DRAW_ROOMS: false,
+	SEND_SERVER_FRAME: false,
 }
 
 export type DebugField = {
@@ -53,6 +54,7 @@ export let fields: Dict<DebugField> = {
 	SHELL_ATK: { value: '', default: 'default' },
 	SWITCH_ATK: { value: '', default: 'default' },
 	SLICE_COUNT: { value: '', default: '360' },
+	SLICE_OFFSET: { value: '', default: '0' },
 }
 
 validators['SLICE_COUNT'] = ( x: DebugField ) => !isNaN( parseInt( x.value ) );
@@ -155,6 +157,8 @@ export function init() {
 }
 
 export function strokeAll( entities: Array<Entity> ) {
+	if ( typeof document === 'undefined' ) return;
+
 	let canvas = ( window as any ).canvas;
 	let context = ( window as any ).context;
 

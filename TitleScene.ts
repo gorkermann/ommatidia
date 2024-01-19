@@ -44,22 +44,31 @@ export class TitleScene extends Scene {
 		let rStep = 20 * this.camera.viewportW / 400;
 		let slice = Math.PI * 2 / 180;
 
-		context.globalAlpha = 1.0;
-
 		let ir = 120 * this.camera.viewportW / 400;
 		let or = 180 * this.camera.viewportH / 400;
 
+		let shapes = [];
+		for ( let floater of this.floaters ) {
+			let shape = Shape.makeRectangle( floater.pos,
+											 floater.width,
+											 floater.height );
+			shape.material = floater.material;
+
+			shapes.push( shape );
+		}
+
+		if ( typeof document === 'undefined' ) {
+			renderFromEye( context, 
+						   shapes, 
+						   this.origin,
+						   new Vec2(),
+						   180, or, ir );
+			return;
+		}
+
+		context.globalAlpha = 1.0;
+
 		this.camera.moveContext( context );
-
-			let shapes = [];
-			for ( let floater of this.floaters ) {
-				let shape = Shape.makeRectangle( floater.pos,
-												 floater.width,
-												 floater.height );
-				shape.material = floater.material;
-
-				shapes.push( shape );
-			}
 
 			renderFromEye( context, 
 						   shapes, 

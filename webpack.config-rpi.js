@@ -7,17 +7,13 @@ export default {
   },
   output: {
     filename: '[name].js',
-    path: path.resolve('.', 'dist/dev'),
+    path: path.resolve('.', 'dist/rpi'),
   },
   cache: false,
   devtool: 'inline-source-map',
-  externals: {
-    'rpio': /^rpio$/,
-    'rpi-ws281x-native': /^rpi-ws281x-native$/
-  },
   optimization: {
     minimize: false,
   },
 
-  //target: 'node',
+  target: 'node',
 };

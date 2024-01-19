@@ -1,3 +1,6 @@
+import ws281x from 'rpi-ws281x-native'
+import rpio from 'rpio'
+
 import { Keyboard, KeyCode } from './lib/juego/keyboard.js'
 import { Vec2 } from './lib/juego/Vec2.js'
 
@@ -133,9 +136,57 @@ if ( typeof document !== 'undefined' ) {
 		scrollTop = rightPane.scrollTop;
 	}
 } else {
-	console.log( 'init from console' );
+	Debug.fields['SLICE_COUNT'].value = '143'; // used to be 144 but I made the circle too small, so cut one off
+	Debug.fields['SLICE_OFFSET'].value = '38'; // 144 / 4 = 35.75, closest is 36, end of strip is 2 positions past center, 36+2=38
+
+	console.log( 'init from console (should be on a raspberry pi)' );
+	console.log( 'slice count %d', parseInt( Debug.fields['SLICE_COUNT'].value ) );
 
 	ctlr = new GameController();
 
 	setInterval( update, MILLIS_PER_FRAME );
+
+	if ( !process.env.SUDO_UID ) {
+	    console.error( '[ommatidia-server] Must run as root to satisfy ws281x' );
+	    process.exit( 1 );
+	}
+
+    let cabinetKeyCodes: Array<KeyCode> = [];
+
+    cabinetKeyCodes[15] = KeyCode.Z;
+    cabinetKeyCodes[16] = KeyCode.X;
+    cabinetKeyCodes[26] = KeyCode.RIGHT;
+    cabinetKeyCodes[24] = KeyCode.LEFT;
+
+	function pollDown( pin: number ) {
+        /*
+         * Wait for a small period of time to avoid rapid changes which
+         * can't all be caught with the 1ms polling frequency.  If the
+         * pin is no longer down after the wait then ignore it.
+         */    
+
+		let val = rpio.read( pin );
+
+        rpio.msleep( 20 );
+
+        if ( rpio.read(pin) != val ) return;
+
+        if ( !( pin in cabinetKeyCodes ) ) {
+        	console.log('Unhandled button pressed on pin P%d', pin);
+        	return;
+        }
+
+        if ( val ) {
+        	Keyboard.upHandler( { keyCode: cabinetKeyCodes[pin] } );	
+        } else {
+        	Keyboard.downHandler( { keyCode: cabinetKeyCodes[pin] } );
+        }
+	}
+
+	for ( let i in cabinetKeyCodes ) {
+		let index = parseInt( i );
+
+		rpio.open( index, rpio.INPUT, rpio.PULL_UP);
+		rpio.poll( index, pollDown, rpio.POLL_BOTH);
+	}
 }

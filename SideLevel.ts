@@ -17,13 +17,8 @@ import { Vec2 } from './lib/juego/Vec2.js'
 
 import * as tp from './lib/toastpoint.js'
 
-import { Boss } from './boss/Boss.js'
-import { RollBoss, Barrier } from './boss/RollBoss.js' 
-import { LockBoss, LockWall } from './boss/LockBoss.js'
-import { ShellBoss } from './boss/ShellBoss.js'
-import { SwitchBoss } from './boss/SwitchBoss.js'
+import { Coin } from './Coin.js'
 
-import { HorizDoor } from './Door.js'
 import { RoomManager } from './RoomManager.js'
 import { Scene } from './Scene.js'
 
@@ -32,8 +27,6 @@ import { CenteredEntity } from './CenteredEntity.js'
 import { COL, MILLIS_PER_FRAME, REWIND_SECS } from './collisionGroup.js'
 import { Player } from './Player.js'
 import { shapecast, renderFromEye, renderRays, whiteText, vals } from './render.js'
-
-import { Orbiter, Blocker, Elevator, Tumbler, Door, StaticBumpkin, SniperBumpkin } from './TutorialEntity.js'
 
 import * as Debug from './Debug.js'
 
@@ -105,7 +98,7 @@ class LevelGrid extends GridArea {
 	}
 }
 
-export class Level extends Scene {
+export class SideLevel extends Scene {
 	grid: LevelGrid = new LevelGrid();
 
 	rooms: Array<RoomManager> = [];
@@ -143,11 +136,6 @@ export class Level extends Scene {
 
 	state: LevelState = LevelState.DEFAULT;
 
-	replayImages: Array<ReplayImage> = [];
-	replayCount: number = 10;
-	replayIndex: number = 0;
-	replayAlpha: number = 1.0;
-
 	newChar: boolean = false;
 	messageQueue: Array<string> = []; // can have newlines
 	stringIndex: number = 0; // character index of messageQueue[0] as it is transferred to displayText[-1]
@@ -165,8 +153,6 @@ export class Level extends Scene {
 		'haloWidth': new AnimField( this, 'haloWidth', 5 ),
 		'or': new AnimField( this, 'or', 40 ),
 		'ir': new AnimField( this, 'ir', 40 ),
-		'replayIndex': new AnimField( this, 'replayIndex', 1 ),
-		'replayAlpha': new AnimField( this, 'replayAlpha', 0.1 ),
 		'state': new AnimField( this, 'state', 0 ),
 	},
 	new AnimFrame( {
@@ -174,7 +160,6 @@ export class Level extends Scene {
 		'haloWidth': { value: 40 },
 		'or': { value: 120 },
 		'ir': { value: 100},
-		'replayAlpha': { value: 1.0 }
 	} ) );
 
 	discardFields: Array<string> = ['em', 'textBox', 'textBoxHeight', 'text', 'textIndex', 'speaker',
@@ -264,24 +249,9 @@ export class Level extends Scene {
 									this.grid.tileWidth,
 									this.grid.tileHeight );
 
-					block.material = new Material( this.data.hue, 1.0, 0.3 );
-					if ( Debug.flags.LEVEL_ALT_MAT ) block.altMaterial = new Material( this.data.hue, 1.0, 0.5 );
+					block.material = new Material( this.data.hue, 1.0, 0.5 );
+					if ( Debug.flags.LEVEL_ALT_MAT ) block.altMaterial = new Material( this.data.hue + 30, 1.0, 0.5 );
 					gridEnt.addSub( block );
-
-				// horizontal door
-				} else if ( index == 2 ) {
-					let door = new HorizDoor( pos.plus( new Vec2( 10, 0 ) ) );
-					room.doors.push( door );
-
-					this.em.insert( door );
-					
-				// vertical door
-				} else if ( index == 3 ) {
-					let door = new HorizDoor( pos.plus( new Vec2( 0, 10 ) ) );
-					door.angle = Math.PI / 2;
-					room.doors.push( door );
-
-					this.em.insert( door );
 
 				// player
 				} else if ( index == 10 ) {
@@ -289,114 +259,14 @@ export class Level extends Scene {
 					this.player.collisionGroup = COL.PLAYER_BODY;
 					this.player.collisionMask = COL.ENEMY_BODY | COL.ENEMY_BULLET | COL.LEVEL | COL.ITEM;
 					this.player.material = playerMaterial.copy();
-					this.em.insert( this.player );
-				
-				// static bumpkin
-				} else if ( index == 20 ) {
-					let entity = new StaticBumpkin( pos.copy() );
-					room.entities.push( entity );
+					this.em.insert( this.player );	
 
-					this.em.insert( entity );
+				// coin
+				} else if ( index == 11 ) {
+					let coin = new Coin( pos.copy() );
+					coin.collisionGroup = COL.ITEM;
 
-				// bumpkin sniper
-				} else if ( index == 21 ) {
-					let entity = new SniperBumpkin( pos.copy() );
-					room.entities.push( entity );
-
-					this.em.insert( entity );
-				
-				} else if ( index == 22 ) {
-
-				// maze bumpkin
-				} else if ( index == 23 ) {
-
-				// waterfall bumpkin
-				} else if ( index == 24 ) {
-
-				// big boss bumpkin
-				} else if ( index == 25 ) {
-					let boss = new LockBoss( pos.plus( new Vec2( -this.grid.tileWidth / 2, 0 ) ), true );
-
-					this.em.insert( boss );
-
-					this.healthBarMax = boss.getHealth();
-
-					if ( boss.messages.length > 0 ) {
-						this.messageQueue = this.messageQueue.concat( boss.messages );
-						boss.messages = [];
-					}
-
-					this.anim.pushFrame( new AnimFrame( {
-						'healthBar': {
-							value: this.healthBarMax, 
-							expireOnReach: true,
-							setDefault: true
-						}
-					} ) );
-
-				// big boss bumpkin
-				} else if ( index == 26 ) {
-					let boss = new RollBoss( pos.plus( new Vec2( -this.grid.tileWidth / 2, 0 ) ), true );
-
-					this.em.insert( boss );
-
-					this.healthBarMax = boss.getHealth();
-
-					if ( boss.messages.length > 0 ) {
-						this.messageQueue = this.messageQueue.concat( boss.messages );
-						boss.messages = [];
-					}
-
-					this.anim.pushFrame( new AnimFrame( {
-						'healthBar': {
-							value: this.healthBarMax, 
-							expireOnReach: true,
-							setDefault: true
-						}
-					} ) );
-
-				// big boss bumpkin
-				} else if ( index == 27 ) {
-					let boss = new ShellBoss( pos.plus( new Vec2( -this.grid.tileWidth / 2, 0 ) ), true );
-
-					this.em.insert( boss );
-
-					this.healthBarMax = boss.getHealth();
-
-					if ( boss.messages.length > 0 ) {
-						this.messageQueue = this.messageQueue.concat( boss.messages );
-						boss.messages = [];
-					}
-
-					this.anim.pushFrame( new AnimFrame( {
-						'healthBar': {
-							value: this.healthBarMax, 
-							expireOnReach: true,
-							setDefault: true
-						}
-					} ) );
-
-
-				// big boss bumpkin
-				} else if ( index == 28 ) {
-					let boss = new SwitchBoss( pos.plus( new Vec2( -this.grid.tileWidth / 2, 0 ) ), true );
-
-					this.em.insert( boss );
-
-					this.healthBarMax = boss.getHealth();
-
-					if ( boss.messages.length > 0 ) {
-						this.messageQueue = this.messageQueue.concat( boss.messages );
-						boss.messages = [];
-					}
-
-					this.anim.pushFrame( new AnimFrame( {
-						'healthBar': {
-							value: this.healthBarMax, 
-							expireOnReach: true,
-							setDefault: true
-						}
-					} ) );										
+					this.em.insert( coin );
 
 				} else if ( index >= 50 ) {
 					let msgIndex = index - 50;
@@ -489,12 +359,6 @@ export class Level extends Scene {
 			if ( Keyboard.keyHit( KeyCode.R ) ) this.messages.push( 'restart' );
 			if ( Keyboard.keyHit( KeyCode.Z ) ) this.messages.push( 'rewind' );
 
-			if ( Keyboard.keyHit( KeyCode.LEFT ) ) this.replayIndex -= 1;
-			if ( Keyboard.keyHit( KeyCode.RIGHT ) ) this.replayIndex += 1;
-
-			if ( this.replayIndex < 0 ) this.replayIndex = 0;
-			if ( this.replayIndex > this.replayImages.length - 1 ) this.replayIndex = this.replayImages.length - 1;
-
 		} else if ( this.state == LevelState.SUCCESS_MENU ) {
 			if ( Keyboard.keyHit( KeyCode.Z ) ) this.messages.push( 'complete' );
 
@@ -526,14 +390,6 @@ export class Level extends Scene {
 	}
 
 	updateSounds() {
-		for ( let entity of this.em.entities ) {
-			if ( !( entity instanceof Boss )) continue;
-
-			for ( let source of entity.sounds ) {
-				this.updateSound( source );
-			}
-		}
-
 		for ( let sound of this.sounds ) {
 			this.updateSound( sound );
 		}
@@ -563,61 +419,38 @@ export class Level extends Scene {
 
 		this.updateSounds();
 
-		if ( this.controlMode == MODE_SQUARE ) {
-			this.player.vel.setValues( 0, 0 );
-			this.player.angleVel = 0;
+		this.player.vel.x = 0;
+		if ( this.player.collideDown ) this.player.vel.y = 0;
 
-			// left/right
-			if ( Keyboard.keyHeld( KeyCode.LEFT ) ) {
-				this.player.vel.add( new Vec2( -1, 0 ) );
-			}
-
-			if ( Keyboard.keyHeld( KeyCode.RIGHT ) ) {
-				this.player.vel.add( new Vec2( 1, 0 ) );
-			}
-			
-			// up/down
-			if ( Keyboard.keyHeld( KeyCode.UP ) ) {
-				this.player.vel.add( new Vec2( 0, -1 ) );
-			}
-
-			if ( Keyboard.keyHeld( KeyCode.DOWN ) ) {
-				this.player.vel.add( new Vec2( 0, 1 ) );
-			}
-
-			this.player.vel.scale( 5 );
-			this.player.vel.rotate( this.player.angle );
-
-			let shootVel = new Vec2();
-
-			if ( Keyboard.getHits( KeyCode.W ) > 0 ) shootVel.add( new Vec2( 0, -10 ) );
-			if ( Keyboard.getHits( KeyCode.A ) > 0 ) shootVel.add( new Vec2( -10, 0 ) );
-			if ( Keyboard.getHits( KeyCode.S ) > 0 ) shootVel.add( new Vec2( 0, 10 ) );
-			if ( Keyboard.getHits( KeyCode.D ) > 0 ) shootVel.add( new Vec2( 10, 0 ) );
-
-			if ( shootVel.length() > 0 ) {
-				let bullet = new PlayerBullet( 
-						this.player.pos.copy().plus( new Vec2( 0, 0 ) ),
-						shootVel,
-						playerBulletMaterial.copy() );
-
-				this.player.spawnEntity( bullet );
-
-				bullet.collisionGroup = COL.PLAYER_BULLET;
-				bullet.collisionMask = 0x00;
-
-				this.sounds.push( new Sound( './sfx/player_laser.wav' ) );
-			}
-
-		} else if ( this.controlMode == MODE_FREE ) {
-			if ( Keyboard.keyHeld( KeyCode.Z ) ) {
-				this.player.angleVel = -0.1;
-			}
-
-			if ( Keyboard.keyHeld( KeyCode.C ) ) {
-				this.player.angleVel = 0.1;
-			}
+		// left/right
+		if ( Keyboard.keyHeld( KeyCode.LEFT ) ) {
+			this.player.vel.x = -5;
 		}
+
+		if ( Keyboard.keyHeld( KeyCode.RIGHT ) ) {
+			this.player.vel.x = 5;
+		}
+
+		// up/down
+		if ( this.player.collideDown ) {
+			this.player.jumpFrames = this.player.maxJumpFrames;
+		} else {
+			this.player.vel.y += this.grav.y;
+		}
+
+		if ( Keyboard.keyHeld( KeyCode.Z ) && this.player.collideDown ) {
+			this.player.jumping = true;
+		}
+
+		if ( Keyboard.keyHeld( KeyCode.Z ) && this.player.jumping && this.player.jumpFrames > 0 ) {
+			this.player.vel.y = -5;
+			this.player.jumpFrames -= 1;
+
+		} else {
+			this.player.jumping = false;
+		}
+
+		this.player.vel.y += this.grav.y;
 
 		// insert player bullets
 		this.em.insertSpawned();
@@ -645,7 +478,7 @@ export class Level extends Scene {
 				}
 			}
 
-			if ( entity instanceof Boss || entity instanceof Player ) {
+			if ( entity instanceof Player ) {
 				if ( entity.messages.length > 0 ) {
 					this.messageQueue = this.messageQueue.concat( entity.messages );
 					entity.messages = [];
@@ -684,6 +517,11 @@ export class Level extends Scene {
 		this.em.animate( frameStep, elapsed );
 		this.em.update();
 
+		this.player.collideDown = false;
+		for ( let dir of result.blockedDirs ) {
+			if ( dir.dot( this.grav ) < 0 ) this.player.collideDown = true;
+		}
+
 		if ( this.player.health <= 0 || result.crushed ) {
 			if ( result.crushed ) {
 				this.player.causeOfDeath = 'You have been crushed by the ' + result.crusher.flavorName;
@@ -718,9 +556,6 @@ export class Level extends Scene {
 	}
 
 	killPlayer() {
-		this.replayIndex = 0;
-		this.replayAlpha = 0.0;
-
 		this.anim.clear();
 
 		this.messageQueue.push( this.player.causeOfDeath )
@@ -731,35 +566,6 @@ export class Level extends Scene {
 		this.anim.pushFrame( new AnimFrame( {
 			'state': { value: LevelState.DEATH_MENU, expireOnReach: true }
 		} ) );
-
-		if ( Debug.flags.SHOW_DEATH ) {
-			// fade out
-			/*this.anim.pushFrame( new AnimFrame( {
-				'replayAlpha': { value: 0.0, expireOnReach: true } 
-			} ) );*/
-
-			// wait
-			this.anim.pushFrame( new AnimFrame( {
-				'replayIndex': { value: this.replayImages.length - 1, expireOnCount: 1000 } 
-			} ) );
-
-			// replay death
-			for ( let i = this.replayImages.length - 1; i >= 0; i-- ) {
-				this.anim.pushFrame( new AnimFrame( {
-					'replayIndex': { value: i, expireOnCount: MILLIS_PER_FRAME * 2 } 
-				} ) );
-			}
-
-			// fade in
-			this.anim.pushFrame( new AnimFrame( {
-				'replayAlpha': { value: 1.0, expireOnReach: true } 
-			} ) );
-
-			// change state
-			this.anim.pushFrame( new AnimFrame( {
-				'state': { value: LevelState.DEATH_REPLAY, expireOnReach: true }
-			} ) );
-		}
 	}
 
 	checkForSuccess() {
@@ -769,28 +575,13 @@ export class Level extends Scene {
 		let defeatedNames = [];
 
 		for ( let entity of this.em.entities ) {
-			if ( entity instanceof Boss ) {
-				if ( entity.preventSuccess() ) {
-					success = false;
-				} else {
-					defeatedNames.push( entity.flavorName );
-				}
+			if ( entity instanceof Coin ) {
+				success = false;
 			}
 		}
 
 		if ( success ) {
-			if ( defeatedNames.length > 0 ) {
-				this.anim.clear();
-
-				this.messageQueue.push( 'You have defeated the ' + defeatedNames.join( ', ' ) + '\nPress Z to proceed\n' );
-				
-				this.anim.pushFrame( new AnimFrame( {
-					'state': { value: LevelState.SUCCESS_MENU, expireOnReach: true }
-				} ) );
-
-			} else {
-				this.messages.push( 'complete' );
-			}
+			this.messages.push( 'complete' );
 		}
 	}
 
@@ -804,16 +595,7 @@ export class Level extends Scene {
 		return shapes;
 	}
 
-	pickFromEye( dir: Vec2 ): Array<Entity> {
-		let shapes = this.getShapes();
-		let hits = shapecast( Line.fromPoints( this.player.pos.copy(), this.player.pos.plus( dir ) ), shapes );
-
-		if ( hits.length > 0 ) {
-			return [hits[0].shape.parent];
-		}
-
-		return [];
-	}
+	pickFromEye( dir: Vec2 ): Array<Entity> { return [] }
 
 	/* Drawing */
 
@@ -860,68 +642,6 @@ export class Level extends Scene {
 		}
 	}
 
-	appendReplayFrame( context: CanvasRenderingContext2D ) {
-		context.save();
-			context.translate( this.camera.viewportW / 2, this.camera.viewportH / 2 );
-			context.scale( deathReplayScale, deathReplayScale ); // option 1
-			context.translate( -this.player.pos.x, -this.player.pos.y );
-
-			for ( let entity of this.em.entities ) {
-				let shapes = entity.getShapes( 0.0 );
-
-				context.globalAlpha = 0.3;
-				for ( let shape of shapes ) {
-					if ( shape.hollow ) continue;
-
-					//shape.fill( context );
-				}
-				context.globalAlpha = 1.0;
-
-				for ( let shape of shapes ) {
-					shape.stroke( context );
-				}
-			}
-		context.restore();
-
-		this.replayImages.push( {
-			image: context.getImageData( 0, 0, this.camera.viewportW, this.camera.viewportH ),
-			playerPos: this.player.pos.copy()
-		} );
-
-		if ( this.replayImages.length > this.replayCount ) {
-			this.replayImages = this.replayImages.slice( -this.replayCount );
-		}
-
-		context.clearRect( 0, 0, this.camera.viewportW, this.camera.viewportH );
-
-		let ir = this.ir * this.camera.viewportW / 400;
-
-		this.camera.moveContext( context );
-			context.globalCompositeOperation = 'destination-in';
-			context.fillStyle = 'white';
-			context.beginPath();
-			context.arc( 0, 0, ir, 0, Math.PI * 2 );
-			context.fill();
-			context.globalCompositeOperation = 'source-over';
-		this.camera.unMoveContext( context );
-	}
-
-	drawSpherical( context: CanvasRenderingContext2D, camera: Camera=this.camera ) {
-		let ir = this.ir * camera.viewportW / 400;
-
-		let shapes = this.getShapes();
-
-		context.save();
-			context.translate( camera.viewportW / 2, camera.viewportH / 2 );
-			context.scale( 1.0, 1.0 );
-			context.translate( -this.player.pos.x, -this.player.pos.y );
-
-			for ( let shape of shapes ) {
-				shape.sphericalStroke( context, this.player.pos, ir, vals.lens.val );
-			}
-		context.restore();
-	}
-
 	defaultDraw( context: CanvasRenderingContext2D, camera: Camera=this.camera ) {
 
 		/* Prepare Scene */
@@ -933,6 +653,13 @@ export class Level extends Scene {
 		let haloW = this.haloWidth * camera.viewportW / 400;
 
 		let shapes = this.getShapes();
+		let shapesMinusPlayer = [];
+
+		for ( let entity of this.em.entities ) {
+			if ( entity == this.player ) continue;
+
+			shapesMinusPlayer.push( ...entity.getShapes( 0.0 ) );
+		}
 
 		let sliceCount = parseInt( Debug.fields['SLICE_COUNT'].value );
 		if ( isNaN( sliceCount ) ) sliceCount = 360;
@@ -940,7 +667,7 @@ export class Level extends Scene {
 		/* Draw Scene */
 
 		if ( typeof document === 'undefined' ) {
-			renderFromEye( context, shapes, origin, this.player.vel, sliceCount, or, ir );
+			renderFromEye( context, shapesMinusPlayer, origin, this.player.vel, sliceCount, or, ir );
 
 			return;
 		}
@@ -966,24 +693,19 @@ export class Level extends Scene {
 
 		// draw from eye
 		} else {
-
-			if ( Debug.flags.DRAW_SPHERICAL ) {
-				this.drawSpherical( context, camera );
-			}
-
 			if ( Debug.flags.DRAW_FROM_EYE ) {
-				let shapes = [];
+				let shapesMinusPlayer = [];
 
 				for ( let entity of this.em.entities ) {
 					if ( entity == this.player ) continue;
 
-					shapes.push( ...entity.getShapes( 0.0 ) );
+					shapesMinusPlayer.push( ...entity.getShapes( 0.0 ) );
 				}
 
 				context.save();
 					context.translate( this.camera.viewportW / 2, this.camera.viewportH / 2 );
 
-					renderFromEye( context, shapes, origin, this.player.vel, sliceCount, or, ir );
+					renderFromEye( context, shapesMinusPlayer, origin, this.player.vel, sliceCount, or, ir );
 
 					if ( this.player.wince > 0 ) {
 						context.lineWidth = or - ir;
@@ -1001,36 +723,6 @@ export class Level extends Scene {
 					let gradient = context.createRadialGradient(0, 0, ir, 0, 0, or);
 					gradient.addColorStop(0, 'hsl( 210, 100%, 90% )');
 					gradient.addColorStop(1, 'hsla( 0, 0%, 100%, 0% )');
-
-					let boss = this.em.entities.filter( x => x instanceof Boss )[0];
-
-					if ( boss && boss instanceof Boss ) {
-						this.anim.default.targets['healthBar'].value = boss.getHealth();
-
-						if ( this.healthBarMax > 0 ) {
-							let segments = this.healthBarMax;
-							let slice = Math.PI * 2 / segments;
-
-							let sweep = this.healthBar * slice;
-							context.fillStyle = gradient;
-							
-							/*for ( let angle = -Math.PI / 2; angle < -Math.PI / 2 + sweep; angle += slice ) {
-								context.beginPath();
-								context.moveTo( Math.cos( angle ) * ir, Math.sin( angle ) * ir );
-								context.lineTo( Math.cos( angle ) * or, Math.sin( angle ) * or );
-								context.lineTo( Math.cos( angle + slice * 1.16 ) * or, Math.sin( angle + slice * 1.16 ) * or );
-								context.lineTo( Math.cos( angle + slice * 1.16 ) * ir, Math.sin( angle + slice * 1.16 ) * ir );
-								context.fill();
-							}*/
-							context.beginPath();
-							context.moveTo( Math.cos( -Math.PI / 2 ) * ir, Math.sin( -Math.PI / 2 ) * ir );
-							context.lineTo( Math.cos( -Math.PI / 2 ) * or, Math.sin( -Math.PI / 2 ) * or );
-							context.arc( 0, 0, or, -Math.PI / 2, -Math.PI / 2 + sweep );
-							context.lineTo( Math.cos( -Math.PI / 2 + sweep ) * ir, Math.sin( -Math.PI / 2 + sweep ) * ir );
-							context.arc( 0, 0, ir, -Math.PI / 2 + sweep, -Math.PI / 2, true );
-							context.fill();
-						}
-					}
 				context.restore();
 			}
 		}
@@ -1110,49 +802,5 @@ export class Level extends Scene {
 		context.fillText( text, this.camera.viewportW / 2 - w / 2, this.camera.viewportH / 2 - 100 + h / 2 );
 	}
 
-	deathDraw( context: CanvasRenderingContext2D ) {
-		if ( !Debug.flags.SHOW_DEATH ) return;
-		if ( typeof document === 'undefined' ) return;
-
-		if ( this.replayIndex < this.replayImages.length ) {
-			let finalPos = this.replayImages.slice( -1 )[0].playerPos;
-
-			let offset = this.replayImages[this.replayIndex].playerPos.minus( finalPos );
-
-			/* option 2 
-
-			let context2 = tempCanvas.getContext( '2d' );
-			context2.clearRect( 0, 0, tempCanvas.width, tempCanvas.height );
-			context2.putImageData( this.replayImages[this.replayIndex].image, 0, 0 );
-
-			context.save();
-				this.camera.moveContext( context );
-				context.scale( deathReplayScale, deathReplayScale );
-				
-				context.drawImage( tempCanvas, offset.x - this.camera.viewportW / 2, offset.y - this.camera.viewportH / 2 );
-			context.restore();*/
-
-			context.putImageData( this.replayImages[this.replayIndex].image, offset.x, offset.y );
-		}
-
-		let ir = this.ir * this.camera.viewportW / 400;
-
-		context.save();
-			context.translate( this.camera.viewportW / 2, this.camera.viewportH / 2 );
-			context.globalCompositeOperation = 'destination-in';
-			context.fillStyle = 'white';
-			context.beginPath();
-			context.arc( 0, 0, ir, 0, Math.PI * 2 );
-			context.fill();
-			context.globalCompositeOperation = 'source-over';
-
-			// easier to overlay white than change image's alpha layer
-			context.globalAlpha = 0.7 + 0.3 * ( 1 - this.replayAlpha );
-			context.fillStyle = 'white';
-			context.beginPath();
-			context.arc( 0, 0, ir, 0, Math.PI * 2 );
-			context.fill();
-			context.globalAlpha = 1.0;
-		context.restore();
-	}
+	deathDraw( context: CanvasRenderingContext2D ) {}
 }

@@ -17,13 +17,17 @@ import * as Debug from './Debug.js'
 import { gameCommands } from './gameCommands.js'
 import { FloaterScene } from './FloaterScene.js'
 import { Level } from './Level.js'
-import { levelDataList } from './levels/level1.js'
+import { SideLevel } from './SideLevel.js'
+import { levelDataList as levels } from './levels/level1.js'
+import { levelDataList as sideLevels } from './levels/sideLevels.js'
 import { Scene } from './Scene.js'
 import { store } from './store.js'
 import { TitleScene } from './TitleScene.js'
 import { Watcher, DictWatcher } from './Watcher.js'
 
 tp.config.WRITE_PTR_CLASSNAME = true;
+
+let levelDataList = sideLevels;
 
 class FadingImage {
 	image: HTMLImageElement;
@@ -53,11 +57,14 @@ export class GameController extends Controller {
 
 	title: TitleScene = new TitleScene();
 
+	levelDataList: any = levelDataList;
 	levelIndex: number = 0;
 
 	recentStates: Array<any> = [];
 	saveStateInterval: number = 1000;
 	lastStateTime: number = 0; // milliseconds of play time since scene started
+
+	floaterScene: FloaterScene;
 
 	/* property overrides */
 
@@ -65,6 +72,12 @@ export class GameController extends Controller {
 
 	constructor() {
 		super( [] );
+
+		this.canvas = null;
+		this.floaterScene = new FloaterScene( this.canvas );
+		this.floaterScene.camera.setViewport( 400, 400 );
+
+		this.title.floaters = this.floaterScene.floaters;
 
 		this.changeMode( new PlayMode() );
 
@@ -96,7 +109,7 @@ export class GameController extends Controller {
 		this.addMessageHandler( 'complete', () => { 
 			this.levelIndex += 1;
 
-			if ( this.levelIndex < levelDataList.length ) {
+			if ( this.levelIndex < this.levelDataList.length ) {
 				/*let context = this.canvas.getContext( '2d' );
 
 				context.clearRect( 0, 0, this.canvas.width, this.canvas.height );
@@ -162,7 +175,13 @@ export class GameController extends Controller {
 
 	startLevel() {
 		try {
-			let level = new Level( 'level' + this.levelIndex, levelDataList[this.levelIndex] );
+			let level: Scene;
+
+			if ( this.levelDataList[this.levelIndex].controlMode == 0 ) {
+				level = new SideLevel( 'level' + this.levelIndex, this.levelDataList[this.levelIndex] );
+			} else {
+				level = new Level( 'level' + this.levelIndex, this.levelDataList[this.levelIndex] );
+			}
 
 			this.loadScene( level );
 			this.resetInterface();
@@ -219,6 +238,8 @@ export class GameController extends Controller {
 	updateHovered() {}
 
 	update() {
+		this.floaterScene.update();
+
 		if ( this.currentScene === null ) {
 			this.loadScene( this.title );
 		}
@@ -242,5 +263,7 @@ export class GameController extends Controller {
 		}
 	}
 
-	draw( context?: CanvasRenderingContext2D ) {}
+	draw( context?: CanvasRenderingContext2D ) {
+		this.currentScene.draw( context );
+	}
 }
