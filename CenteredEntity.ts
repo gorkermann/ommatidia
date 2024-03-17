@@ -38,6 +38,13 @@ export class CenteredEntity extends Entity {
 		return [shape];
 	}
 
+	scaleAlpha( scale: number ) {
+		scale = Math.min( scale, 0.0 );
+		scale = Math.max( scale, 1.0 );
+		
+		this.material.alpha *= scale;
+	}
+
 	// doesn't work for non-rectangles
 	getRandomPoint(): Vec2 {
 		let x = -this.width / 2 + Math.random() * this.width;

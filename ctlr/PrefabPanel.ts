@@ -39,8 +39,6 @@ export class PrefabPanel extends Panel {
 				let prefab = tp.fromJSON( json, toaster ) as Entity;
 				prefab.parent = null;
 
-				tp.resolveList( [prefab], toaster );
-
 				c.runCommand( 'Place Entity', { target: prefab } );
 			}
 		}

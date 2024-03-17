@@ -27,7 +27,7 @@ import { Watcher, DictWatcher } from './Watcher.js'
 
 tp.config.WRITE_PTR_CLASSNAME = true;
 
-let levelDataList = sideLevels;
+let levelDataList = levels;
 
 class FadingImage {
 	image: HTMLImageElement;
@@ -197,7 +197,6 @@ export class GameController extends Controller {
 		let toaster = new tp.Toaster( constructors, nameMap );
 
 		let level = tp.fromJSON( json, toaster );
-		tp.resolveList( [level], toaster );
 		
 		for ( let error of toaster.errors ) {
 			console.error( error );

@@ -97,7 +97,7 @@ if ( typeof document !== 'undefined' ) {
 	optionPanel = document.getElementById( 'optionpanel' ) as HTMLDivElement;
 }
 
-class LevelGrid extends GridArea {
+export class LevelGrid extends GridArea {
 	hitWith( otherEntity: Entity ) {
 		if ( otherEntity instanceof Bullet ) {
 			otherEntity.removeThis = true;

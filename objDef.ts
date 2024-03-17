@@ -5,7 +5,7 @@ import { Bullet, PlayerBullet, Gutter } from './Bullet.js'
 import { CenteredEntity } from './CenteredEntity.js'
 import { Coin } from './Coin.js'
 import { Explosion } from './Explosion.js'
-import { Level } from './Level.js'
+import { Level, LevelGrid } from './Level.js'
 import { Player } from './Player.js'
 import { Orbiter, Blocker, Elevator, Tumbler, Door} from './TutorialEntity.js'
 import { RoomManager } from './RoomManager.js'
@@ -51,6 +51,7 @@ addClass( 'Tumbler', Tumbler );
 addClass( 'Door', Door );
 addClass( 'PlayerBullet', PlayerBullet );
 addClass( 'RoomManager', RoomManager );
+addClass( 'LevelGrid', LevelGrid );
 
 for ( let name in ShellBossConstructors ) { addClass( name, ShellBossConstructors[name] ) };
 for ( let name in SwitchBossConstructors ) { addClass( name, SwitchBossConstructors[name] ) };

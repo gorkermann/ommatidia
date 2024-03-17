@@ -7,6 +7,13 @@ function countIncluded<Type>( list: Array<Type>, otherList: Array<Type> ): numbe
 	return includedCount;
 }
 
+export type AttackReq = {
+	allOf?: Array<string>;
+	anyOf?: Array<string>;
+	oneOf?: Array<string>;
+	noneOf?: Array<string>;
+}
+
 export class Attack {
 	name: string;
 	reqs: Array<AttackReq> = [];
@@ -43,11 +50,4 @@ export class Attack {
 
 		return true;
 	}
-}
-
-export type AttackReq = {
-	allOf?: Array<string>;
-	anyOf?: Array<string>;
-	oneOf?: Array<string>;
-	noneOf?: Array<string>;
 }

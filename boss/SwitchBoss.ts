@@ -28,7 +28,15 @@ let wallUnit = 20;
 let attacks = [
 	new Attack(
 		'rotate',
-		[]
+		[{
+			noneOf: ['shell-shed']
+		}]
+	),
+	new Attack(
+		'shoot',
+		[{
+			allOf: ['shell-shed']
+		}]
 	),
 ]
 
@@ -92,7 +100,7 @@ class SwitchBossBomb extends CenteredEntity {
 	burstCount: number = 12;
 	burstSpeed: number = 3;
 
-	health: number = 5;
+	//health: number = 5;
 	invuln: boolean = false;
 	flash: number = 0.0;
 	alpha: number = 1.0;
@@ -104,6 +112,7 @@ class SwitchBossBomb extends CenteredEntity {
 		//'angle': new PhysField( this, 'angle', 'angleVel', 0.02, { isAngle: true } ), // thread 0
 		'flash': new AnimField( this, 'flash', 0.1 ), // thread 1
 		'alpha': new AnimField( this, 'alpha', 0.2 ), // thread 0
+		'angleVel': new AnimField( this, 'angleVel', 0.001 ) // thread 0
 	},
 	new AnimFrame( {
 		'flash': { value: 0.0 }
@@ -111,7 +120,9 @@ class SwitchBossBomb extends CenteredEntity {
 
 	material = new Material( 15, 1.0, 0.6 );
 
-	collisionMask = COL.PLAYER_BULLET | COL.LEVEL;
+	collisionMask: number = COL.PLAYER_BULLET | COL.LEVEL;
+
+	switchCount: number = 1;
 
 	/**
 	 * Player needs to trip all switches before burstDelay elapses and burst() is called
@@ -122,8 +133,9 @@ class SwitchBossBomb extends CenteredEntity {
 	constructor( pos: Vec2=new Vec2( 0, 0 ), burstDelay: number=0 ) {
 		super( pos, 30, 30 );
 
-		for ( let i = 0; i < 2; i++ ) {
-			let sw = new Switch( new Vec2( 0, this.height / 2 ) );
+		for ( let i = 0; i < 1; i++ ) {
+			let sw = new SwitchBossCover( new Vec2( 0, this.height / 2 ), wallUnit, wallUnit / 2 );
+			sw.health = 1;
 			sw.angle = Math.PI * i;
 			sw.collisionGroup = COL.ENEMY_BODY;
 			sw.collisionMask = COL.PLAYER_BULLET;
@@ -135,22 +147,21 @@ class SwitchBossBomb extends CenteredEntity {
 		this.anim.pushFrame( new AnimFrame( {
 			'alpha': { value: 0 }
 		},
-			[ { caller: this, funcName: 'burst' } ]
+			[ new FuncCall<typeof this.burst>( this, 'burst', [] ) ]
 		) );
 
 		this.anim.pushFrame( new AnimFrame( {
 			'alpha': { value: 1.0, expireOnCount: burstDelay },
+			'angleVel': { value: 0.0, reachOnCount: burstDelay - 1000 }
 		} ) );
 	}
 
 	isUnlocked(): boolean {
-		let count = 0;
-
 		for ( let sub of this.getSubs() ) {
-			if ( sub instanceof Switch && !sub.isDone() ) count++;
-		}
+			if ( sub instanceof SwitchBossCover && sub.alpha > 0 ) return false; // slight difference from SwitchBossSide (here unlocked at start of fade)
+		} 
 
-		return count == 0;
+		return true;
 	}
 
 	burst() {
@@ -173,8 +184,11 @@ class SwitchBossBomb extends CenteredEntity {
 		}
 
 		if ( !this.isUnlocked() ) {
-			if ( contact.sub instanceof Switch ) {
-				contact.sub.push();
+			if ( contact.sub instanceof SwitchBossCover ) {
+				contact.sub.hit();
+
+				this.angleVel = 0.0;
+				this.anim.clear(); // stop spinning
 			}
 		}
 	}
@@ -201,14 +215,67 @@ class SwitchBossBomb extends CenteredEntity {
 		this.material.skewL = this.flash;
 		this.material.alpha = this.alpha;
 
+		super.shade();
+
 		for ( let sub of this.getSubs() ) {
-			sub.material.alpha = this.alpha;
+		//	sub.material.alpha = this.alpha;
 		}
 	}
 }
 
+/**
+ * each SwitchBossSide has three SwitchBossCovers on it
+ */
+class SwitchBossCover extends CenteredEntity {
+	health: number = 3;
+	flash: number = 0.0;
+	alpha: number = 1.0;
+
+	wait: boolean = false;
+
+	/* property overrides */
+	material: Material = new Material( 15, 1.0, 0.1 );
+
+	anim: Anim = new Anim( {
+		'flash': new AnimField( this, 'flash', 0.1 ),
+		'alpha': new AnimField( this, 'alpha', 0.1 ),
+		'wait': new AnimField( this, 'wait' )
+	} );
+
+	hit() {
+		this.health -= 1;
+
+		if ( this.health > 0 ) {
+			this.anim.pushFrame( new AnimFrame( {
+				'flash': { value: 0.0 }
+			} ) );
+			this.anim.pushFrame( new AnimFrame( {
+				'flash': { value: 1.0, overrideRate: 0 }
+			} ) );
+		} else {
+			this.anim.pushFrame( new AnimFrame( {
+				'alpha': { value: 0.0 }
+			} ) );
+		}
+	}
+
+	shade() {
+		this.material.skewL = this.flash;
+		this.material.alpha = this.alpha;
+	}
+}
+
+/**
+ * boss starts with four SwitchBossSides in a square arrangement
+ */
 class SwitchBossSide extends CenteredEntity {
 	alpha: number = 1.0;
+
+	whiteMaterial = new Material( 0, 0.0, 1.0 );
+
+	covers: Array<SwitchBossCover> = [];
+
+	wait: boolean = false;
 
 	/* property overrides */
 
@@ -216,34 +283,76 @@ class SwitchBossSide extends CenteredEntity {
 	altMaterial = new Material( 15, 1.0, 0.5 );
 
 	constructor( pos: Vec2, angle: number ) {
-		super( pos, wallUnit, wallUnit * 5 );
+		super( pos, wallUnit, wallUnit * 5 ); // vertical
 
 		this.angle = angle;
 
-		let swOrigin = new Vec2( this.width / 2, -this.height / 2 + wallUnit / 2 ); 
+		let swSpacing = wallUnit * 1.5;
+		let swOrigin = new Vec2( this.width / 2, -swSpacing );
 
-		for ( let i = 0; i < 1; i++ ) {
-			let sw = new Switch( swOrigin.plus( new Vec2( 0, wallUnit * i * 2 ) ) );
-			sw.transformOrder = TransformOrder.ROTATE_THEN_TRANSLATE
-			sw.angle = -Math.PI / 2;
+		for ( let i = 0; i < 3; i++ ) {
+			let sw = new CenteredEntity( 
+				new Vec2( 0, swSpacing * i ).plus( swOrigin ), wallUnit / 4, wallUnit / 2 );
 			sw.collisionGroup = COL.ENEMY_BODY;
 			sw.collisionMask = COL.PLAYER_BULLET;
 
+			sw.material = this.whiteMaterial;
+
 			this.addSub( sw );
+		}
+
+		for ( let i = 0; i < 3; i++ ) {
+			let cov = new SwitchBossCover( 
+				new Vec2( 0, swSpacing * i ).plus( swOrigin ), wallUnit / 2, wallUnit );
+			cov.collisionGroup = COL.ENEMY_BODY;
+			cov.collisionMask = COL.PLAYER_BULLET;
+
+			this.covers.push( cov );
+			this.addSub( cov );
 		}
 	}
 
 	isUnlocked(): boolean {
-		let count = 0;
+		for ( let i = 0; i < 3; i++ ) {
+			if ( this.covers[i].alpha > 0 ) return false;
+		} 
 
-		for ( let sub of this.getSubs() ) {
-			if ( sub instanceof Switch && !sub.isDone() ) count++;
-		}
-
-		return count == 0;
+		return true;
 	}
 
 	/* Entity overrides */
+
+	update() {
+		for ( let i = 0; i < 3; i++ ) {
+			if ( this.covers[i].alpha == 0 && this.covers[i].anim.isDone() ) {
+				this.covers[i].anim.pushFrame( new AnimFrame(
+					{}, [new FuncCall<typeof this.fire>( this, 'fire', [i] )]
+				) );
+				this.covers[i].anim.pushFrame( new AnimFrame( {
+					'wait': { value: true, expireOnCount: 2000 + Math.random() * 500 }
+				} ) );
+			}
+		}
+	}
+
+	fire( index: number ) {
+		if ( this.alpha < 1.0 ) return;
+
+		if ( index >= this.covers.length ) {
+			console.error( 'SwitchBossSide.fire(): index out of range (' + index + ')' );
+		}
+
+		let outward = this.applyTransform( new Vec2( 1, 0 ), 0.0, { angleOnly: true } );
+		outward.rotate( Math.random() * 1.0 - 0.5 );
+
+		let bullet = new Bullet( 
+			this.applyTransform( this.covers[index].pos.copy() ),
+			outward.times( 10 )
+		);
+
+		this.spawnEntity( bullet );
+		bullet.collisionGroup = COL.ENEMY_BULLET;
+	}
 
 	getShapes( step: number=1.0 ): Array<Shape> {
 		if ( this.alpha == 0 ) return [];
@@ -251,17 +360,15 @@ class SwitchBossSide extends CenteredEntity {
 		else return super.getShapes( step );
 	}
 
-	hitWith( otherEntity: Entity, contact: Contact ) {
-		if ( otherEntity instanceof Bullet ) {
-			otherEntity.removeThis = true;
-		}
-	}
-
 	shade() {
 		this.material.alpha = this.alpha;
 		this.altMaterial.alpha = this.alpha;
 
 		super.shade();
+
+		for ( let sub of this.getSubs() ) {
+		//	sub.scaleAlpha( this.alpha );
+		}
 	}
 }
 
@@ -269,18 +376,23 @@ type BossFlags = {
 	health: number
 	current_attack_damage: number
 	retreating: boolean
+	all_sides_unlocked: boolean
+	shell_shed: boolean
 }
 
 export class SwitchBoss extends Boss {
 	shell: CenteredEntity;
 	sides: Array<SwitchBossSide> = [];
+	bombs: Array<SwitchBossBomb> = []; // track bombs 
 
 	flash: number = 0.0;
 
 	flags: BossFlags = {
 		health: 0,
 		current_attack_damage: 0,
-		retreating: false
+		retreating: false,
+		all_sides_unlocked: false,
+		shell_shed: false
 	};
 
 	currentIndex: number = 0;
@@ -292,7 +404,7 @@ export class SwitchBoss extends Boss {
 
 	flavorName = 'SWITCH CORE';
 
-	health = 5;
+	health = 100;
 
 	material = new Material( 15, 1.0, 0.5 );
 
@@ -352,6 +464,8 @@ export class SwitchBoss extends Boss {
 			'pos': { value: targetPos }
 		} ) );
 
+		this.bombs.push( bomb );
+
  		this.spawnEntity( bomb );
 		bomb.collisionGroup = COL.ENEMY_BODY;
 		bomb.collisionMask = COL.PLAYER_BULLET;
@@ -363,12 +477,18 @@ export class SwitchBoss extends Boss {
 		if ( otherEntity instanceof Bullet ) {
 			otherEntity.removeThis = true;
 
-			if ( contact.sub instanceof Switch ) {
-				for ( let side of this.sides ) {
-					if ( side == contact.sub.parent && !side.isUnlocked() ) {
-						contact.sub.push();
-					}
-				}
+			// if ( contact.sub instanceof Switch ) {
+			// 	for ( let side of this.sides ) {
+			// 		if ( side == contact.sub.parent && !side.isUnlocked() ) {
+			// 			contact.sub.push();
+			// 		}
+			// 	}
+
+			// 	return;
+			// }
+
+			if ( contact.sub instanceof SwitchBossCover ) {
+				contact.sub.hit();
 
 				return;
 			}
@@ -389,6 +509,7 @@ export class SwitchBoss extends Boss {
 	}
 
 	defaultLogic() {
+		/* flag checks */
 		let present: Array<string> = [];
 
 		let health = this.getHealth();
@@ -397,6 +518,28 @@ export class SwitchBoss extends Boss {
 			this.flags['health'] = health;
 		}
 
+		// shed shell
+		if ( this.allSidesUnlocked() ) {
+			this.flags['all_sides_unlocked'] = true;
+		}
+
+		if ( this.flags['all_sides_unlocked'] && !this.flags['shell_shed'] ) {
+			this.anim.clear( { withoutTag: 'exit' } );
+
+			let frame = new AnimFrame();
+
+			for ( let [i, side] of Object.entries( this.sides ) ) {
+				frame.targets['side' + i + '-alpha'] = new AnimTarget( 0.0 );
+			}
+
+			this.anim.pushFrame( frame );
+
+			this.flags['shell_shed'] = true;
+		}
+
+		if ( this.flags['shell_shed'] ) present.push( 'shell-shed' );
+
+		/* attack change */
 		if ( this.anim.isDone( [0] ) ) {
 			if ( Debug.flags.FORCE_BOSS_ATK ) {
 				let names = Debug.fields.SWITCH_ATK.value.split( ',' );
@@ -457,40 +600,40 @@ export class SwitchBoss extends Boss {
 				this.anim.pushFrame( new AnimFrame( {
 					'angle': { value: this.currentIndex * Math.PI / 2 - Math.PI / 2, turnDir: TurnDir.CW }
 				} ) );
+			
+			// shoot
+			} else if ( this.attack.name == 'shoot' ) {
+				cullList( this.bombs );
 
-				//this.shootBomb( this.wat dchTarget.plus( this.pos ), 5000 );
-			}
-		}
+				if ( this.bombs.length == 0 ) {
+					let angle = 0.3 + Math.random() * 0.3;
+					angle *= Math.random() > 0.5 ? 1 : -1;
 
-		// update sides
-		for ( let [i, side] of Object.entries( this.sides ) ) {
+					this.shootBomb( this.watchTarget.rotate( angle ).plus( this.pos ), 2000 );
 
-			// if side is unlocked, fade
-			if ( side.isUnlocked() && side.alpha == 1.0 ) {
-				let frame = new AnimFrame();
-				frame.targets['side' + i + '-alpha'] = new AnimTarget( 0.0 );
-
-				this.anim.pushFrame( frame );
-
-				for ( let sub of side.getSubs() ) {
-					if ( sub instanceof Switch ) {
-						sub.anim.pushFrame( new AnimFrame( {
-							'alpha': { value: 0.0 }
-						} ) );
-					}
+					this.anim.pushFrame( new AnimFrame( {
+						'wait': { value: this.wait, expireOnCount: 3000 }
+					} ) );
 				}
 			}
-
-			if ( side.alpha == 0.0 ) {
-				//side.removeThis = true;
-			}
 		}
+	}
+
+	/* Unique */
+
+	allSidesUnlocked(): boolean {
+		for ( let side of this.sides ) {
+			if ( !side.isUnlocked() ) return false;
+		}
+
+		return true;
 	}
 }
 
 export let constructors: Dict<Newable> = { 
 	'SwitchBossBarrier': SwitchBossBarrier,
 	'SwitchBossSide': SwitchBossSide,
+	'SwitchBossCover': SwitchBossCover,
 	'SwitchBossBomb': SwitchBossBomb,
 	'SwitchBoss': SwitchBoss
 }
