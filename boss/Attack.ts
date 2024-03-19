@@ -23,7 +23,7 @@ export class Attack {
 		this.reqs = reqs;
 	}
 
-	canEnter( state: Array<string> ): boolean {
+	canEnter( state: Array<string | number> ): boolean {
 		for ( let req of this.reqs ) {
 			if ( req.allOf ) {
 				for ( let allName of req.allOf ) {

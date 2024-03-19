@@ -18,6 +18,7 @@ import { Switch } from './boss/Switch.js'
 
 import { constructors as ShellBossConstructors } from './boss/ShellBoss.js'
 import { constructors as SwitchBossConstructors } from './boss/SwitchBoss.js'
+import { constructors as SnakeBossConstructors } from './boss/SnakeBoss.js'
 import { constructors as DoorConstructors } from './Door.js'
 import { constructors as EntityConstructors } from './TutorialEntity.js'
 
@@ -55,6 +56,7 @@ addClass( 'LevelGrid', LevelGrid );
 
 for ( let name in ShellBossConstructors ) { addClass( name, ShellBossConstructors[name] ) };
 for ( let name in SwitchBossConstructors ) { addClass( name, SwitchBossConstructors[name] ) };
+for ( let name in SnakeBossConstructors ) { addClass( name, SnakeBossConstructors[name] ) };
 for ( let name in DoorConstructors ) { addClass( name, DoorConstructors[name] ) };
 for ( let name in EntityConstructors ) { addClass( name, EntityConstructors[name] ) };
 
