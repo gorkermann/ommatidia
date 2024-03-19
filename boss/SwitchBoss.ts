@@ -18,7 +18,7 @@ import { Bullet, Gutter } from '../Bullet.js'
 import * as Debug from '../Debug.js'
 
 import { Attack, AttackReq } from './Attack.js'
-import { Boss, BossState } from './Boss.js'
+import { Boss, BossState, BossFlags } from './Boss.js'
 import { Switch } from './Switch.js'
 
 let fieldWidth = 600;
@@ -28,29 +28,13 @@ let wallUnit = 20;
 let attacks = [
 	new Attack(
 		'rotate',
-		[{
-			noneOf: ['shell-shed']
-		}]
+		[]
 	),
 	new Attack(
 		'shoot',
-		[{
-			allOf: ['shell-shed']
-		}]
+		[]
 	),
 ]
-
-function getAttack( name: string ): Attack {
-	for ( let attack of attacks ) {
-		if ( attack.name == name ) {
-			return attack
-		}
-	}
-
-	throw new Error( 'getAttack: No attack named ' + name );
-
-	return null;
-}
 
 let attackNames = attacks.map( x => x.name );
 Debug.fields['SWITCH_ATK'].default = attackNames.join( ',' );
@@ -108,7 +92,7 @@ class SwitchBossBomb extends CenteredEntity {
 	/* property overrides */
 
 	anim = new Anim( {
-		'pos': new PhysField( this, 'pos', 'vel', 2 ), // thread 0
+		'pos': new PhysField( this, 'pos', 'vel', 4 ), // thread 0
 		//'angle': new PhysField( this, 'angle', 'angleVel', 0.02, { isAngle: true } ), // thread 0
 		'flash': new AnimField( this, 'flash', 0.1 ), // thread 1
 		'alpha': new AnimField( this, 'alpha', 0.2 ), // thread 0
@@ -133,11 +117,10 @@ class SwitchBossBomb extends CenteredEntity {
 	constructor( pos: Vec2=new Vec2( 0, 0 ), burstDelay: number=0 ) {
 		super( pos, 30, 30 );
 
-		for ( let i = 0; i < 1; i++ ) {
-			let sw = new SwitchBossCover( new Vec2( 0, this.height / 2 ), wallUnit, wallUnit / 2 );
-			sw.health = 1;
-			sw.angle = Math.PI * i;
-			sw.collisionGroup = COL.ENEMY_BODY;
+		for ( let i = 0; i < 3; i += 2 ) {
+			let sw = new SwitchBossCover( new Vec2( 0, -this.height / 2 ), wallUnit, wallUnit / 2 );
+			sw.angle = Math.PI * i / 2;
+			sw.collisionGroup = COL.LEVEL;
 			sw.collisionMask = COL.PLAYER_BULLET;
 			this.addSub( sw );
 		}
@@ -187,8 +170,8 @@ class SwitchBossBomb extends CenteredEntity {
 			if ( contact.sub instanceof SwitchBossCover ) {
 				contact.sub.hit();
 
-				this.angleVel = 0.0;
-				this.anim.clear(); // stop spinning
+				//this.angleVel = 0.0;
+				//this.anim.clear(); // stop spinning
 			}
 		}
 	}
@@ -372,28 +355,17 @@ class SwitchBossSide extends CenteredEntity {
 	}
 }
 
-type BossFlags = {
-	health: number
-	current_attack_damage: number
-	retreating: boolean
-	all_sides_unlocked: boolean
-	shell_shed: boolean
+type SwitchBossFlags = BossFlags & {
+	all_sides_unlocked: boolean;
+	shell_shed: boolean;
 }
 
 export class SwitchBoss extends Boss {
 	shell: CenteredEntity;
 	sides: Array<SwitchBossSide> = [];
-	bombs: Array<SwitchBossBomb> = []; // track bombs 
+	bombs: Array<SwitchBossBomb> = []; // track bomb count (they are independent entities)
 
 	flash: number = 0.0;
-
-	flags: BossFlags = {
-		health: 0,
-		current_attack_damage: 0,
-		retreating: false,
-		all_sides_unlocked: false,
-		shell_shed: false
-	};
 
 	currentIndex: number = 0;
 
@@ -401,6 +373,18 @@ export class SwitchBoss extends Boss {
 	sideWaitTime: number = 2000;
 
 	/* property overrides */
+
+	flags: SwitchBossFlags = {
+		health: 0,
+		current_attack_damage: 0,
+		retreating: false,
+		all_sides_unlocked: false,
+		shell_shed: false
+	};
+
+	attacks = attacks;
+
+	overrideAttackField = 'SWITCH_ATK';
 
 	flavorName = 'SWITCH CORE';
 
@@ -426,8 +410,6 @@ export class SwitchBoss extends Boss {
 
 	constructor( pos: Vec2=new Vec2( 0, 0 ), spawn: boolean=false ) {
 		super( pos, 40, 40 );
-
-		this.flags['health'] = this.getHealth();
 
 		this.shell = new CenteredEntity( new Vec2( 0, 0 ), wallUnit, wallUnit );
 		this.shell.isGhost = true;
@@ -467,7 +449,7 @@ export class SwitchBoss extends Boss {
 		this.bombs.push( bomb );
 
  		this.spawnEntity( bomb );
-		bomb.collisionGroup = COL.ENEMY_BODY;
+		bomb.collisionGroup = COL.LEVEL;
 		bomb.collisionMask = COL.PLAYER_BULLET;
 	}
 
@@ -508,9 +490,17 @@ export class SwitchBoss extends Boss {
 		this.anim.update( step, elapsed );
 	}
 
+	canEnter( attack: Attack ): boolean {
+		if ( attack.name == 'rotate' ) {
+			return !this.flags['shell_shed'];
+
+		} else if ( attack.name == 'shoot') {
+			return this.flags['shell_shed'];
+		}
+	}
+
 	defaultLogic() {
 		/* flag checks */
-		let present: Array<string> = [];
 
 		let health = this.getHealth();
 		if ( health < this.flags['health'] ) {
@@ -537,51 +527,9 @@ export class SwitchBoss extends Boss {
 			this.flags['shell_shed'] = true;
 		}
 
-		if ( this.flags['shell_shed'] ) present.push( 'shell-shed' );
-
 		/* attack change */
 		if ( this.anim.isDone( [0] ) ) {
-			if ( Debug.flags.FORCE_BOSS_ATK ) {
-				let names = Debug.fields.SWITCH_ATK.value.split( ',' );
-				let debugAttacks = attacks.filter( x => names.includes( x.name ) );
-
-				if ( debugAttacks.length > 0 ) {
-					let index = Math.floor( Math.random() * debugAttacks.length )
-					this.attack = debugAttacks[index];
-
-				} else {
-					console.warn( 'ShellBoss.defaultLogic: no valid attacks from debug' );
-				}
-
-			} else if ( !this.attack ) {
-				this.attack = getAttack( 'rotate' );
-
-			} else if ( this.counter ) {
-				this.attack = this.counter;
-				this.counter = null;
-
-			} else {
-				let possibleAttacks = attacks.filter( x => x.canEnter( present ) );
-
-				if ( this.attack && possibleAttacks.length > 1 ) {
-					possibleAttacks = possibleAttacks.filter( x => x != this.attack );
-				}
-
-				if ( possibleAttacks.length == 0 ) {
-					this.messages.push( 'The SWITCH CORE surrenders!\n' );
-					this.state = BossState.DEAD;
-					return;
-				}
-
-				let index = Math.floor( Math.random() * possibleAttacks.length );
-				this.attack = possibleAttacks[index];
-			}
-
-			console.log( 'Beginning attack ' + this.attack.name ); // + ' (' + possibleAttacks.map( x => x.name ) + ')' );
-			this.flags['current_attack_damage'] = 0;
-			this.flags['retreating'] = false;
-
-			this.anim.clear( { withoutTag: 'exit' } );
+			this.chooseAttack();
 
 			// rotate
 			if ( this.attack.name == 'rotate' ) {
@@ -606,13 +554,16 @@ export class SwitchBoss extends Boss {
 				cullList( this.bombs );
 
 				if ( this.bombs.length == 0 ) {
-					let angle = 0.3 + Math.random() * 0.3;
-					angle *= Math.random() > 0.5 ? 1 : -1;
-
-					this.shootBomb( this.watchTarget.rotate( angle ).plus( this.pos ), 2000 );
+					this.shootBomb( this.watchTarget.turned(  0.2 + Math.random() * 0.2 ).plus( this.pos ), 4000 );
+					this.shootBomb( this.watchTarget.turned( -0.2 - Math.random() * 0.2 ).plus( this.pos ), 5000 );
 
 					this.anim.pushFrame( new AnimFrame( {
-						'wait': { value: this.wait, expireOnCount: 3000 }
+						'wait': { value: this.wait, expireOnCount: 1000 }
+					} ) );
+
+				} else {
+					this.anim.pushFrame( new AnimFrame( {
+						'wait': { value: this.wait, expireOnCount: 1000 }
 					} ) );
 				}
 			}

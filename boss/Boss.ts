@@ -10,6 +10,8 @@ import { Explosion } from '../Explosion.js'
 
 import { Attack } from './Attack.js'
 
+import * as Debug from '../Debug.js'
+
 export let bossBodyMaterial = new Material( 0, 1.0, 0.3 );
 export let bossBodyAltMaterial = new Material( 0, 1.0, 0.5 );
 
@@ -18,6 +20,12 @@ export enum BossState {
 	EXPLODE,
 	DEAD,
 	SLEEP,
+}
+
+export type BossFlags = {
+	health: number;
+	current_attack_damage: number;
+	retreating: boolean;
 }
 
 export class Boss extends CenteredEntity {
@@ -34,9 +42,17 @@ export class Boss extends CenteredEntity {
 	pupilMaterial = new Material( 0, 0.0, 0.0 );
 
 	state: number = BossState.DEFAULT;
+	flags: BossFlags = {
+		health: 0,
+		current_attack_damage: 0,
+		retreating: false,
+	}
 
+	attacks: Array<Attack> = [];
 	attack: Attack = null;
 	counter: Attack = null;
+
+	overrideAttackField = '';
 
 	messages: Array<string> = [];
 
@@ -71,6 +87,8 @@ export class Boss extends CenteredEntity {
 
 		this.coreMaterial.emit = 0.8;
 		this.whiteMaterial.emit = 0.8;
+
+		this.flags.health = this.getHealth();
 	}
 
 	watch( target: Vec2 ) {
@@ -211,6 +229,51 @@ export class Boss extends CenteredEntity {
 			'blink': { value: 1.0, expireOnReach: true, overrideRate: 0.04, setDefault: true },
 			'eyeStrain': { value: 0.0, setDefault: true }
 		} ) );
+	}
+
+	canEnter( attack: Attack ): boolean {
+		return false;
+	}
+
+	chooseAttack() {
+		if ( Debug.flags.FORCE_BOSS_ATK && Debug.fields[this.overrideAttackField] ) {
+			let names = Debug.fields[this.overrideAttackField].value.split( ',' );
+			let debugAttacks = this.attacks.filter( x => names.includes( x.name ) );
+
+			if ( debugAttacks.length > 0 ) {
+				let index = Math.floor( Math.random() * debugAttacks.length )
+				this.attack = debugAttacks[index];
+
+			} else {
+				console.warn( 'ShellBoss.defaultLogic: no valid attacks from debug' );
+			}
+
+		} else if ( this.counter ) {
+			this.attack = this.counter;
+			this.counter = null;
+
+		} else {
+			let possibleAttacks = this.attacks.filter( x => this.canEnter( x ) );
+
+			if ( this.attack && possibleAttacks.length > 1 ) {
+				possibleAttacks = possibleAttacks.filter( x => x != this.attack );
+			}
+
+			if ( possibleAttacks.length == 0 ) {
+				this.messages.push( 'The ' + this.flavorName + ' surrenders!\n' );
+				this.state = BossState.DEAD;
+				return;
+			}
+
+			let index = Math.floor( Math.random() * possibleAttacks.length );
+			this.attack = possibleAttacks[index];
+		}
+
+		console.log( 'Beginning attack ' + this.attack.name ); // + ' (' + possibleAttacks.map( x => x.name ) + ')' );
+		this.flags['current_attack_damage'] = 0;
+		this.flags['retreating'] = false;
+
+		this.anim.clear( { withoutTag: 'exit' } );
 	}
 
 	defaultLogic() {}

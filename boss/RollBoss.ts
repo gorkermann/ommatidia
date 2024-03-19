@@ -15,7 +15,7 @@ import { Bullet, Gutter } from '../Bullet.js'
 import * as Debug from '../Debug.js'
 
 import { Attack, AttackReq } from './Attack.js'
-import { Boss, BossState } from './Boss.js'
+import { Boss, BossState, BossFlags } from './Boss.js'
 
 export class Barrier extends CenteredEntity {
 	altMaterial = new Material( 210, 1.0, 0.9 );
@@ -200,11 +200,9 @@ export class Balloon extends Bullet {
 
 type State = BossState;
 
-type BossFlags = {
+type RollBossFlags = BossFlags & {
 	gun_count: number
 	gun_half_count: number
-	health: number
-	current_attack_damage: number
 }
 
 let attacks = [
@@ -304,11 +302,12 @@ export class RollBoss extends Boss {
 	fireSkin: boolean = false;
 	staggerFat: boolean = false;
 
-	flags: BossFlags = {
+	flags: RollBossFlags = {
+		health: 0,
+		current_attack_damage: 0,
+		retreating: false,
 		gun_count: 0,
 		gun_half_count: 0,
-		health: 0,
-		current_attack_damage: 0
 	};
 
 	flash: number = 0.0;
