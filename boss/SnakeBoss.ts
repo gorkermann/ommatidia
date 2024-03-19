@@ -21,7 +21,7 @@ import { Attack, AttackReq } from './Attack.js'
 import { Boss, BossState, BossFlags } from './Boss.js'
 import { Switch } from './Switch.js'
 
-let fieldWidth = 600;
+let fieldWidth = 630;
 let interiorWidth = 200;
 let wallUnit = 20;
 
@@ -78,6 +78,12 @@ class SnakeBossBarrier extends CenteredEntity {
 		} 
 
 		return [shape].concat( grid );
+	}
+
+	hitWith( otherEntity: Entity, contact: Contact ): void {
+		if ( otherEntity instanceof Bullet ) {
+			otherEntity.removeThis = true;
+		}
 	}
 
 	draw( context: CanvasRenderingContext2D ) {
@@ -194,7 +200,7 @@ class VertCloud {
 		return result;
 	}
 
-	graphSearch( start: Vertex, end: Vertex ): Array<Vertex> {
+	graphSearch( start: Vertex, end: Vertex, avoidIndices: Array<number>=[] ): Array<Vertex> {
 		if ( !start || !end ) {
 			throw new TypeError( 'graphSearch(): one of the waypoints is null' );
 		}
@@ -215,6 +221,8 @@ class VertCloud {
 		do {
 			for ( let vert of rim ) {
 				for ( let neighborIndex of vert.neighbors ) {
+					if ( avoidIndices.includes( neighborIndex ) ) continue;
+
 					let other = this.verts[neighborIndex];
 					let index = seenVerts.indexOf( other );
 
@@ -263,6 +271,8 @@ export class SnakeBoss extends Boss {
 	cloud: VertCloud;
 	path: Array<Vertex> = [];
 
+	helmet: CenteredEntity;
+
 	posHistory: Array<Vec2> = [];
 	tail: Array<SnakeBossSegment> = [];
 	segmentCount: number = 12;
@@ -295,7 +305,7 @@ export class SnakeBoss extends Boss {
 	material = new Material( 15, 1.0, 0.5 );
 
 	collisionGroup = COL.LEVEL;
-	collisionMask = COL.PLAYER_BULLET;
+	collisionMask = COL.PLAYER_BULLET | COL.ENEMY_BULLET;
 
 	anim = new Anim( {
 		'pos': new PhysField( this, 'pos', 'vel', this.speed ),
@@ -317,6 +327,24 @@ export class SnakeBoss extends Boss {
 	constructor( pos: Vec2=new Vec2( 0, 0 ), spawn: boolean=false ) {
 		super( pos, 40, 40 );
 
+		// helmet
+		this.helmet = new CenteredEntity( new Vec2(), 90, 90 );
+		let helmetPoints = [];
+		for ( let i = 0; i < 9; i++ ) {
+			helmetPoints.push( Vec2.fromPolar( -Math.PI / 2 + Math.PI * i / 8, 45 ) )
+		}
+		let helmetShape = Shape.fromPoints( helmetPoints ); 
+		helmetShape.material = new Material( 300, 1.0, 0.5 );
+		helmetShape.material.alpha = 0.8;
+		this.helmet.presetShapes = [helmetShape];
+		this.helmet.collisionGroup = COL.LEVEL;
+		this.helmet.collisionMask = COL.PLAYER_BULLET;
+
+		this.anim.fields['helmet-angle'] = new PhysField( this.helmet, 'angle', 'angleVel', 0.1, { isAngle: true } );
+
+		this.addSub( this.helmet );
+
+		// segments
 		for ( let i = 0; i < this.segmentCount; i++ ) {
 			let seg = new SnakeBossSegment( new Vec2( i * -this.segmentLength, 0 ), this.segmentLength, wallUnit / 2 );
 			seg.collisionGroup = COL.LEVEL;
@@ -330,6 +358,7 @@ export class SnakeBoss extends Boss {
 			let barrier = new SnakeBossBarrier( this.pos.copy(), fieldWidth );
 			this.spawnEntity( barrier );
 			barrier.collisionGroup = COL.LEVEL;
+			barrier.collisionMask = COL.ENEMY_BULLET;
 		}
 
 		let points = [];
@@ -347,10 +376,10 @@ export class SnakeBoss extends Boss {
 	}
 
 	orientSegments() {
-		let len = 0;
 		let points: Array<Vec2> = [];
 		let buffer = 10;
 		let seekLength = this.segmentLength + buffer;
+		let len = seekLength / 2;
 
 		for ( let i = 1; i < this.posHistory.length; i++ ) {
 			if ( points.length >= this.tail.length + 1 ) break;
@@ -360,6 +389,7 @@ export class SnakeBoss extends Boss {
 			if ( len + diff > seekLength ) {
 				let bite = seekLength - len;
 
+				// if the position history has a big gap between points, put multiple segments along it
 				while ( true ) {
 					points.push( this.posHistory[i-1].alongTo( this.posHistory[i], bite / diff ).minus( this.pos.plus( this.vel ) ) );
 
@@ -387,6 +417,14 @@ export class SnakeBoss extends Boss {
 		}
  	}
 
+	orientHelmet() {
+		if ( this.anim.isDone( [2] ) ) {
+			this.anim.pushFrame( new AnimFrame( { 
+				'helmet-angle': { value: this.vel.angle() }
+			} ), { threadIndex: 2 } )
+		}
+	}
+
 	/* Entity overrides */
 
 	hitWith( otherEntity: Entity, contact: Contact ): void {
@@ -408,6 +446,7 @@ export class SnakeBoss extends Boss {
 		this.anim.update( step, elapsed );
 
 		this.orientSegments();
+		this.orientHelmet();
 	}
 
 	canEnter( attack: Attack ): boolean {
@@ -434,7 +473,14 @@ export class SnakeBoss extends Boss {
 				let start = this.cloud.getClosestVert( this.pos );
 				let end = this.cloud.getClosestVert( this.pos.plus( this.watchTarget ) );
 
-				this.path = this.cloud.graphSearch( start, end );
+				let avoidIndices = [];
+				for ( let i = 0; i < this.tail.length / 2; i++ ) {
+					let v = this.cloud.getClosestVert( this.pos.plus( this.tail[i].pos ) );
+
+					avoidIndices.push( this.cloud.verts.indexOf( v ) );
+				}
+
+				this.path = this.cloud.graphSearch( start, end, avoidIndices );
 
 				let rev = this.path.concat();
 
@@ -449,7 +495,37 @@ export class SnakeBoss extends Boss {
 			}
 		}
 
+		if ( this.attack.name == 'seek' ) {
+			if ( this.anim.isDone( [3] ) ) {
+				this.anim.pushFrame( new AnimFrame( {
+					'wait': { value: 0, expireOnCount: 3000 }
+				}, [
+					new FuncCall<typeof this.shootSide>( this, 'shootSide', [false] ),
+				] ), { tag: 'exit', threadIndex: 3 } );
+
+				this.anim.pushFrame( new AnimFrame( {
+					'wait': { value: 0, expireOnCount: 3000 }
+				}, [
+					new FuncCall<typeof this.shootSide>( this, 'shootSide', [true] ),
+				] ), { tag: 'exit', threadIndex: 3 } );
+			}
+		}
+
 		this.posHistory.unshift( this.pos.copy() );
+	}
+
+	shootSide( even: boolean ) {
+		for ( let i = 0; i < this.tail.length; i++ ) {
+			if ( even && ( i % 2 ) ) continue;
+			if ( !even && !( i % 2 ) ) continue;
+
+			for ( let j = 0; j < 2; j++ ) {
+				let bullet = new Bullet( this.pos.plus( this.tail[i].pos ),
+										 Vec2.fromPolar( this.tail[i].angle - Math.PI / 2 + Math.PI * j, 5 ) );
+				this.spawnEntity( bullet );
+				bullet.collisionGroup = COL.ENEMY_BULLET;
+			}
+		}
 	}
 
 	draw( context: CanvasRenderingContext2D ) {

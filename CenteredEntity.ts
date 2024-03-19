@@ -15,6 +15,17 @@ export class CenteredEntity extends Entity {
 	getOwnShapes(): Array<Shape> {
 		if ( this.isGhost ) return [];
 
+		if ( this.presetShapes.length > 0 ) {
+			let shapes = this.presetShapes.map( x => x.copy() );
+
+			// do for either defaults or presets
+			for ( let shape of shapes ) {
+				shape.parent = this;
+			}
+
+			return shapes;
+		}
+
 		let shape = Shape.makeRectangle( 
 				new Vec2( -this.width / 2, -this.height / 2), this.width, this.height );
 

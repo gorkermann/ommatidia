@@ -203,6 +203,13 @@ export class Boss extends CenteredEntity {
 		}
 	}
 
+	kill() {
+		this.doEyeDead();
+		this.state = BossState.EXPLODE;
+
+		this.anim.clear();
+	}
+
 	doLook() {
 		this.counts['attention'].count = 0;
 	}
@@ -256,7 +263,7 @@ export class Boss extends CenteredEntity {
 			let possibleAttacks = this.attacks.filter( x => this.canEnter( x ) );
 
 			if ( this.attack && possibleAttacks.length > 1 ) {
-				possibleAttacks = possibleAttacks.filter( x => x != this.attack );
+			//	possibleAttacks = possibleAttacks.filter( x => x != this.attack );
 			}
 
 			if ( possibleAttacks.length == 0 ) {

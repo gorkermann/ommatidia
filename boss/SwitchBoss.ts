@@ -34,6 +34,10 @@ let attacks = [
 		'shoot',
 		[]
 	),
+	new Attack(
+		'burp',
+		[]
+	),
 ]
 
 let attackNames = attacks.map( x => x.name );
@@ -92,7 +96,7 @@ class SwitchBossBomb extends CenteredEntity {
 	/* property overrides */
 
 	anim = new Anim( {
-		'pos': new PhysField( this, 'pos', 'vel', 4 ), // thread 0
+		'pos': new PhysField( this, 'pos', 'vel', 10 ), // thread 0
 		//'angle': new PhysField( this, 'angle', 'angleVel', 0.02, { isAngle: true } ), // thread 0
 		'flash': new AnimField( this, 'flash', 0.1 ), // thread 1
 		'alpha': new AnimField( this, 'alpha', 0.2 ), // thread 0
@@ -117,15 +121,16 @@ class SwitchBossBomb extends CenteredEntity {
 	constructor( pos: Vec2=new Vec2( 0, 0 ), burstDelay: number=0 ) {
 		super( pos, 30, 30 );
 
-		for ( let i = 0; i < 3; i += 2 ) {
+		for ( let i = 0; i < 1; i += 2 ) {
 			let sw = new SwitchBossCover( new Vec2( 0, -this.height / 2 ), wallUnit, wallUnit / 2 );
 			sw.angle = Math.PI * i / 2;
+			sw.health = 1;
 			sw.collisionGroup = COL.LEVEL;
 			sw.collisionMask = COL.PLAYER_BULLET;
 			this.addSub( sw );
 		}
 
-		this.angleVel = 0.1 * ( Math.random() > 0.5 ? 1 : -1 );
+		this.angleVel = 0.2 * ( Math.random() > 0.5 ? 1 : -1 );
 
 		this.anim.pushFrame( new AnimFrame( {
 			'alpha': { value: 0 }
@@ -255,7 +260,9 @@ class SwitchBossSide extends CenteredEntity {
 	alpha: number = 1.0;
 
 	whiteMaterial = new Material( 0, 0.0, 1.0 );
+	grayMaterial = new Material( 0, 0.0, 0.5 );
 
+	coverCount: number;
 	covers: Array<SwitchBossCover> = [];
 
 	wait: boolean = false;
@@ -265,39 +272,43 @@ class SwitchBossSide extends CenteredEntity {
 	material = new Material( 15, 1.0, 0.3 );
 	altMaterial = new Material( 15, 1.0, 0.5 );
 
-	constructor( pos: Vec2, angle: number ) {
+	constructor( pos: Vec2, angle: number, coverCount: number ) {
 		super( pos, wallUnit, wallUnit * 5 ); // vertical
 
 		this.angle = angle;
 
+		this.coverCount = coverCount;
 		let swSpacing = wallUnit * 1.5;
-		let swOrigin = new Vec2( this.width / 2, -swSpacing );
+		let swWidth = swSpacing * ( this.coverCount - 1 );
+		let swOrigin = new Vec2( this.width / 2, -swWidth / 2 );
 
-		for ( let i = 0; i < 3; i++ ) {
-			let sw = new CenteredEntity( 
-				new Vec2( 0, swSpacing * i ).plus( swOrigin ), wallUnit / 4, wallUnit / 2 );
-			sw.collisionGroup = COL.ENEMY_BODY;
-			sw.collisionMask = COL.PLAYER_BULLET;
-
-			sw.material = this.whiteMaterial;
-
-			this.addSub( sw );
-		}
-
-		for ( let i = 0; i < 3; i++ ) {
+		for ( let i = 0; i < this.coverCount; i++ ) {
 			let cov = new SwitchBossCover( 
 				new Vec2( 0, swSpacing * i ).plus( swOrigin ), wallUnit / 2, wallUnit );
-			cov.collisionGroup = COL.ENEMY_BODY;
+			cov.collisionGroup = COL.LEVEL;
 			cov.collisionMask = COL.PLAYER_BULLET;
 
 			this.covers.push( cov );
 			this.addSub( cov );
 		}
+
+		for ( let i = 0; i < this.coverCount; i++ ) {
+			let sw = new CenteredEntity( 
+				new Vec2( 0, swSpacing * i ).plus( swOrigin ), wallUnit / 4, wallUnit / 2 );
+			sw.collisionGroup = COL.LEVEL;
+			sw.collisionMask = COL.PLAYER_BULLET;
+
+			sw.material = this.grayMaterial.copy();
+
+			this.covers[i].anim.fields['skewL'] = new AnimField( sw.material, 'skewL', 0.05 );
+
+			this.addSub( sw );
+		}
 	}
 
 	isUnlocked(): boolean {
-		for ( let i = 0; i < 3; i++ ) {
-			if ( this.covers[i].alpha > 0 ) return false;
+		for ( let cover of this.covers ) {
+			if ( cover.alpha == 1.0 ) return false;
 		} 
 
 		return true;
@@ -306,13 +317,19 @@ class SwitchBossSide extends CenteredEntity {
 	/* Entity overrides */
 
 	update() {
-		for ( let i = 0; i < 3; i++ ) {
+		for ( let i = 0; i < this.coverCount; i++ ) {
 			if ( this.covers[i].alpha == 0 && this.covers[i].anim.isDone() ) {
-				this.covers[i].anim.pushFrame( new AnimFrame(
-					{}, [new FuncCall<typeof this.fire>( this, 'fire', [i] )]
-				) );
 				this.covers[i].anim.pushFrame( new AnimFrame( {
-					'wait': { value: true, expireOnCount: 2000 + Math.random() * 500 }
+					'skewL': { value: 0.0, overrideRate: 0 }
+                }, 
+                	[new FuncCall<typeof this.fire>( this, 'fire', [i] )]
+				) );
+
+				let time = 2000 + Math.random() * 500;
+
+				this.covers[i].anim.pushFrame( new AnimFrame( {
+					'skewL': { value: 0.5, reachOnCount: time },
+					'wait': { value: true, expireOnCount: time }
 				} ) );
 			}
 		}
@@ -350,12 +367,15 @@ class SwitchBossSide extends CenteredEntity {
 		super.shade();
 
 		for ( let sub of this.getSubs() ) {
-		//	sub.scaleAlpha( this.alpha );
+			//sub.material.alpha *= this.alpha;
+			//( sub as CenteredEntity ).altMaterial.alpha *= this.alpha;
 		}
 	}
 }
 
 type SwitchBossFlags = BossFlags & {
+	cover_count: number;
+	max_cover_count: number;
 	all_sides_unlocked: boolean;
 	shell_shed: boolean;
 }
@@ -378,6 +398,8 @@ export class SwitchBoss extends Boss {
 		health: 0,
 		current_attack_damage: 0,
 		retreating: false,
+		cover_count: 1,
+		max_cover_count: 3,
 		all_sides_unlocked: false,
 		shell_shed: false
 	};
@@ -388,11 +410,11 @@ export class SwitchBoss extends Boss {
 
 	flavorName = 'SWITCH CORE';
 
-	health = 100;
+	health = 30;
 
 	material = new Material( 15, 1.0, 0.5 );
 
-	collisionGroup = COL.ENEMY_BODY;
+	collisionGroup = COL.LEVEL;
 	collisionMask = COL.PLAYER_BULLET;
 
 	anim = new Anim( {
@@ -417,11 +439,49 @@ export class SwitchBoss extends Boss {
 
 		this.anim.fields['angle'] = new PhysField( this.shell, 'angle', 'angleVel', 0.1, { isAngle: true } );
 
+		this.rebuildSides();
+
+		this.anim.pushFrame( new AnimFrame( {
+			'wait': { value: 0, expireOnCount: 500 }
+		} ) );
+
+		if ( spawn ) {
+			let barrier = new SwitchBossBarrier( this.pos.copy(), fieldWidth );
+			this.spawnEntity( barrier );
+			barrier.collisionGroup = COL.LEVEL;
+		}
+	}
+
+	/**
+	 * [rebuildSides description]
+	 *
+	 * flags: all_sides_unlocked
+	 * 
+	 * @param {boolean=true} fadeIn [description]
+	 */
+	rebuildSides( fadeIn: boolean=true ) {
+		// remove old sides
+		this.sides = [];
+		
+		for ( let sub of this.shell.getSubs() ) {
+			sub.removeThis = true;
+		}
+
+		this.shell.cull();
+
+		for ( let i = 0; i < 4; i++ ) {
+			delete this.anim.fields['side' + i + '-pos'];
+			delete this.anim.fields['side' + i + '-angle'];
+			delete this.anim.fields['side' + i + '-alpha'];
+		}
+
+		// make new sides
 		let slice = Math.PI * 2 / 4;
 
 		for ( let i = 0; i < 4; i++ ) {
-			let side = new SwitchBossSide( new Vec2( wallUnit * 3, 0 ), slice * i );
-			side.collisionGroup = COL.ENEMY_BODY;
+			let side = new SwitchBossSide( new Vec2( wallUnit * 3, 0 ), slice * i, this.flags['cover_count'] );
+			this.spawnEntity( side );
+			side.collisionGroup = COL.LEVEL;
 			side.collisionMask = COL.PLAYER_BULLET;
 
 			this.anim.fields['side' + i + '-pos'] = new PhysField( side, 'pos', 'vel', 2 );
@@ -432,11 +492,21 @@ export class SwitchBoss extends Boss {
 			this.shell.addSub( side );
 		}
 
-		if ( spawn ) {
-			let barrier = new SwitchBossBarrier( this.pos.copy(), fieldWidth );
-			this.spawnEntity( barrier );
-			barrier.collisionGroup = COL.LEVEL;
+		if ( fadeIn ) {
+			for ( let side of this.sides ) {
+				side.alpha = 0.0;
+			}
+
+			let frame = new AnimFrame();
+
+			for ( let [i, side] of Object.entries( this.sides ) ) {
+				frame.targets['side' + i + '-alpha'] = new AnimTarget( 1.0 );
+			}
+
+			this.anim.pushFrame( frame );	
 		}
+
+		this.flags['all_sides_unlocked'] = false;
 	}
 
 	shootBomb( targetPos: Vec2, burstDelay: number ) {
@@ -455,6 +525,14 @@ export class SwitchBoss extends Boss {
 
 	/* Entity overrides */
 
+	/**
+	 * [hitWith description]
+	 *
+	 * flags: none
+	 * 
+	 * @param {Entity}  otherEntity [description]
+	 * @param {Contact} contact     [description]
+	 */
 	hitWith( otherEntity: Entity, contact: Contact ): void {
 		if ( otherEntity instanceof Bullet ) {
 			otherEntity.removeThis = true;
@@ -482,6 +560,14 @@ export class SwitchBoss extends Boss {
 		}
 	}
 
+	kill() {
+		super.kill();
+
+		for ( let bomb of this.bombs ) {
+			bomb.anim.clear();
+		}
+	}
+
 	/* Boss overrides */
 
 	animate( step: number, elapsed: number ) {
@@ -494,13 +580,24 @@ export class SwitchBoss extends Boss {
 		if ( attack.name == 'rotate' ) {
 			return !this.flags['shell_shed'];
 
+		} else if ( attack.name == 'burp' ) {
+			return this.flags['cover_count'] > 2 && this.bombs.length == 0;
+
 		} else if ( attack.name == 'shoot') {
-			return this.flags['shell_shed'];
+			return false;//this.flags['shell_shed'];
 		}
 	}
 
+	/**
+	 * [defaultLogic description]
+	 *
+	 * flags: health, current_attack_damage, all_sides_unlocked, cover_count
+	 * 
+	 */
 	defaultLogic() {
 		/* flag checks */
+
+		cullList( this.bombs );
 
 		let health = this.getHealth();
 		if ( health < this.flags['health'] ) {
@@ -509,12 +606,20 @@ export class SwitchBoss extends Boss {
 		}
 
 		// shed shell
-		if ( this.allSidesUnlocked() ) {
+		if ( this.allSidesUnlocked() && !this.flags['all_sides_unlocked'] ) {
 			this.flags['all_sides_unlocked'] = true;
-		}
+			this.flags['cover_count'] += 1;
+			if ( this.flags['cover_count'] > 3 ) this.flags['cover_count'] = 3;
 
-		if ( this.flags['all_sides_unlocked'] && !this.flags['shell_shed'] ) {
 			this.anim.clear( { withoutTag: 'exit' } );
+
+			this.anim.pushFrame( new AnimFrame( {}, [
+				new FuncCall<typeof this.rebuildSides>( this, 'rebuildSides', [] )
+			] ) );
+
+			this.anim.pushFrame( new AnimFrame( {
+				'wait': { value: 0, expireOnCount: 2000 }
+			} ) );
 
 			let frame = new AnimFrame();
 
@@ -523,8 +628,6 @@ export class SwitchBoss extends Boss {
 			}
 
 			this.anim.pushFrame( frame );
-
-			this.flags['shell_shed'] = true;
 		}
 
 		/* attack change */
@@ -551,8 +654,6 @@ export class SwitchBoss extends Boss {
 			
 			// shoot
 			} else if ( this.attack.name == 'shoot' ) {
-				cullList( this.bombs );
-
 				if ( this.bombs.length == 0 ) {
 					this.shootBomb( this.watchTarget.turned(  0.2 + Math.random() * 0.2 ).plus( this.pos ), 4000 );
 					this.shootBomb( this.watchTarget.turned( -0.2 - Math.random() * 0.2 ).plus( this.pos ), 5000 );
@@ -566,6 +667,67 @@ export class SwitchBoss extends Boss {
 						'wait': { value: this.wait, expireOnCount: 1000 }
 					} ) );
 				}
+
+			// burp
+			} else if ( this.attack.name == 'burp' ) {
+				// choose corner closest to player
+				let watchAngle = this.watchTarget.angle(); 
+
+				let angle = Angle.toPosTurn( watchAngle - this.shell.angle );
+				let index = Math.floor( angle / ( Math.PI / 2 ) ); // 0-3
+
+				let angleTargets: Array<number> = [];
+				for ( let i = 0; i < this.sides.length; i++ ) {
+					angleTargets.push( this.sides[i].angle );
+				}
+
+				angleTargets[index] -= 0.2;
+				angleTargets[(index + 3) % 4] -= 0.1;
+				
+				angleTargets[(index + 1) % 4] += 0.2;
+				angleTargets[(index + 2) % 4] += 0.1;
+
+				// close sides
+				this.anim.pushFrame( new AnimFrame( {
+					'side0-pos': { value: new Vec2( wallUnit * 3, 0 ) },
+					'side1-pos': { value: new Vec2( wallUnit * 3, 0 ) },
+					'side2-pos': { value: new Vec2( wallUnit * 3, 0 ) },
+					'side3-pos': { value: new Vec2( wallUnit * 3, 0 ) },
+
+					'side0-angle': { value: Math.PI / 2 * 0 },
+					'side1-angle': { value: Math.PI / 2 * 1 },
+					'side2-angle': { value: Math.PI / 2 * 2 },
+					'side3-angle': { value: Math.PI / 2 * 3 },
+				} ) );
+
+				// shoot  
+  				let v = Vec2.fromPolar( index * Math.PI / 2 + Math.PI / 4, 1 );
+				this.shell.applyTransform( v, 0.0, { angleOnly: true } );
+				v.scale( Math.random() * 100 + 200 );
+				v.add( this.pos );
+
+  				this.anim.pushFrame( new AnimFrame( {
+  					'wait': { value: 0, expireOnCount: 2000 }
+  				}, [
+  					new FuncCall<typeof this.shootBomb>( this, 'shootBomb', [v, 4000] )
+  				] ) );
+
+  				this.anim.pushFrame( new AnimFrame( {
+  					'wait': { value: 0, expireOnCount: 500 }
+  				} ) );
+
+				// move sides outward (radius) and away (angle)
+				this.anim.pushFrame( new AnimFrame( {
+					'side0-pos': { value: new Vec2( wallUnit * 3.5, 0 ) },
+					'side1-pos': { value: new Vec2( wallUnit * 3.5, 0 ) },
+					'side2-pos': { value: new Vec2( wallUnit * 3.5, 0 ) },
+					'side3-pos': { value: new Vec2( wallUnit * 3.5, 0 ) },
+
+					'side0-angle': { value: angleTargets[0] },
+					'side1-angle': { value: angleTargets[1] },
+					'side2-angle': { value: angleTargets[2] },
+					'side3-angle': { value: angleTargets[3] },
+				} ) );
 			}
 		}
 	}

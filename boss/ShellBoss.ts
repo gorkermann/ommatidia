@@ -125,18 +125,21 @@ export class ShellBossBarrier extends CenteredEntity {
 class ShellBossMissile extends CenteredEntity {
 	watchTarget: Vec2 = null;
 
-	speed: number = 3;
+	speed: number = 5;
 
 	health: number = 5;
 	invuln: boolean = false;
 	flash: number = 0.0;
 	alpha: number = 1.0;
 
+	oldAngle: number;
+	angleFuel: number = Math.PI * 2;
+
 	/* property overrides */
 
 	anim = new Anim( {
 		//'pos': new PhysField( this, 'pos', 'vel', 2 ),
-		'angle': new PhysField( this, 'angle', 'angleVel', 0.05, { isAngle: true } ),
+		'angle': new PhysField( this, 'angle', 'angleVel', 0.1, { isAngle: true } ),
 		'flash': new AnimField( this, 'flash', 0.1 ),
 		'alpha': new AnimField( this, 'alpha', 0.2 ),
 		'invuln': new AnimField( this, 'invuln' )
@@ -147,12 +150,13 @@ class ShellBossMissile extends CenteredEntity {
 
 	material = new Material( 110, 1.0, 0.9 );
 
-	collisionMask = COL.PLAYER_BULLET | COL.ENEMY_BODY | COL.LEVEL;
+	collisionMask = COL.PLAYER_BODY | COL.PLAYER_BULLET | COL.ENEMY_BODY | COL.LEVEL;
 
 	constructor( pos: Vec2, angle: number ) {
 		super( pos, 20, 8 );
 
 		this.angle = angle;
+		this.oldAngle = angle;
 
 		let tip = new CenteredEntity( new Vec2( 10, 0 ), 6, 6 );
 		tip.material = new Material( 45, 1.0, 0.5 );
@@ -196,7 +200,7 @@ class ShellBossMissile extends CenteredEntity {
 
 	update() {
 		if ( this.alpha == 1 ) {
-			if ( this.watchTarget && this.anim.isDone() ) {
+			if ( this.watchTarget && this.anim.isDone() && this.angleFuel > 0 ) {
 				this.anim.pushFrame( new AnimFrame( {
 					'angle': { value: this.watchTarget.angle(), expireOnCount: 100 }
 				} ) );
@@ -207,6 +211,10 @@ class ShellBossMissile extends CenteredEntity {
 		} else if ( this.alpha <= 0 ) {
 			this.removeThis = true;
 		}
+
+		let diff = Math.abs( Angle.normalize( this.angle - this.oldAngle ) );
+		this.angleFuel -= diff;
+		this.oldAngle = this.angle;
 	}
 
 	shade() {
@@ -395,7 +403,7 @@ export class ShellBoss extends Boss {
 
  		this.spawnEntity( missile );
 		missile.collisionGroup = COL.ENEMY_BULLET;
-		missile.collisionMask = COL.PLAYER_BULLET | COL.ENEMY_BODY | COL.LEVEL;
+		missile.collisionMask = COL.PLAYER_BODY | COL.PLAYER_BULLET | COL.ENEMY_BODY | COL.LEVEL;
 	}
 
 	spreadShot( count: number, spread: number, offset: number=0 ) {
