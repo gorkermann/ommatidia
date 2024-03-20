@@ -1,5 +1,5 @@
 [] remove delay from Anim (30m) 
-[] for AnimFuncs, replace generic objects with FuncCalls (30m)
+[x] for AnimFuncs, replace generic objects with FuncCalls (30m)
 [] RollBoss: remove guard, horiz_sweep, whirl, x_sweep (30m)
 [] RollBoss: add v_sweep, react to player being crushed (2h)
 [] Roll/Shell: use attack-choosing logic from Boss (30m)
