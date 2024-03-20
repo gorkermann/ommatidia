@@ -1,7 +1,8 @@
 import { Anim, AnimField, PhysField, AnimFrame, AnimTarget, MilliCountdown } from '../lib/juego/Anim.js'
 import { Entity, cullList, TransformOrder } from '../lib/juego/Entity.js'
 import { Contact } from '../lib/juego/Contact.js'
-import { Material } from '../lib/juego/Material.js'  
+import { Material } from '../lib/juego/Material.js'
+import { FuncCall } from '../lib/juego/serialization.js'
 import { Shape } from '../lib/juego/Shape.js'
 import { Vec2 } from '../lib/juego/Vec2.js'
 import { Dict } from '../lib/juego/util.js'
@@ -753,7 +754,7 @@ export class LockBoss extends Boss {
 				'gutterAlpha': { value: 1.0 }
 			} ) )
 			this.anim.pushFrame( new AnimFrame( {},
-				[ { caller: this, funcName: 'createWave' } ] ) );
+				[ new FuncCall<typeof this.createWave>( this, 'createWave', [] ) ] ) );
 			this.anim.pushFrame( new AnimFrame( {
 				'alpha': { value: 1.0 },
 			} ) )
@@ -775,7 +776,11 @@ export class LockBoss extends Boss {
 	defaultLogic() {
 		if ( this.anim.isDone() && this.waves.length == 0 ) {
 			this.anim.pushFrame( new AnimFrame( {},
-				[ { caller: this, funcName: 'createWave' } ] ), { delay: 1000 } ); // TODO: remove frame delays?
+				[ new FuncCall<typeof this.createWave>( this, 'createWave', [] ) ] ) );
+
+			this.anim.pushFrame( new AnimFrame( {
+				'wait': { value: 0, expireOnCount: 1000 }
+			} ) );
 
 			this.eyeAnim.clear( { withoutTag: 'exit' } );
 

@@ -195,6 +195,8 @@ class ShellBossMissile extends CenteredEntity {
 			this.anim.pushFrame( new AnimFrame( {
 				'alpha': { value: 0.0 }
 			} ) )
+
+			this.spawnEntity( new Explosion( this.pos.copy() ) );
 		}
 	}
 

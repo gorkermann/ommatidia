@@ -1,7 +1,8 @@
-import { Anim, AnimField, PhysField, AnimFrame, AnimTarget, MilliCountdown, TurnDir } from '../lib/juego/Anim.js'
+import { Anim, AnimField, PhysField, AnimFrame, AnimTarget, TurnDir } from '../lib/juego/Anim.js'
 import { Entity, cullList, TransformOrder } from '../lib/juego/Entity.js'
 import { Contact } from '../lib/juego/Contact.js'
-import { Material } from '../lib/juego/Material.js'  
+import { Material } from '../lib/juego/Material.js'
+import { FuncCall } from '../lib/juego/serialization.js'
 import { Shape } from '../lib/juego/Shape.js'
 import { Sound } from '../lib/juego/Sound.js'
 import { Vec2 } from '../lib/juego/Vec2.js'
@@ -547,7 +548,7 @@ export class RollBoss extends Boss {
 				this.hitSound.count = 1;
 				this.hitSound.audio.currentTime = 0.0;
 				this.anim.pushFrame( new AnimFrame ( {}, [
-					{ caller: this, funcName: 'addSound', args: [this.hitSound] },
+					new FuncCall<typeof this.addSound>( this, 'addSound', [this.hitSound] ),
 				] ), { threadIndex: 1 } );
 
 				this.doEyeStrain();
@@ -777,7 +778,7 @@ export class RollBoss extends Boss {
 					'top1-angle': { value: Math.PI / 2, expireOnReach: true, overrideRate: spinRate },
 					'bottom1-angle': { value: Math.PI / 2, overrideRate: spinRate }
 				}, [
-					{ caller: this, funcName: 'setSkinInterval', args: [500] }
+					new FuncCall<typeof this.setSkinInterval>( this, 'setSkinInterval', [500] )
 				] ), { tag: 'exit' } );
 
 				// attack
@@ -789,7 +790,7 @@ export class RollBoss extends Boss {
 				this.anim.pushFrame( new AnimFrame( {
 					'fireSkin': { value: true, expireOnReach: true },
 				}, [
-					{ caller: this, funcName: 'setSkinInterval', args: [250] }
+					new FuncCall<typeof this.setSkinInterval>( this, 'setSkinInterval', [250] )
 				] ) );
 
 				// prepare
@@ -817,7 +818,7 @@ export class RollBoss extends Boss {
 					'top0-angle': { value: Math.PI / 2, expireOnReach: true, overrideRate: spinRate },
 					'bottom0-angle': { value: Math.PI / 2, overrideRate: spinRate }
 				}, [
-					{ caller: this, funcName: 'setSkinInterval', args: [500] }
+					new FuncCall<typeof this.setSkinInterval>( this, 'setSkinInterval', [500] )
 				] ), { tag: 'exit' } );
 
 				// attack
@@ -829,7 +830,7 @@ export class RollBoss extends Boss {
 				this.anim.pushFrame( new AnimFrame( {
 					'fireSkin': { value: true, expireOnReach: true },
 				}, [
-					{ caller: this, funcName: 'setSkinInterval', args: [150] }
+					new FuncCall<typeof this.setSkinInterval>( this, 'setSkinInterval', [150] )
 				] ) );
 
 				// prepare
