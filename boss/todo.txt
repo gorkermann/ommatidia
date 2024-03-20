@@ -1,7 +1,7 @@
 [] remove delay from Anim (30m) 
-[x] for AnimFuncs, replace generic objects with FuncCalls (30m)
-[] RollBoss: remove guard, horiz_sweep, whirl, x_sweep (30m)
-[] RollBoss: add v_sweep, react to player being crushed (2h)
+[x] for AnimFuncs, replace generic objects with FuncCalls (30m) -
+[x] RollBoss: remove guard, horiz_sweep, whirl, x_sweep (30m) -
+[x] RollBoss: add v_sweep (2h) x 3h
 [] Roll/Shell: use attack-choosing logic from Boss (30m)
 [] Snake: add gun material, shoot in wave down body, also shoot from tail and head (30m)
 [] Snake: make one segment weak (not first or last). increase speed when segment is destroyed (1h)
@@ -15,3 +15,6 @@
 [] Crab: initial sketch of class, two claws (2h)
 [] make a boss select screen (level?)
 [] d o n e ?
+XXX no crushing [] RollBoss: react to player being crushed, crush damages not kills (2h)
+[] SwitchBoss: add limit zone in shape of shell (can't get inside)
+[] RollBoss: add circular limit zone around eye

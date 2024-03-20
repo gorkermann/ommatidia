@@ -243,6 +243,8 @@ export class Boss extends CenteredEntity {
 	}
 
 	chooseAttack() {
+		let oldAttack = this.attack;
+
 		if ( Debug.flags.FORCE_BOSS_ATK && Debug.fields[this.overrideAttackField] ) {
 			let names = Debug.fields[this.overrideAttackField].value.split( ',' );
 			let debugAttacks = this.attacks.filter( x => names.includes( x.name ) );
@@ -277,7 +279,11 @@ export class Boss extends CenteredEntity {
 		}
 
 		console.log( 'Beginning attack ' + this.attack.name ); // + ' (' + possibleAttacks.map( x => x.name ) + ')' );
-		this.flags['current_attack_damage'] = 0;
+		
+		if ( !oldAttack || this.attack.name != oldAttack.name ) {
+			this.flags['current_attack_damage'] = 0;
+		}
+		
 		this.flags['retreating'] = false;
 
 		this.anim.clear( { withoutTag: 'exit' } );
