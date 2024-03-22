@@ -151,6 +151,15 @@ export class Boss extends CenteredEntity {
 		return Math.max( this.health, 0 );
 	}
 
+	updateHealthFlags() {
+		let health = this.getHealth();
+		
+		if ( health < this.flags['health'] ) {
+			this.flags['current_attack_damage'] += this.flags['health'] - health;
+			this.flags['health'] = health;
+		}
+	}
+
 	animate( step: number, elapsed: number ) {
 		for ( let key in this.counts ) {
 			this.counts[key].update( elapsed );

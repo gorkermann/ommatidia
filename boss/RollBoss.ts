@@ -316,14 +316,14 @@ export class RollBoss extends Boss {
 		gun_half_count: 0,
 	};
 
-	attacks = attacks;
-	overrideAttackField = 'ROLL_ATK';
-
 	flash: number = 0.0;
 
 	wait: number = 0;
 
 	/* property overrides */
+
+	attacks = attacks;
+	overrideAttackField = 'ROLL_ATK';
 
 	flavorName = 'ROLL CORE';
 
@@ -533,6 +533,7 @@ export class RollBoss extends Boss {
 		if ( attack.name == 'v_sweep' ) return true;
 		if ( attack.name == 'slam' ) return true;
 		if ( attack.name == 'potshot' ) return true;
+		
 		if ( attack.name == 'shed' ) return false;
 
 		return false;
@@ -541,11 +542,7 @@ export class RollBoss extends Boss {
 	defaultLogic() {
 		/* flag checks */
 
-		let health = this.getHealth();
-		if ( health < this.flags['health'] ) {
-			this.flags['current_attack_damage'] += this.flags['health'] - health;
-			this.flags['health'] = health;
-		}
+		this.updateHealthFlags();
 
 		/* attack change */
 
@@ -784,7 +781,7 @@ export class RollBoss extends Boss {
 		}
 
 		/* update attack */
-		
+
 		if ( this.attack ) {
 			if ( this.attack.name != 'shed' ) {//this.attack.name == 'tunnel_sweep' || this.attack.name == 'v_sweep' ) {
 				if ( this.flags['current_attack_damage'] > 5 ) {
