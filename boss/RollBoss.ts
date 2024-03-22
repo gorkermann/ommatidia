@@ -529,8 +529,6 @@ export class RollBoss extends Boss {
 	}
 
 	canEnter( attack: Attack ): boolean {
-		if ( this.watchTarget.length() < 100 && attack.name != 'potshot' ) return false;
-
 		if ( attack.name == 'tunnel_sweep' ) return true;
 		if ( attack.name == 'v_sweep' ) return true;
 		if ( attack.name == 'slam' ) return true;
@@ -561,11 +559,12 @@ export class RollBoss extends Boss {
 				'fireOk': { value: false },
 			} );
 			
-			let inBack = Math.abs( Angle.normalize( this.tops[0].angle - this.watchTarget.angle() ) ) > Math.PI / 2;
+			let watchAngle = this.watchTarget.angle() - this.tops[0].angle; // -360 to 360, relative to arms
+			let inBack = Math.abs( Angle.normalize( watchAngle ) ) > Math.PI / 2;
 			let gunHome = 0;
 			if ( inBack ) gunHome = Math.PI;
 
-			let watchAngle = Angle.normalize( this.watchTarget.angle() - gunHome );
+			let halfAngle = Angle.normalize( this.watchTarget.angle() - gunHome ); // watchTarget.angle() mod 180
 
 			let targetPos = new Vec2( 0, Math.max( this.watchTarget.length(), this.bottoms[1].pos.y ) );
 
@@ -582,13 +581,13 @@ export class RollBoss extends Boss {
 				let sweepAngle = ( 0.5 + Math.random() * 0.5 ) * ( Math.random() > 0.5 ? -1: 1 );
 
 				this.anim.pushFrame( new AnimFrame( {
-					'roller-angle': { value: watchAngle + sweepAngle, overrideRate: 0.01 },
+					'roller-angle': { value: halfAngle + sweepAngle, overrideRate: 0.01 },
 					'fireOk': { value: true },
 				} ) );
 
 				// aim
 				this.anim.pushFrame( new AnimFrame( {
-					'roller-angle': { value: watchAngle, overrideRate: 0.05 },
+					'roller-angle': { value: halfAngle, overrideRate: 0.05 },
 					'fireOk': { value: false },
 				} ) );
 			
@@ -678,8 +677,8 @@ export class RollBoss extends Boss {
 				// exit
 				this.anim.pushFrame( new AnimFrame( {
 					'fireOk': { value: false },
-					'top-arm-angle': { value: watchAngle },
-					'bottom-arm-angle': { value: watchAngle },
+					'top-arm-angle': { value: halfAngle },
+					'bottom-arm-angle': { value: halfAngle },
 
 					'top1-pos': { value: this.tops[1].pos.copy(), overrideRate: 10 },
 					'bottom1-pos': { value: this.bottoms[1].pos.copy(), overrideRate: 10 },
@@ -693,22 +692,22 @@ export class RollBoss extends Boss {
 				if ( inBack ) {
 					this.anim.pushFrame( new AnimFrame( {
 						'fireOk': { value: true },
-						'top-arm-angle': { value: watchAngle - Math.PI / 2 + 0.5, overrideRate: 0.01 },
-						'bottom-arm-angle': { value: watchAngle + Math.PI / 2 - 0.5, overrideRate: 0.01 },
+						'top-arm-angle': { value: halfAngle - Math.PI / 2 + 0.5, overrideRate: 0.01 },
+						'bottom-arm-angle': { value: halfAngle + Math.PI / 2 - 0.5, overrideRate: 0.01 },
 					} ) );
 				} else {
 					this.anim.pushFrame( new AnimFrame( {
 						'fireOk': { value: true },
-						'top-arm-angle': { value: watchAngle + Math.PI / 2 - 0.5, overrideRate: 0.01 },
-						'bottom-arm-angle': { value: watchAngle - Math.PI / 2 + 0.5, overrideRate: 0.01 },
+						'top-arm-angle': { value: halfAngle + Math.PI / 2 - 0.5, overrideRate: 0.01 },
+						'bottom-arm-angle': { value: halfAngle - Math.PI / 2 + 0.5, overrideRate: 0.01 },
 					} ) );
 				}
 
 				// prepare
 				this.anim.pushFrame( new AnimFrame( {
 					'fireOk': { value: true },
-					'top-arm-angle': { value: watchAngle },
-					'bottom-arm-angle': { value: watchAngle },
+					'top-arm-angle': { value: halfAngle },
+					'bottom-arm-angle': { value: halfAngle },
 
 					'top1-pos': { value: targetPos.times( -1 ), overrideRate: 10 },
 					'bottom1-pos': { value: targetPos, overrideRate: 10 },
@@ -719,7 +718,7 @@ export class RollBoss extends Boss {
 				let sign = -1;
 				
 				/*
-					watchAngle:
+					halfAngle:
 					  -90               			
 				180 --o-- 0
 					  90				
@@ -743,7 +742,7 @@ export class RollBoss extends Boss {
 					0   3 			
 				*/
 
-				let quadrant = Math.floor( ( this.watchTarget.angle() - this.tops[0].angle ) / ( Math.PI / 2 ) );
+				let quadrant = Math.floor( watchAngle / ( Math.PI / 2 ) );
 				if ( quadrant % 2 ) sign = 1; // positive rotation in quadrants 1 and 3, negative in 2 and 4
 
 				let sweepAngle = 1.5 * Math.PI / 2 + Math.random() * Math.PI / 4;
@@ -775,27 +774,27 @@ export class RollBoss extends Boss {
 				} ) );
 			} 	
 
+			// TODO: move this into attack branches
 			if ( this.attack.name == 'tunnel_sweep' || this.attack.name == 'v_sweep' || this.attack.name == 'shed' ) {
-				if ( inBack ) {
-					this.anim.pushFrame( new AnimFrame( {
-						'top0-block-angle': { value: gunHome },
-						'bottom0-block-angle': { value: gunHome },
-					} ) );
-				} else {
-					this.anim.pushFrame( new AnimFrame( {
-						'top0-block-angle': { value: gunHome },
-						'bottom0-block-angle': { value: gunHome },
-					} ) );
-				}
+				this.anim.pushFrame( new AnimFrame( {
+					'top0-block-angle': { value: gunHome },
+					'bottom0-block-angle': { value: gunHome },
+				} ) );
 			}
 		}
 
 		/* update attack */
+		
 		if ( this.attack ) {
 			if ( this.attack.name != 'shed' ) {//this.attack.name == 'tunnel_sweep' || this.attack.name == 'v_sweep' ) {
 				if ( this.flags['current_attack_damage'] > 5 ) {
 					this.anim.clear( { withoutTag: 'exit' } );
 					this.counter = getAttack( 'shed' );
+				}
+
+				if ( this.watchTarget.length() < 100 && this.attack.name != 'potshot' ) {
+					this.anim.clear( { withoutTag: 'exit' } );
+					this.counter = getAttack( 'potshot' );
 				}
 			}
 		}
