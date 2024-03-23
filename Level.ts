@@ -23,6 +23,7 @@ import { LockBoss, LockWall } from './boss/LockBoss.js'
 import { ShellBoss } from './boss/ShellBoss.js'
 import { SwitchBoss } from './boss/SwitchBoss.js'
 import { SnakeBoss } from './boss/SnakeBoss.js'
+import { CarrierBoss } from './boss/CarrierBoss.js'
 
 import { HorizDoor } from './Door.js'
 import { RoomManager } from './RoomManager.js'
@@ -419,6 +420,27 @@ export class Level extends Scene {
 							setDefault: true
 						}
 					} ) );										
+
+				// big boss bumpkin
+				} else if ( index == 30 ) {
+					let boss = new CarrierBoss( pos.plus( new Vec2( -this.grid.tileWidth / 2, 0 ) ), true );
+
+					this.em.insert( boss );
+
+					this.healthBarMax = boss.getHealth();
+
+					if ( boss.messages.length > 0 ) {
+						this.messageQueue = this.messageQueue.concat( boss.messages );
+						boss.messages = [];
+					}
+
+					this.anim.pushFrame( new AnimFrame( {
+						'healthBar': {
+							value: this.healthBarMax, 
+							expireOnReach: true,
+							setDefault: true
+						}
+					} ) );	
 
 				} else if ( index >= 50 ) {
 					let msgIndex = index - 50;

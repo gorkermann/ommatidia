@@ -454,7 +454,13 @@ function getFrame( shapes: Array<Shape>,
 
 		let opaqueIndex = hits.length - 1;
 		for ( let j = 0; j < hits.length; j++ ) {
-			if ( hits[j].material.alpha == 1.0 ) {
+			let a = hits[j].material.alpha;
+
+			if ( hits[j].shape && hits[j].shape.parent ) {
+				a *= hits[j].shape.parent.getAlpha();
+			}
+
+			if ( a == 1.0 ) {
 				opaqueIndex = j;
 				break;
 			}
@@ -503,6 +509,10 @@ function getFrame( shapes: Array<Shape>,
 			hits[j].material.hue = hue * 360;*/
 
 			let color = hits[j].material.getRGBA();
+
+			if ( hits[j].shape && hits[j].shape.parent ) {
+				color.a *= hits[j].shape.parent.getAlpha();
+			}
 
 			blended.r = color.r * color.a + blended.r * ( 1 - color.a );
 			blended.g = color.g * color.a + blended.g * ( 1 - color.a );
