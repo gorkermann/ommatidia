@@ -5,12 +5,18 @@ import { Vec2 } from './lib/juego/Vec2.js'
 
 export class CenteredEntity extends Entity {
 	altMaterial: Material = null;
-
+	
 	constructor( pos: Vec2, width: number, height: number ) {
 		super( pos, width, height );
 	}
 
 	watch( target: Vec2 ) {}
+
+	getShapes( step: number=1.0 ): Array<Shape> {
+		if ( this.alpha == 0 ) return [];
+
+		else return super.getShapes( step );
+	}
 
 	getOwnShapes(): Array<Shape> {
 		if ( this.isGhost ) return [];
@@ -47,13 +53,6 @@ export class CenteredEntity extends Entity {
 		}
 
 		return [shape];
-	}
-
-	scaleAlpha( scale: number ) {
-		scale = Math.min( scale, 0.0 );
-		scale = Math.max( scale, 1.0 );
-		
-		this.material.alpha *= scale;
 	}
 
 	// doesn't work for non-rectangles

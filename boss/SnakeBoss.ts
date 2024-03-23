@@ -94,8 +94,6 @@ class SnakeBossBarrier extends CenteredEntity {
 }
 
 class SnakeBossSegment extends CenteredEntity {
-	alpha: number = 1.0;
-
 	whiteMaterial = new Material( 0, 0.0, 1.0 );
 	fuchsiaMaterial = new Material( 300, 1.0, 0.5 );
 
@@ -122,11 +120,6 @@ class SnakeBossSegment extends CenteredEntity {
 
 	fire( index: number ) {
 		if ( this.alpha < 1.0 ) return;
-	}
-
-	getShapes( step: number=1.0 ): Array<Shape> {
-		if ( this.alpha == 0 ) return [];
-		else return super.getShapes( step );
 	}
 
 	getOwnShapes(): Array<Shape> {
@@ -305,7 +298,7 @@ export class SnakeBoss extends Boss {
 	material = new Material( 15, 1.0, 0.5 );
 
 	collisionGroup = COL.LEVEL;
-	collisionMask = COL.PLAYER_BULLET | COL.ENEMY_BULLET;
+	collisionMask = COL.PLAYER_BULLET;
 
 	anim = new Anim( {
 		'pos': new PhysField( this, 'pos', 'vel', this.speed ),
@@ -447,6 +440,8 @@ export class SnakeBoss extends Boss {
 
 		this.orientSegments();
 		this.orientHelmet();
+
+		// sub-entities update with info from orient() methods
 	}
 
 	canEnter( attack: Attack ): boolean {

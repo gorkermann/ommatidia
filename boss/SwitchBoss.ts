@@ -257,8 +257,6 @@ class SwitchBossCover extends CenteredEntity {
  * boss starts with four SwitchBossSides in a square arrangement
  */
 class SwitchBossSide extends CenteredEntity {
-	alpha: number = 1.0;
-
 	whiteMaterial = new Material( 0, 0.0, 1.0 );
 	grayMaterial = new Material( 0, 0.0, 0.5 );
 
@@ -354,12 +352,6 @@ class SwitchBossSide extends CenteredEntity {
 		bullet.collisionGroup = COL.ENEMY_BULLET;
 	}
 
-	getShapes( step: number=1.0 ): Array<Shape> {
-		if ( this.alpha == 0 ) return [];
-
-		else return super.getShapes( step );
-	}
-
 	shade() {
 		this.material.alpha = this.alpha;
 		this.altMaterial.alpha = this.alpha;
@@ -437,7 +429,7 @@ export class SwitchBoss extends Boss {
 		this.shell.isGhost = true;
 		this.addSub( this.shell );
 
-		this.anim.fields['angle'] = new PhysField( this.shell, 'angle', 'angleVel', 0.1, { isAngle: true } );
+		this.anim.fields['angle'] = new PhysField( this.shell, 'angle', 'angleVel', 0.01, { isAngle: true } );
 
 		this.rebuildSides();
 
@@ -581,11 +573,13 @@ export class SwitchBoss extends Boss {
 			return !this.flags['shell_shed'];
 
 		} else if ( attack.name == 'burp' ) {
-			return this.flags['cover_count'] > 2 && this.bombs.length == 0;
+			return false;//this.flags['cover_count'] > 2 && this.bombs.length == 0;
 
 		} else if ( attack.name == 'shoot') {
 			return false;//this.flags['shell_shed'];
 		}
+
+		return false;
 	}
 
 	/**

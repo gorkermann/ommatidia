@@ -320,6 +320,10 @@ export class RollBoss extends Boss {
 
 	wait: number = 0;
 
+	tunnelPctSweepSpeed: number = 0.20;
+	tunnelPrevSweepAngle: number = -1;
+	tunnelPctFireInterval: number = 0.10;
+
 	/* property overrides */
 
 	attacks = attacks;
@@ -327,7 +331,8 @@ export class RollBoss extends Boss {
 
 	flavorName = 'ROLL CORE';
 
-	health = 80;
+	maxHealth = 80;
+	health = this.maxHealth;
 
 	collisionGroup = COL.LEVEL;
 	collisionMask = COL.PLAYER_BULLET;
@@ -530,10 +535,9 @@ export class RollBoss extends Boss {
 
 	canEnter( attack: Attack ): boolean {
 		if ( attack.name == 'tunnel_sweep' ) return true;
-		if ( attack.name == 'v_sweep' ) return true;
-		if ( attack.name == 'slam' ) return true;
-		if ( attack.name == 'potshot' ) return true;
 		
+		if ( attack.name == 'potshot' ) return false;
+		if ( attack.name == 'v_sweep' ) return false;
 		if ( attack.name == 'shed' ) return false;
 
 		return false;
@@ -575,17 +579,29 @@ export class RollBoss extends Boss {
 				} ), { tag: 'exit' } );
 
 				// attack
-				let sweepAngle = ( 0.5 + Math.random() * 0.5 ) * ( Math.random() > 0.5 ? -1: 1 );
+				let sweepAngle = ( 0.5 + Math.random() * 0.5 ); // 30 to 60 degrees
+				if ( this.tunnelPrevSweepAngle > 0 ) sweepAngle *= -1;
+				this.tunnelPrevSweepAngle = sweepAngle; 
+
+				let healthLoss = 1 - this.getHealth() / this.maxHealth;
+
+				// starts at 0.005rad/frame, increases by 0.005rad/frame per 20% of health lost 
+				let sweepSpeed = ( 1 + Math.floor( healthLoss / this.tunnelPctSweepSpeed ) ) * 0.005 + 0.005;
+
+				// starts at 3000ms, decreases to 500ms over the first 50% of health lost (500ms per 10%)
+				let fireInterval = ( 6 - Math.min( Math.floor( healthLoss / this.tunnelPctFireInterval ), 5 ) ) * 500;
+
+				this.setFireInterval( fireInterval );
 
 				this.anim.pushFrame( new AnimFrame( {
-					'roller-angle': { value: halfAngle + sweepAngle, overrideRate: 0.01 },
+					'roller-angle': { value: halfAngle + sweepAngle, overrideRate: sweepSpeed },
 					'fireOk': { value: true },
 				} ) );
 
 				// aim
 				this.anim.pushFrame( new AnimFrame( {
-					'roller-angle': { value: halfAngle, overrideRate: 0.05 },
-					'fireOk': { value: false },
+					'roller-angle': { value: halfAngle, overrideRate: sweepSpeed * 2 },
+				 	'fireOk': { value: false },
 				} ) );
 			
 			// slam
@@ -784,10 +800,10 @@ export class RollBoss extends Boss {
 
 		if ( this.attack ) {
 			if ( this.attack.name != 'shed' ) {//this.attack.name == 'tunnel_sweep' || this.attack.name == 'v_sweep' ) {
-				if ( this.flags['current_attack_damage'] > 5 ) {
-					this.anim.clear( { withoutTag: 'exit' } );
-					this.counter = getAttack( 'shed' );
-				}
+				// if ( this.flags['current_attack_damage'] > 5 ) {
+				// 	this.anim.clear( { withoutTag: 'exit' } );
+				// 	this.counter = getAttack( 'shed' );
+				// }
 
 				if ( this.watchTarget.length() < 100 && this.attack.name != 'potshot' ) {
 					this.anim.clear( { withoutTag: 'exit' } );

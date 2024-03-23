@@ -6,7 +6,7 @@ import { Vec2 } from "./lib/juego/Vec2.js"
 
 import { CenteredEntity } from './CenteredEntity.js'
 
-export class Bullet extends Entity {
+export class Bullet extends CenteredEntity {
 	speed: number;
 
 	constructor( pos: Vec2, vel: Vec2 ) {
