@@ -6,16 +6,19 @@
 [] Snake: add gun material, shoot in wave down body, also shoot from tail and head (30m)
 [] Snake: make one segment weak (not first or last). increase speed when segment is destroyed (1h)
 [] Snake: move randomly (and don't shoot) until first segment is destroyed (30m)
-XXX [] Shell: gather segments when shot (player or own missile) (2h)
-XXX [] Carrier: reread how boids work (30m)
+[-] Shell: gather segments when shot (player or own missile) (2h)
+[-] too complicated -- Carrier: reread how boids work (30m)
 [x] Carrier: initial sketch of class, connect-the-dots attack (1h)
-XXX [] Walker: mini walker class (1h)
-XXX [] Walker: big walker (2h)
-XXX [] Crab: make rope physics demo (2h)
-XXX [] Crab: initial sketch of class, two claws (2h)
+[-] not doing walker -- Walker: mini walker class (1h)
+[-] not doing walker -- Walker: big walker (2h)
+[-] not doing crab -- Crab: make rope physics demo (2h)
+[-] not doing crab -- Crab: initial sketch of class, two claws (2h)
 [] make a boss select screen (level?)
 [] d o n e ?
-XXX no crushing [] RollBoss: react to player being crushed, crush damages not kills (2h)
-[] SwitchBoss: add limit zone in shape of shell (can't get inside)
+[-] no crushing -- RollBoss: react to player being crushed, crush damages not kills (2h)
+[x] SwitchBoss: add limit zone in shape of shell (can't get inside)
 [] RollBoss: add circular limit zone around eye
-[] Carrier: don't move at first (30m)
+[x] Carrier: don't move at first (30m)
+[x] Carrier: orbital movement
+[x] Carrier: make drones clearly vulnerable
+[] Switch: make covers clearly vulnerable
