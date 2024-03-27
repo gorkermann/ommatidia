@@ -100,7 +100,7 @@ class SnakeBossSegment extends CenteredEntity {
 	vulnerable: boolean = false;
 	flash: number = 0.0;
 
-	wait: boolean = false;
+	wait: number = 0;
 
 	health: number = 5;
 
@@ -116,13 +116,15 @@ class SnakeBossSegment extends CenteredEntity {
 		'angle': new PhysField( this, 'angle', 'angleVel', 0 ),
 
 		// thread 1
-		'width': new AnimField( this, 'width', 4 ),
+		'width': new AnimField( this, 'width', 2 ),
 		'flash': new AnimField( this, 'flash', 0.1 ),
 		'alpha': new AnimField( this, 'alpha', 0.1 ),
 		'core-skewS': new AnimField( this.coreMaterial, 'skewS', 0.1 ),
 
 		// thread 2
 		'lum': new AnimField( this.fuchsiaMaterial, 'lum' ),
+
+		'wait': new AnimField( this, 'wait' ),
 	},
 	new AnimFrame( {} ) );
 
@@ -199,6 +201,15 @@ class SnakeBossSegment extends CenteredEntity {
 		return [shape, shape2];
 	}
 
+	explode() {
+		let p = new Vec2( 0, 0 );//this.getRandomPoint();
+
+		let explosion = new Explosion( p );
+		this.addSub( explosion );
+
+		explosion.collisionGroup = COL.ETHEREAL;
+	}
+
 	hitWith( otherEntity: Entity, contact: Contact ): void {
 		if ( otherEntity instanceof Bullet ) {
 			otherEntity.removeThis = true;
@@ -214,11 +225,18 @@ class SnakeBossSegment extends CenteredEntity {
 						new FuncCall<typeof this.destructor>( this, 'destructor', [] ) 
 					] ), { threadIndex: 1 } );
 
-					// shrink and fade
+					// fade
 					this.anim.pushFrame( new AnimFrame( {
 						'width': { value: 0 },
+					} ), { threadIndex: 1 } );
+
+					// shrink
+					this.anim.pushFrame( new AnimFrame( {
 						'alpha': { value: 0.0 }
 					} ), { threadIndex: 1 } );
+
+					this.explode();
+					this.explode();
 				}
 
 				this.anim.pushFrame( new AnimFrame( {
@@ -486,21 +504,27 @@ export class SnakeBoss extends Boss {
 
 		for ( let i = 1; i < this.posHistory.length; i++ ) {
 			if ( points.length >= this.tail.length + 1 ) break;
-			if ( points.length > 0 ) seekLength = this.tail[points.length-1].width + buffer; // points[i] is the aft of segment i-1
 
 			let diff = this.posHistory[i].distTo( this.posHistory[i-1] );
 
 			if ( len + diff > seekLength ) {
-				let bite = seekLength - len;
+				let bite = seekLength - len; // amount needed to "bite off" to complete segment
 
 				// if the position history has a big gap between points, put multiple segments along it
-				while ( true ) {
+				let consumed = false;
+
+				while ( !consumed ) {
 					points.push( this.posHistory[i-1].alongTo( this.posHistory[i], bite / diff ).minus( this.pos.plus( this.vel ) ) );
+					
+					// update seek length for next segment
+					if ( points.length - 1 < this.tail.length ) {
+						seekLength = this.tail[points.length-1].width + buffer;
+					}
 
 					if ( bite + seekLength < diff ) {
 						bite += seekLength;
 					} else {
-						break;
+						consumed = true;
 					}
 				}
 
@@ -640,7 +664,7 @@ export class SnakeBoss extends Boss {
 						'wait': { value: 0, expireOnCount: 1000 }
 					}, [
 						new FuncCall<typeof this.shootSeg>( this, 'shootSeg', [i] ),
-					] ), { tag: 'exit', threadIndex: 3 } );
+					] ), { threadIndex: 3 } );
 				}				
 			}
 		}
