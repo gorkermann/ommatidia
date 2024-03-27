@@ -16,6 +16,9 @@ export class Player extends Entity {
 	blockedDirs: Array<Vec2> = [];
 	collideDown: boolean = false;
 
+	lastFireTime: number = 0;
+	fireInterval: number = 100;
+
 	health = 10;
 	wince: number = 0;
 	causeOfDeath: string = '';
