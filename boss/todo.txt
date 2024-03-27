@@ -17,8 +17,9 @@
 [] d o n e ?
 [-] no crushing -- RollBoss: react to player being crushed, crush damages not kills (2h)
 [x] SwitchBoss: add limit zone in shape of shell (can't get inside)
-[] RollBoss: add circular limit zone around eye
+[x] RollBoss: add circular limit zone around eye
 [x] Carrier: don't move at first (30m)
 [x] Carrier: orbital movement
 [x] Carrier: make drones clearly vulnerable
-[] Switch: make covers clearly vulnerable
+[x] Switch: make covers clearly vulnerable
+[] limit rate of fire

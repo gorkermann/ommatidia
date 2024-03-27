@@ -217,9 +217,10 @@ class SwitchBossBomb extends CenteredEntity {
 class SwitchBossCover extends CenteredEntity {
 	health: number = 3;
 	flash: number = 0.0;
-	alpha: number = 1.0;
 
 	wait: boolean = false;
+
+	coreMaterial = new Material( 30, 1.0, 0.5 );
 
 	/* property overrides */
 	material: Material = new Material( 15, 1.0, 0.1 );
@@ -229,6 +230,15 @@ class SwitchBossCover extends CenteredEntity {
 		'alpha': new AnimField( this, 'alpha', 0.1 ),
 		'wait': new AnimField( this, 'wait' )
 	} );
+
+	getOwnShapes(): Array<Shape> {
+		let shapes = super.getOwnShapes();
+
+		shapes[0].edges[0].material = this.coreMaterial; // top
+		shapes[0].edges[2].material = this.coreMaterial; // bottom
+
+		return shapes;
+	}
 
 	hit() {
 		this.health -= 1;
@@ -248,8 +258,12 @@ class SwitchBossCover extends CenteredEntity {
 	}
 
 	shade() {
+		let now = new Date().getTime();
+
 		this.material.skewL = this.flash;
 		this.material.alpha = this.alpha;
+
+		this.coreMaterial.skewH = 15 * Math.sin( Math.PI * 2 * ( now % 1000 ) / 1000 );
 	}
 }
 
