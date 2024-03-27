@@ -431,6 +431,18 @@ export class SwitchBoss extends Boss {
 
 		this.anim.fields['angle'] = new PhysField( this.shell, 'angle', 'angleVel', 0.01, { isAngle: true } );
 
+		let invisibleWall = new CenteredEntity( new Vec2( 0, 0 ), wallUnit * 5, wallUnit * 7 );
+		invisibleWall.material.alpha = 0.0;
+		invisibleWall.collisionGroup = COL.LEVEL;
+		// don't set collisionMask
+		this.shell.addSub( invisibleWall );
+
+		invisibleWall = new CenteredEntity( new Vec2( 0, 0 ), wallUnit * 7, wallUnit * 5 );
+		invisibleWall.material.alpha = 0.0;
+		invisibleWall.collisionGroup = COL.LEVEL;
+		// don't set collisionMask
+		this.shell.addSub( invisibleWall );
+
 		this.rebuildSides();
 
 		this.anim.pushFrame( new AnimFrame( {
@@ -456,7 +468,7 @@ export class SwitchBoss extends Boss {
 		this.sides = [];
 		
 		for ( let sub of this.shell.getSubs() ) {
-			sub.removeThis = true;
+			if ( sub instanceof SwitchBossSide ) sub.removeThis = true;
 		}
 
 		this.shell.cull();
