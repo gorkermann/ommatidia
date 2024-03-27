@@ -94,10 +94,15 @@ class SnakeBossBarrier extends CenteredEntity {
 }
 
 class SnakeBossSegment extends CenteredEntity {
-	whiteMaterial = new Material( 0, 0.0, 1.0 );
-	fuchsiaMaterial = new Material( 300, 1.0, 0.5 );
+	fuchsiaMaterial = new Material( 300, 0.5, 0.5 );
+	coreMaterial = new Material( 30, 1.0, 0.5 );
+
+	vulnerable: boolean = false;
+	flash: number = 0.0;
 
 	wait: boolean = false;
+
+	health: number = 5;
 
 	/* property overrides */
 
@@ -109,21 +114,81 @@ class SnakeBossSegment extends CenteredEntity {
 	anim = new Anim( {
 		'pos': new PhysField( this, 'pos', 'vel', 0 ),
 		'angle': new PhysField( this, 'angle', 'angleVel', 0 ),
+
+		// thread 1
+		'width': new AnimField( this, 'width', 4 ),
+		'flash': new AnimField( this, 'flash', 0.1 ),
+		'alpha': new AnimField( this, 'alpha', 0.1 ),
+		'core-skewS': new AnimField( this.coreMaterial, 'skewS', 0.1 ),
+
+		// thread 2
+		'lum': new AnimField( this.fuchsiaMaterial, 'lum' ),
 	},
 	new AnimFrame( {} ) );
 
 	constructor( pos: Vec2, width: number, height: number ) {
 		super( pos, width, height );
+
+		this.coreMaterial.skewS = -1.0;
 	}
 
 	/* Entity overrides */
 
-	fire( index: number ) {
+	spawnBullet() {
+		for ( let j = 0; j < 2; j++ ) {
+			let bullet = new Bullet( this.applyTransform( new Vec2( 0, -this.height / 2 + j * this.height ) ),
+									 Vec2.fromPolar( this.angle - Math.PI / 2 + Math.PI * j, 5 ) );
+
+			this.spawnEntity( bullet );
+			bullet.collisionGroup = COL.ENEMY_BULLET;
+		}
+	}
+
+	activate() {
+		this.vulnerable = true;
+
+		this.anim.pushFrame( new AnimFrame( {
+			'core-skewS': { value: 0.0 }
+		} ), { threadIndex: 1 } );
+	}
+
+	deactivate() {
+		this.vulnerable = false;
+
+		this.anim.pushFrame( new AnimFrame( {
+			'core-skewS': { value: -1.0 }
+		} ), { threadIndex: 1 } );
+	}
+
+	fire() {
 		if ( this.alpha < 1.0 ) return;
+
+		// shoot
+		this.anim.pushFrame( new AnimFrame( {
+			'lum': { value: 0.5 }
+		}, [
+			new FuncCall<typeof this.spawnBullet>( this, 'spawnBullet', [] )
+		] ), { threadIndex: 2 } );
+
+		// charge up
+		this.anim.pushFrame( new AnimFrame( {
+			'lum': { value: 1.0, reachOnCount: 1000 }
+		} ), { threadIndex: 2 } );
 	}
 
 	getOwnShapes(): Array<Shape> {
-		let shapes = super.getOwnShapes();
+		let shapes = [];
+
+		let shape = Shape.makeRectangle( new Vec2( -this.width / 2, -this.height / 2 ), this.width, this.height, 2 );
+		shape.material = this.material;
+		shape.edges[0].material = this.coreMaterial;
+		shape.edges[2].material = this.coreMaterial;
+		shape.edges[3].material = this.altMaterial;
+		shape.edges[4].material = this.coreMaterial;
+		shape.edges[6].material = this.coreMaterial;
+		shape.edges[7].material = this.altMaterial;
+
+		shape.parent = this;
 
 		let shape2 = Shape.makeRectangle( new Vec2( -5, -this.height / 2 - 5 ), 10, this.height + 10 );
 		shape2.material = this.altMaterial;
@@ -131,14 +196,52 @@ class SnakeBossSegment extends CenteredEntity {
 		shape2.edges[2].material = this.fuchsiaMaterial;
 		shape2.parent = this;
 
-		shapes.push( shape2 );
+		return [shape, shape2];
+	}
 
-		return shapes;
+	hitWith( otherEntity: Entity, contact: Contact ): void {
+		if ( otherEntity instanceof Bullet ) {
+			otherEntity.removeThis = true;
+
+			if ( !this.vulnerable ) return;
+
+			if ( this.health > 0 ) {
+				this.health -= 1;
+			
+				if ( this.health <= 0 ) {
+					// ask for removal
+					this.anim.pushFrame( new AnimFrame( {}, [
+						new FuncCall<typeof this.destructor>( this, 'destructor', [] ) 
+					] ), { threadIndex: 1 } );
+
+					// shrink and fade
+					this.anim.pushFrame( new AnimFrame( {
+						'width': { value: 0 },
+						'alpha': { value: 0.0 }
+					} ), { threadIndex: 1 } );
+				}
+
+				this.anim.pushFrame( new AnimFrame( {
+					'flash': { value: 0.0 }
+				} ), { threadIndex: 1 } );
+
+				this.anim.pushFrame( new AnimFrame( {
+					'flash': { value: 0.5, overrideRate: 0 }
+				} ), { threadIndex: 1 } );
+			}
+		}
 	}
 
 	shade() {
+		let now = new Date().getTime();
+
 		this.material.alpha = this.alpha;
 		this.altMaterial.alpha = this.alpha;
+
+		this.material.skewL = this.flash;
+		this.altMaterial.skewL = this.flash;
+
+		this.coreMaterial.skewH = 15 * Math.sin( Math.PI * 2 * ( now % 1000 ) / 1000 );
 
 		super.shade();
 	}
@@ -268,7 +371,7 @@ export class SnakeBoss extends Boss {
 
 	posHistory: Array<Vec2> = [];
 	tail: Array<SnakeBossSegment> = [];
-	segmentCount: number = 12;
+	segmentCount: number = 10;
 	segmentLength: number = wallUnit * 2;
 
 	flash: number = 0.0;
@@ -276,6 +379,7 @@ export class SnakeBoss extends Boss {
 	wait: number = 0;
 
 	speed: number = 2;
+	speedIncrease: number = 0.2;
 
 	/* property overrides */
 
@@ -293,7 +397,7 @@ export class SnakeBoss extends Boss {
 
 	flavorName = 'SNAKE CORE';
 
-	health = 100;
+	health = 10;
 
 	material = new Material( 15, 1.0, 0.5 );
 
@@ -322,9 +426,10 @@ export class SnakeBoss extends Boss {
 
 		// helmet
 		this.helmet = new CenteredEntity( new Vec2(), 90, 90 );
-		let helmetPoints = [];
+		this.helmet.angle = Math.PI / 2;
+		let helmetPoints = [new Vec2( 0, 0 )];
 		for ( let i = 0; i < 9; i++ ) {
-			helmetPoints.push( Vec2.fromPolar( -Math.PI / 2 + Math.PI * i / 8, 45 ) )
+			helmetPoints.push( Vec2.fromPolar( -Math.PI * 0.9 + Math.PI * 1.8 * i / 8, 45 ) )
 		}
 		let helmetShape = Shape.fromPoints( helmetPoints ); 
 		helmetShape.material = new Material( 300, 1.0, 0.5 );
@@ -347,35 +452,41 @@ export class SnakeBoss extends Boss {
 			this.addSub( seg );
 		}
 
+		this.posHistory.unshift( this.pos.plus( new Vec2( 180, -180 ) ) );
+		this.posHistory.unshift( this.pos.plus( new Vec2( 360, -180 ) ) );
+		this.posHistory.unshift( this.pos.plus( new Vec2( 360, 0 ) ) );
+		this.posHistory.unshift( this.pos.plus( new Vec2( 180, 0 ) ) );
+
 		if ( spawn ) {
-			let barrier = new SnakeBossBarrier( this.pos.copy(), fieldWidth );
+			let barrier = new SnakeBossBarrier( this.pos.plus( new Vec2( 90, 90 ) ), fieldWidth );
 			this.spawnEntity( barrier );
 			barrier.collisionGroup = COL.LEVEL;
 			barrier.collisionMask = COL.ENEMY_BULLET;
-		}
 
-		let points = [];
-		let w = fieldWidth / 7;
+			let points = [];
+			let w = fieldWidth / 7;
 
-		for ( let x = 0; x < 7; x++ ) {
-			for ( let y = 0; y < 7; y++ ) {
-				if ( x % 2 && y % 2 ) continue;
+			for ( let x = 0; x < 7; x++ ) {
+				for ( let y = 0; y < 7; y++ ) {
+					if ( x % 2 && y % 2 ) continue;
 
-				points.push( this.pos.plus( new Vec2( w * -3 + w * x, w * -3 + w * y ) ) );
+					points.push( barrier.pos.plus( new Vec2( w * -3 + w * x, w * -3 + w * y ) ) );
+				}
 			}
-		}
 
-		this.cloud = new VertCloud( points, w + 10 );
+			this.cloud = new VertCloud( points, w + 10 );
+		}
 	}
 
 	orientSegments() {
 		let points: Array<Vec2> = [];
 		let buffer = 10;
-		let seekLength = this.segmentLength + buffer;
+		let seekLength = this.segmentLength + buffer; // first point is on eye circumference
 		let len = seekLength / 2;
 
 		for ( let i = 1; i < this.posHistory.length; i++ ) {
 			if ( points.length >= this.tail.length + 1 ) break;
+			if ( points.length > 0 ) seekLength = this.tail[points.length-1].width + buffer; // points[i] is the aft of segment i-1
 
 			let diff = this.posHistory[i].distTo( this.posHistory[i-1] );
 
@@ -401,17 +512,17 @@ export class SnakeBoss extends Boss {
 		}
 
 		for ( let i = 0; i < this.tail.length && i + 1 < points.length; i++ ) {
-			this.tail[i].anim.clear();
+			this.tail[i].anim.clear( { withTag: 'orient' } );
 
 			this.tail[i].anim.pushFrame( new AnimFrame( {
 				'pos': { value: points[i].alongTo( points[i+1], 0.5 ) },
 				'angle': { value: points[i].minus( points[i+1] ).angle() }
-			} ) );
+			} ), { tag: 'orient' } );
 		}
  	}
 
 	orientHelmet() {
-		if ( this.anim.isDone( [2] ) ) {
+		if ( this.anim.isDone( [2] ) && this.vel.length() > 0.0001 ) {
 			this.anim.pushFrame( new AnimFrame( { 
 				'helmet-angle': { value: this.vel.angle() }
 			} ), { threadIndex: 2 } )
@@ -420,8 +531,23 @@ export class SnakeBoss extends Boss {
 
 	/* Entity overrides */
 
+	cull() {
+		super.cull();
+
+		let prevLength = this.tail.length;
+		cullList( this.tail );
+
+		if ( this.tail.length < prevLength ) {
+			this.speed += this.speedIncrease;
+			this.anim.fields['pos'].rate = this.speed;
+		}
+	}
+
 	hitWith( otherEntity: Entity, contact: Contact ): void {
-		if ( otherEntity instanceof Bullet ) {
+		if ( contact.sub instanceof SnakeBossSegment ) {
+			contact.sub.hitWith( otherEntity, contact );
+
+		} else if ( otherEntity instanceof Bullet ) {
 			otherEntity.removeThis = true;
 
 			if ( this.invuln ) return;
@@ -463,12 +589,13 @@ export class SnakeBoss extends Boss {
 
 			// rotate
 			if ( this.attack.name == 'seek' ) {
-				this.path = [];
-
 				let start = this.cloud.getClosestVert( this.pos );
 				let end = this.cloud.getClosestVert( this.pos.plus( this.watchTarget ) );
 
 				let avoidIndices = [];
+				for ( let i = this.path.length - 2; i >= 0 && i < this.path.length; i++ ) {
+					avoidIndices.push( this.cloud.verts.indexOf( this.path[i] ) );
+				}
 				for ( let i = 0; i < this.tail.length / 2; i++ ) {
 					let v = this.cloud.getClosestVert( this.pos.plus( this.tail[i].pos ) );
 
@@ -476,6 +603,20 @@ export class SnakeBoss extends Boss {
 				}
 
 				this.path = this.cloud.graphSearch( start, end, avoidIndices );
+
+				if ( this.path.length < 2 ) {
+					let okIndices = [];
+
+					for ( let i = 0; i < this.cloud.verts.length; i++ ) {
+						if ( avoidIndices.indexOf( i ) < 0 ) {
+							okIndices.push( i );
+						}
+					}
+
+					let index = Math.floor( Math.random() * okIndices.length );
+
+					this.path = this.cloud.graphSearch( start, this.cloud.verts[index], avoidIndices );
+				}
 
 				let rev = this.path.concat();
 
@@ -490,20 +631,27 @@ export class SnakeBoss extends Boss {
 			}
 		}
 
+		/* attack update */
+
 		if ( this.attack.name == 'seek' ) {
 			if ( this.anim.isDone( [3] ) ) {
-				this.anim.pushFrame( new AnimFrame( {
-					'wait': { value: 0, expireOnCount: 3000 }
-				}, [
-					new FuncCall<typeof this.shootSide>( this, 'shootSide', [false] ),
-				] ), { tag: 'exit', threadIndex: 3 } );
-
-				this.anim.pushFrame( new AnimFrame( {
-					'wait': { value: 0, expireOnCount: 3000 }
-				}, [
-					new FuncCall<typeof this.shootSide>( this, 'shootSide', [true] ),
-				] ), { tag: 'exit', threadIndex: 3 } );
+				for ( let i = this.tail.length - 1; i >= 0; i-- ) {
+					this.anim.pushFrame( new AnimFrame( {
+						'wait': { value: 0, expireOnCount: 1000 }
+					}, [
+						new FuncCall<typeof this.shootSeg>( this, 'shootSeg', [i] ),
+					] ), { tag: 'exit', threadIndex: 3 } );
+				}				
 			}
+		}
+
+		/* body */
+
+		let vulnCount = this.tail.filter( x => x.vulnerable ).length;
+		if ( this.tail.length > 0 && vulnCount < 3 ) {
+			let index = Math.floor( Math.random() * this.tail.length );
+
+			if ( !this.tail[index].vulnerable ) this.tail[index].activate();
 		}
 
 		this.posHistory.unshift( this.pos.copy() );
@@ -514,13 +662,18 @@ export class SnakeBoss extends Boss {
 			if ( even && ( i % 2 ) ) continue;
 			if ( !even && !( i % 2 ) ) continue;
 
-			for ( let j = 0; j < 2; j++ ) {
-				let bullet = new Bullet( this.pos.plus( this.tail[i].pos ),
-										 Vec2.fromPolar( this.tail[i].angle - Math.PI / 2 + Math.PI * j, 5 ) );
-				this.spawnEntity( bullet );
-				bullet.collisionGroup = COL.ENEMY_BULLET;
-			}
+			this.tail[i].fire();
 		}
+	}
+
+	shootSeg( index: number ) {
+		if ( index < 0 || index >= this.tail.length ) {
+			console.warn( 'SnakeBoss.shootSeg: Index out of range (' + index + ')' );
+
+			return;
+		}
+
+		this.tail[index].fire();
 	}
 
 	draw( context: CanvasRenderingContext2D ) {
