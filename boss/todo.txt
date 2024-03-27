@@ -2,10 +2,11 @@
 [x] for AnimFuncs, replace generic objects with FuncCalls (30m) -
 [x] RollBoss: remove guard, horiz_sweep, whirl, x_sweep (30m) -
 [x] RollBoss: add v_sweep (2h) x 3h
-[] Roll/Shell: use attack-choosing logic from Boss (30m)
-[] Snake: add gun material, shoot in wave down body, also shoot from tail and head (30m)
-[] Snake: make one segment weak (not first or last). increase speed when segment is destroyed (1h)
-[] Snake: move randomly (and don't shoot) until first segment is destroyed (30m)
+[x] Roll/Shell: use attack-choosing logic from Boss (30m)
+[x] Snake: add gun material, shoot in wave down body, also shoot from tail and head (30m)
+[x] Snake: make one segment weak (not first or last). increase speed when segment is destroyed (1h)
+[x] Snake: move randomly (and don't shoot) until first segment is destroyed (30m)
+[x] Snake: start with all segments in train 
 [-] Shell: gather segments when shot (player or own missile) (2h)
 [-] too complicated -- Carrier: reread how boids work (30m)
 [x] Carrier: initial sketch of class, connect-the-dots attack (1h)
@@ -22,4 +23,8 @@
 [x] Carrier: orbital movement
 [x] Carrier: make drones clearly vulnerable
 [x] Switch: make covers clearly vulnerable
-[] limit rate of fire
+[x] limit rate of fire
+[-] Lock: change back to light blue
+[x] remove biglevel, add lock level
+[-] spawn jewel when boss defeated, jewel teleports back to hub
+[x] Lock: new wave when hit

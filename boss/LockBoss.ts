@@ -28,8 +28,8 @@ export class LockBossBarrier extends CenteredEntity {
 
 	/* property overrides */
 	
-	material = new Material( 150, 0.3, 0.7 );
-	altMaterial = new Material( 150, 0.3, 0.9 );
+	material = new Material( 210, 0.3, 0.7 );
+	altMaterial = new Material( 210, 0.3, 0.9 );
 	drawWireframe = true;
 
 	constructor( pos: Vec2=new Vec2(), width: number=0, height: number=0 ) {
@@ -125,7 +125,7 @@ export class LockWall extends LockWave {
 	left: CenteredEntity;
 	right: CenteredEntity;
 
-	state: number = LockWallState.DEFAULT;
+	state: number = LockWallState.ENTERING;
 
 	isOpen: boolean = false;
 
@@ -168,11 +168,22 @@ export class LockWall extends LockWave {
 			'leftPos': new AnimField( this.left, 'pos', 1 ),
 			'rightPos': new AnimField( this.right, 'pos', 1 ),
 			'alpha': new AnimField( this, 'alpha', 0.1 ),
+			'state': new AnimField( this, 'state' ),
 		},
 		new AnimFrame( {
 			'leftPos': { value: this.left.pos.copy() },
 			'rightPos': { value: this.right.pos.copy() },
 			'alpha': { value: 1.0, setDefault: true },
+		} ) );
+
+		// move down
+		this.anim.pushFrame( new AnimFrame( {
+			'state': { value: LockWallState.DEFAULT }
+		} ) );
+
+		// fade in
+		this.anim.pushFrame( new AnimFrame( { 
+			'alpha': { value: 1.0, setDefault: true }
 		} ) );
 
 		let bulbCount = 4;
@@ -222,8 +233,8 @@ export class LockWall extends LockWave {
 			let offset = new Vec2( wallUnit, 0 );
 
 			this.anim.pushFrame( new AnimFrame( {
-				'leftPos': { value: this.left.pos.minus( offset ), expireOnReach: true, setDefault: true },
-				'rightPos': { value: this.right.pos.plus( offset ), expireOnReach: true, setDefault: true }
+				'leftPos': { value: this.left.pos.minus( offset ), setDefault: true },
+				'rightPos': { value: this.right.pos.plus( offset ), setDefault: true }
 			} ) );
 
 			this.isOpen = true;
@@ -249,7 +260,7 @@ export class LockJaw extends LockWave {
 	top: CenteredEntity;
 	bottom: CenteredEntity;
 
-	state: number = LockWallState.DEFAULT;
+	state: number = LockWallState.ENTERING;
 
 	speed: number = 2;
 
@@ -310,22 +321,25 @@ export class LockJaw extends LockWave {
 			'pos': new PhysField( this, 'pos', 'vel', this.speed ),
 			'bottomPos': new PhysField( this.bottom, 'pos', 'vel', this.speed ),
 			'alpha': new AnimField( this, 'alpha', 0.1 ),
-		},
+			'state': new AnimField( this, 'state' )
+		}, 
 		new AnimFrame( {
 			'pos': { value: this.pos.copy() },
 			'bottomPos': { value: this.bottom.pos.copy() },
 			'alpha': { value: this.alpha },
 		} ) );
 
+		// move down
 		this.anim.pushFrame( new AnimFrame( {
 			'bottomPos': { 
-				value: this.bottom.pos.plus( new Vec2( 0, wallUnit * 3 ) ), 
-				expireOnReach: true, 
+				value: this.bottom.pos.plus( new Vec2( 0, wallUnit * 3 ) ),
 			},
+			'state': { value: LockWallState.DEFAULT }
 		} ) );
 
+		// fade in
 		this.anim.pushFrame( new AnimFrame( { 
-			'alpha': { value: 1.0, setDefault: true, expireOnReach: true }
+			'alpha': { value: 1.0, setDefault: true }
 		} ) );
 	}
 
@@ -334,14 +348,12 @@ export class LockJaw extends LockWave {
 			this.anim.pushFrame( new AnimFrame( {
 				'bottomPos': { 
 					value: this.bottom.pos.copy(), 
-					expireOnReach: true,
 				},
 			} ) );
 			this.anim.pushFrame( new AnimFrame( {
 				'pos': { value: this.pos.plus( new Vec2( 0, wallUnit * 6 ) ) },
 				'bottomPos': { 
-					value: this.bottom.pos.plus( new Vec2( 0, -wallUnit * 6 ) ), 
-					expireOnReach: true,
+					value: this.bottom.pos.plus( new Vec2( 0, -wallUnit * 6 ) ),
 				},
 			} ) );
 		}
@@ -354,7 +366,7 @@ export class LockRing extends LockWave {
 	moons: Array<CenteredEntity> = [];
 	//wall: CenteredEntity;
 
-	state: number = LockWallState.DEFAULT;
+	state: number = LockWallState.ENTERING;
 
 	//speed: number = 2;
 	angleSpeed: number = 0.05;
@@ -440,10 +452,9 @@ export class LockRing extends LockWave {
 		} ) );
 
 		this.anim.pushFrame( new AnimFrame( { 
-			'pos': { value: this.pos.plus( new Vec2( 0, fieldWidth - wallUnit * 2 ) ), expireOnReach: true, overrideRate: 3 },
+			'pos': { value: this.pos.plus( new Vec2( 0, fieldWidth - wallUnit * 2 ) ), overrideRate: 3 },
 			'angleVel': { value: ( Math.random() > 0.5 ? 1 : -1 ) * this.angleSpeed, setDefault: true },
 			'alpha': { value: 1.0, setDefault: true },
-			'state': { value: LockWallState.ENTERING }
 		} ) );
 	}
 
@@ -468,11 +479,10 @@ export class LockRing extends LockWave {
 		// when all bulbs are gone, expand then fade
 		if ( this.getBulbCount() == 0 && !this.isExpanded ) {
 			this.anim.pushFrame( new AnimFrame( {
-				'alpha': { value: 0, expireOnReach: true }
+				'alpha': { value: 0 }
 			} ) );
 			this.anim.pushFrame( new AnimFrame( {
-	 			'radiusVec': { value: new Vec2( this.exteriorRadius, 0 ), 
-	 						   expireOnReach: true,
+	 			'radiusVec': { value: new Vec2( this.exteriorRadius, 0 ),
 	 						   setDefault: true },
 	 			'angleVel': { value: 0, setDefault: true }
 	 		} ) );
@@ -497,7 +507,7 @@ export class LockRing extends LockWave {
 export class LockHole extends LockWave {
 	bits: Array<CenteredEntity> = [];
 
-	state: number = LockWallState.DEFAULT;
+	state: number = LockWallState.ENTERING;
 
 	/* property overrides */
 
@@ -538,6 +548,7 @@ export class LockHole extends LockWave {
 		this.anim = new Anim( {
 			'alpha': new AnimField( this, 'alpha', 0.1 ),
 			'vel': new AnimField( this, 'vel', 0.5 ),
+			'state': new AnimField( this, 'state' )
 		},
 		new AnimFrame( {
 			'alpha': { value: this.alpha },
@@ -546,12 +557,13 @@ export class LockHole extends LockWave {
 
 		// move bits down together
 		this.anim.pushFrame( new AnimFrame( {
-			'vel': { value: new Vec2( 0, speed ), setDefault: true, expireOnReach: true },
+			'vel': { value: new Vec2( 0, speed ), setDefault: true },
+			'state': { value: LockWallState.DEFAULT }
 		} ) );
 
 		// fade in
 		this.anim.pushFrame( new AnimFrame( {
-			'alpha': { value: 1.0, setDefault: true, expireOnReach: true },
+			'alpha': { value: 1.0, setDefault: true },
 		} ) );
 	}
 }
@@ -559,7 +571,7 @@ export class LockHole extends LockWave {
 export class LockBarrage extends LockWave {
 	bits: Array<CenteredEntity> = [];
 
-	state: number = LockWallState.DEFAULT;
+	state: number = LockWallState.ENTERING;
 
 	/* property overrides */
 
@@ -596,6 +608,7 @@ export class LockBarrage extends LockWave {
 		this.anim = new Anim( {
 			'alpha': new AnimField( this, 'alpha', 0.1 ),
 			'vel': new AnimField( this, 'vel', 0.5 ),
+			'state': new AnimField( this, 'state' )
 		},
 		new AnimFrame( {
 			'alpha': { value: this.alpha },
@@ -604,7 +617,7 @@ export class LockBarrage extends LockWave {
 
 		// move bits down together
 		this.anim.pushFrame( new AnimFrame( {
-			'vel': { value: new Vec2( 0, speed ), setDefault: true, expireOnReach: true },
+			'vel': { value: new Vec2( 0, speed ), setDefault: true },
 		} ) );
 
 		// move bits down separately
@@ -622,9 +635,13 @@ export class LockBarrage extends LockWave {
 			this.anim.pushFrame( frame );
 		}
 
+		this.anim.pushFrame( new AnimFrame( {
+			'state': { value: LockWallState.DEFAULT },
+		} ) );
+
 		// fade in
 		this.anim.pushFrame( new AnimFrame( {
-			'alpha': { value: 1.0, setDefault: true, expireOnReach: true },
+			'alpha': { value: 1.0, setDefault: true },
 		} ) );
 	}
 }
@@ -725,6 +742,12 @@ export class LockBoss extends Boss {
 	constructor( pos: Vec2=new Vec2( 0, 0 ), spawn: boolean=false ) {
 		super( pos, 40, 40 );
 
+		 if ( spawn ) {
+			this.spawnEntity( 
+				new LockBossBarrier( 
+				   this.pos.plus( new Vec2( 0, fieldHeight / 2 - this.height / 2 ) ), fieldWidth, fieldHeight ) );
+		}
+
 		this.invisibleWall = new CenteredEntity( 
 			new Vec2( 0, this.height / 2 + wallUnit ), fieldWidth, wallUnit );
 		this.invisibleWall.material.alpha = 0.0;
@@ -810,7 +833,6 @@ export class LockBoss extends Boss {
 
 				 		wave.anim.pushFrame( new AnimFrame( {
 				 			'radiusVec': { value: new Vec2( wave.interiorRadius, 0 ), 
-				 						   expireOnReach: true,
 				 						   setDefault: true },
 				 		} ) );
 				 	}
@@ -818,14 +840,15 @@ export class LockBoss extends Boss {
 			}
 		}
 
-     	// end waves
+	 	// end waves
 		for ( let wave of this.waves ) {
 			let fade = false;
 
 			// player is at invisible wall
-			if ( watchPos.y < this.invisibleWall.pos.y + this.invisibleWall.height / 2 + wallUnit ) {
-				fade = true;
-			}
+			// NOTE: this spawn-kills waves, so removing
+			//if ( watchPos.y < this.invisibleWall.pos.y + this.invisibleWall.height / 2 + wallUnit ) {
+			//	fade = true;
+			//}
 
 			wave.doForAllChildren( ( entity: Entity ) => {
 				if ( entity.applyTransform( new Vec2() ).y - this.pos.y > fieldHeight ) {
@@ -868,7 +891,7 @@ export class LockBoss extends Boss {
 
 			if ( wave.state != LockWallState.FADING && fade ) {
 				wave.state = LockWallState.FADING;
-				wave.anim.pushFrame( new AnimFrame( { 'alpha': { value: 0.0, expireOnReach: true } } ) );
+				wave.anim.pushFrame( new AnimFrame( { 'alpha': { value: 0.0 } } ) );
 			}	
 		}
 	}
@@ -879,7 +902,7 @@ export class LockBoss extends Boss {
 			wave.vel.zero();
 
 			wave.state = LockWallState.FADING;
-			wave.anim.pushFrame( new AnimFrame( { 'alpha': { value: 0.0, expireOnReach: true } } ) );
+			wave.anim.pushFrame( new AnimFrame( { 'alpha': { value: 0.0 } } ) );
 		}
 	}
 
@@ -967,6 +990,15 @@ export class LockBoss extends Boss {
 				otherEntity.removeThis = true;
 
 				this.doEyeStrain();
+
+				let anyDefault = false;
+				for ( let wave of this.waves ) {
+					if ( wave.state == LockWallState.DEFAULT ) {
+						anyDefault = true;
+					}
+				} 
+
+				if ( anyDefault ) this.stopWave();
 
 				this.health -= 1;
 				if ( Debug.flags.SUPER_SHOT ) this.health -= 10;
