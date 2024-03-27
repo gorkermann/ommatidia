@@ -429,6 +429,15 @@ export class RollBoss extends Boss {
 		this.tops[0].block.addSub( this.guns[0] );
 		this.bottoms[0].block.addSub( this.guns[1] );
 
+		// barrier around eye
+		let invisibleWall = new CenteredEntity( new Vec2( 0, 0 ), 100, 100 );
+		invisibleWall.material.alpha = 0.0;
+		invisibleWall.presetShapes = [Shape.makeCircle( new Vec2( 0, 0 ), 200, 12 )];
+		invisibleWall.presetShapes[0].material = invisibleWall.material;
+		invisibleWall.collisionGroup = COL.LEVEL;
+		// don't set collisionMask
+		this.addSub( invisibleWall );
+
 		// arena
 		if ( spawn ) {
 			this.spawnEntity( new Barrier( this.pos.copy(), 640 ) );
