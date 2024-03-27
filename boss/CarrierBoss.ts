@@ -113,15 +113,13 @@ export class CarrierBossBarrier extends CenteredEntity {
 }
 
 class Drone extends CenteredEntity {
-	speed: number = 5;
+	speed: number = 4;
 
 	stunned: boolean = false;
 
 	/* property overrides */
 
-	collisionMask = COL.LEVEL | COL.PLAYER_BULLET;
-
-	material = new Material( 240, 1.0, 0.5 );
+	material = new Material( 250, 1.0, 0.5 );
 
 	alpha: number = 1.0;
 	flash: number = 0.0;
@@ -165,14 +163,6 @@ class Drone extends CenteredEntity {
 
 				if ( this.vel.length() < 1 ) {
 					this.stun();
-				
-					this.anim.pushFrame( new AnimFrame( {}, [
-						new FuncCall<typeof this.revive>( this, 'revive', [] )
-					] ) );
-
-					this.anim.pushFrame( new AnimFrame( {
-						'alpha': { value: 1.0, expireOnCount: 10000 }
-					} ) );
 				}
 
 				this.anim.pushFrame( new AnimFrame( {
@@ -221,10 +211,10 @@ export class CarrierBoss extends Boss {
 
 	flavorName = 'CARRIER CORE';
 
-	maxHealth = 40;
+	maxHealth = 20;
 	health = this.maxHealth;
 
-	material = new Material( 240, 1.0, 0.5 );
+	material = new Material( 250, 1.0, 0.5 );
 
 	collisionGroup = COL.LEVEL;
 	collisionMask = COL.PLAYER_BULLET;
@@ -247,23 +237,29 @@ export class CarrierBoss extends Boss {
 
 		this.flags['health'] = this.getHealth();
 
-		this.shell = new CenteredEntity( new Vec2( 0, 0 ), this.width + 10, this.width + 10 );
-		this.shell.material = new Material( 240, 1.0, 0.8 );
+		this.shell = new CenteredEntity( new Vec2( 0, 0 ), this.width + 20, this.width + 20 );
+		this.shell.presetShapes = [Shape.makeCircle( new Vec2( 0, 0 ), this.width + 20, 12 ) ];
+		this.shell.presetShapes[0].material = new Material( 250, 1.0, 0.8 );
+		this.shell.presetShapes[0].material.alpha = 0.8;
 		this.shell.collisionGroup = COL.LEVEL;
+		this.shell.collisionMask = COL.PLAYER_BULLET;
+		this.anim.fields['shell-alpha'] = new AnimField( this.shell, 'alpha', 0.1 );
 		this.addSub( this.shell );
 
-		this.left = new CenteredEntity( new Vec2( this.width / 2 + wallUnit / 2, 0 ), wallUnit, wallUnit );
+		this.left = new CenteredEntity( new Vec2( this.width / 2 + wallUnit * 0.75, 0 ), wallUnit / 2, wallUnit );
 		this.left.material = this.material;
 		this.left.collisionGroup = COL.LEVEL;
+		this.left.collisionMask = COL.PLAYER_BULLET;
 		this.addSub( this.left );
 
-		this.right = new CenteredEntity( new Vec2( this.width / 2 + wallUnit / 2, 0 ), wallUnit, wallUnit );
+		this.right = new CenteredEntity( new Vec2( this.width / 2 + wallUnit * 0.75, 0 ), wallUnit / 2, wallUnit );
 		this.right.material = this.material;
 		this.right.collisionGroup = COL.LEVEL;
+		this.right.collisionMask = COL.PLAYER_BULLET;
 		this.addSub( this.right );
 
-		this.spawnDrone( 0, Vec2.fromPolar( -0.5 + Math.random(), 5 ) );
-		this.spawnDrone( Math.PI, Vec2.fromPolar( Math.PI + -0.5 + Math.random(), 5 ) );
+		this.spawnDrone( 0, new Vec2( 0, 0 ) );
+		this.spawnDrone( Math.PI, new Vec2( 0, 0 ) );//Vec2.fromPolar( Math.PI + -0.5 + Math.random(), 5 ) );
 
 		if ( spawn ) {
 			let barrier = new CarrierBossBarrier( this.pos.copy(), fieldWidth );
@@ -277,13 +273,13 @@ export class CarrierBoss extends Boss {
 		let drone = new Drone( this.pos.plus( v.times( 100 ) ), vel );
 
 		this.spawnEntity( drone );
-		drone.collisionGroup = COL.ENEMY_BULLET;
-		drone.collisionMask = COL.LEVEL | COL.PLAYER_BULLET;
+		drone.collisionGroup = COL.LEVEL;
+		drone.collisionMask = COL.LEVEL | COL.PLAYER_BULLET; // COL.LEVEL for hitting walls
 
 		this.drones.push( drone );
 
 		let gutter = new Gutter( new Vec2( 0, 0 ), wallUnit, wallUnit / 2 );
-		gutter.alpha = 0.5;
+		gutter.alpha = 0.3;
 		this.spawnEntity( gutter );
 		gutter.collisionGroup = COL.ENEMY_BULLET;
 		this.gutters.push( gutter );
@@ -314,6 +310,16 @@ export class CarrierBoss extends Boss {
 		if ( attack.name == 'shoot_small' ) return true;
 
 		return false;
+	}
+
+	reviveDrones() {
+		for ( let drone of this.drones ) {
+			drone.revive();
+
+			if ( drone.vel.length() == 0 ) {
+				drone.vel.set( Vec2.fromPolar( Math.PI * 2 * Math.random(), drone.speed ) );
+			}
+		}
 	}
 
 	defaultLogic() {
@@ -348,9 +354,10 @@ export class CarrierBoss extends Boss {
 			else this.gutters[i].isGhost = false;
 		}
 
-		let okDrones = this.drones.filter( x => !x.stunned )
+		let okDrones = this.drones.filter( x => !x.stunned );
 
-		if ( okDrones.length >= 2 ) {
+		// seek midpoint of drones
+		if ( okDrones.length > 0 ) {
 			this.left.angle = ( this.drones[0].pos.minus( this.pos ) ).angle();
 			this.right.angle = ( this.drones[1].pos.minus( this.pos ) ).angle();
 
@@ -358,12 +365,28 @@ export class CarrierBoss extends Boss {
 
 			this.anim.pushFrame( new AnimFrame( {
 				'pos': { value: ( this.drones[0].pos.plus( this.drones[1].pos ) ).times( 0.5 ) }
-			} ), { tag: 'move' } );
+			} ), { threadIndex: 1, tag: 'move' } );
 
-			this.shell.isGhost = false;
+		// open shell
+		} else if ( okDrones.length == 0 && this.shell.alpha == 1.0 ) {
+			this.anim.clear();
 
-		} else if ( okDrones.length == 0 ) {
-			this.shell.isGhost = true;
+			// fade in shell
+			this.anim.pushFrame( new AnimFrame( {
+				'shell-alpha': { value: 1.0 }
+			}, [
+				new FuncCall( this, 'reviveDrones', [] )
+			] ) );
+
+			// wait
+			this.anim.pushFrame( new AnimFrame( {
+				'wait': { value: 0, expireOnCount: 2000 }
+			} ) );
+
+			// fade out shell
+			this.anim.pushFrame( new AnimFrame( {
+				'shell-alpha': { value: 0.0 }
+			} ) );
 		}
 
 	}

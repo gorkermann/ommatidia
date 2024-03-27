@@ -588,8 +588,8 @@ export class RollBoss extends Boss {
 				// starts at 0.005rad/frame, increases by 0.005rad/frame per 20% of health lost 
 				let sweepSpeed = ( 1 + Math.floor( healthLoss / this.tunnelPctSweepSpeed ) ) * 0.005 + 0.005;
 
-				// starts at 3000ms, decreases to 500ms over the first 50% of health lost (500ms per 10%)
-				let fireInterval = ( 6 - Math.min( Math.floor( healthLoss / this.tunnelPctFireInterval ), 5 ) ) * 500;
+				// starts at 2000ms, decreases to 500ms over the first 50% of health lost (300ms per 10%)
+				let fireInterval = 500 + ( 5 - Math.min( Math.floor( healthLoss / this.tunnelPctFireInterval ), 5 ) ) * 300;
 
 				this.setFireInterval( fireInterval );
 
