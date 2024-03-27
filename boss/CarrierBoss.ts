@@ -88,7 +88,8 @@ export class CarrierBossBarrier extends CenteredEntity {
 	/* Entity overrides */
 
 	getShapes(): Array<Shape> {
-		let shape = getSegmentedRect( this.pos, this.width, this.width, 100 );
+		//let shape = getSegmentedRect( this.pos, this.width, this.width, 100 );
+		let shape = Shape.makeCircle( this.pos, this.width, 16, -0.5 );
 
 		shape.material = this.material;
 		shape.parent = this;
@@ -456,7 +457,7 @@ export class CarrierBoss extends Boss {
 
 			// wait
 			this.anim.pushFrame( new AnimFrame( {
-				'wait': { value: 0, expireOnCount: 2000 }
+				'wait': { value: 0, expireOnCount: 3000 }
 			} ) );
 
 			// fade out shell
