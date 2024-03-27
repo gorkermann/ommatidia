@@ -633,24 +633,28 @@ export class Level extends Scene {
 			this.player.vel.rotate( this.player.angle );
 
 			let shootVel = new Vec2();
+			let now = new Date().getTime();
 
-			if ( Keyboard.getHits( KeyCode.W ) > 0 ) shootVel.add( new Vec2( 0, -10 ) );
-			if ( Keyboard.getHits( KeyCode.A ) > 0 ) shootVel.add( new Vec2( -10, 0 ) );
-			if ( Keyboard.getHits( KeyCode.S ) > 0 ) shootVel.add( new Vec2( 0, 10 ) );
-			if ( Keyboard.getHits( KeyCode.D ) > 0 ) shootVel.add( new Vec2( 10, 0 ) );
+			if ( now - this.player.lastFireTime > this.player.fireInterval ) {
+				if ( Keyboard.getHits( KeyCode.W ) > 0 ) shootVel.add( new Vec2( 0, -10 ) );
+				if ( Keyboard.getHits( KeyCode.A ) > 0 ) shootVel.add( new Vec2( -10, 0 ) );
+				if ( Keyboard.getHits( KeyCode.S ) > 0 ) shootVel.add( new Vec2( 0, 10 ) );
+				if ( Keyboard.getHits( KeyCode.D ) > 0 ) shootVel.add( new Vec2( 10, 0 ) );
 
-			if ( shootVel.length() > 0 ) {
-				let bullet = new PlayerBullet( 
-						this.player.pos.copy().plus( new Vec2( 0, 0 ) ),
-						shootVel,
-						playerBulletMaterial.copy() );
+				if ( shootVel.length() > 0 ) {
+					let bullet = new PlayerBullet( 
+							this.player.pos.copy().plus( new Vec2( 0, 0 ) ),
+							shootVel,
+							playerBulletMaterial.copy() );
 
-				this.player.spawnEntity( bullet );
+					this.player.spawnEntity( bullet );
 
-				bullet.collisionGroup = COL.PLAYER_BULLET;
-				bullet.collisionMask = 0x00;
+					bullet.collisionGroup = COL.PLAYER_BULLET;
+					bullet.collisionMask = 0x00;
 
-				this.sounds.push( new Sound( './sfx/player_laser.wav' ) );
+					this.sounds.push( new Sound( './sfx/player_laser.wav' ) );
+					this.player.lastFireTime = now;
+				}
 			}
 
 		} else if ( this.controlMode == MODE_FREE ) {
@@ -728,7 +732,7 @@ export class Level extends Scene {
 		this.em.animate( frameStep, elapsed );
 		this.em.update();
 
-		if ( this.player.health <= 0 || result.crushed ) {
+		if ( this.player.health <= 0 || ( result.crushed && Debug.flags.ALLOW_CRUSH ) ) {
 			if ( result.crushed ) {
 				this.player.causeOfDeath = 'You have been crushed by the ' + result.crusher.flavorName;
 			}

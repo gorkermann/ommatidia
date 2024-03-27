@@ -25,6 +25,7 @@ export let flags: Dict<boolean> = {
 	SHOW_DEATH: false,
 	DRAW_ROOMS: false,
 	SEND_SERVER_FRAME: false,
+	ALLOW_CRUSH: false,
 }
 
 export type DebugField = {
