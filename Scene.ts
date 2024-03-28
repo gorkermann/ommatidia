@@ -15,6 +15,7 @@ export class Scene {
 	camera: Camera = new Camera();
 	em: EntityManager = new EntityManager();
 
+	final: boolean = false;
 	messages: Array<string> = [];
 
 	constructor( name: string ) {

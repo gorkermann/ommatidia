@@ -1,5 +1,33 @@
 export let levelDataList = [
 	{
+		width: 10,
+		height: 10,
+		tilewidth: 20,
+		tileheight: 20,
+		roomwidth: 10,
+		roomheight: 10, 
+		hue: 300,
+		controlMode: 1,
+
+		layers: [
+			{
+				name: "spawn",
+				data: [
+					0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+					0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+					0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+					0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+					0, 0, 0, 0, 0,10, 0, 0, 0, 0,
+					0, 0, 0, 0, 0,11, 0, 0, 0, 0,
+					0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+					0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+					0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+					0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+				]
+			}
+		],
+	},
+	{
 		width: 30,
 		height: 50,
 		tilewidth: 20,
@@ -164,6 +192,9 @@ export let levelDataList = [
 		roomheight: 20, 
 		hue: 270,
 		controlMode: 1,
+		lighting: {
+			lumFactor: 300
+		},
 
 		layers: [
 			{

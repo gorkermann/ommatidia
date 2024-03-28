@@ -9,6 +9,11 @@ import { COL } from './collisionGroup.js'
 import { Coin } from './Coin.js'
 import { Bullet, Gutter } from './Bullet.js'
 
+export type PlayerStatus = {
+	lives: number;
+	defeatedNames: Array<string>;
+}
+
 export class Player extends Entity {
 	jumping: boolean = false;
 	maxJumpFrames: number = 20;

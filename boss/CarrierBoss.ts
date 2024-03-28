@@ -125,7 +125,7 @@ class Drone extends CenteredEntity {
 
 	/* property overrides */
 
-	material = new Material( 250, 1.0, 0.5 );
+	material = new Material( CarrierBoss.hue, 1.0, 0.5 );
 
 	alpha: number = 1.0;
 	flash: number = 0.0;
@@ -261,7 +261,9 @@ export class CarrierBoss extends Boss {
 	maxHealth = 20;
 	health = this.maxHealth;
 
-	material = new Material( 250, 1.0, 0.5 );
+	static hue: number = 250;
+
+	material = new Material( CarrierBoss.hue, 1.0, 0.5 );
 
 	collisionGroup = COL.LEVEL;
 	collisionMask = COL.PLAYER_BULLET;
@@ -286,7 +288,7 @@ export class CarrierBoss extends Boss {
 
 		this.shell = new CenteredEntity( new Vec2( 0, 0 ), this.width + 20, this.width + 20 );
 		this.shell.presetShapes = [Shape.makeCircle( new Vec2( 0, 0 ), this.width + 20, 12 ) ];
-		this.shell.presetShapes[0].material = new Material( 250, 1.0, 0.8 );
+		this.shell.presetShapes[0].material = new Material( CarrierBoss.hue, 1.0, 0.8 );
 		this.shell.presetShapes[0].material.alpha = 0.8;
 		this.shell.collisionGroup = COL.LEVEL;
 		this.shell.collisionMask = COL.PLAYER_BULLET;

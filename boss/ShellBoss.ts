@@ -253,8 +253,8 @@ class ShellBossRing extends CenteredEntity {
 
 	isGhost = true;
 
-	material = new Material( 90, 1.0, 0.3 );
-	altMaterial = new Material( 90, 1.0, 0.5 );
+	material = new Material( ShellBoss.hue, 1.0, 0.3 );
+	altMaterial = new Material( ShellBoss.hue, 1.0, 0.5 );
 
 	editFields: Array<string> = this.editFields.concat( 
 		['angleVel'] );
@@ -474,6 +474,8 @@ export class ShellBoss extends Boss {
 	closedChargePctPer = 0.14;
 	closedChargePctWave = 0.50;
 
+	static hue: number = 90;
+
 	/* property overrides */
 
 	attacks = attacks;
@@ -484,7 +486,7 @@ export class ShellBoss extends Boss {
 	maxHealth = 40;
 	health = this.maxHealth;
 
-	material = new Material( 60, 1.0, 0.5 );
+	material = new Material( ShellBoss.hue, 1.0, 0.5 );
 
 	collisionGroup = COL.LEVEL;
 	collisionMask = COL.PLAYER_BULLET;

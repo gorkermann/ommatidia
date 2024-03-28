@@ -165,6 +165,7 @@ export function renderRays( context: CanvasRenderingContext2D,
 type SliderVal = {
 	id: string,
 	val: number;
+	default: number;
 }
 
 let sliceCount = 360;
@@ -260,36 +261,44 @@ function approachFlash( eyeVel: Vec2, hit: ShapeHit, angle: number, hitDist: num
 export let vals: Dict<SliderVal> = {
 	satFactor: {
 		id: 'sat-factor',
-		val: 200,
+		val: 300,
+		default: 300,
 	},
 	satPower: {
 		id: 'sat-power',
 		val: 1.0,
+		default: 1.0,
 	},
 	satMin: {
 		id: 'sat-min',
 		val: 0.3,
+		default: 0.3,
 	},	
 	lumFactor: {
 		id: 'lum-factor',
-		val: 100,
+		val: 500,
+		default: 500,
 	},
 	lumPower: {
 		id: 'lum-power',
 		val: 1.0,
+		default: 1.0,
 	},
 	lumMin: {
 		id: 'lum-min',
 		val: 0.2,
+		default: 0.2,
 	},
 
 	shading: {
 		id: 'shading',
 		val: 0.3,
+		default: 0.3,
 	},
 	lens: {
 		id: 'lens',
 		val: 2,
+		default: 2,
 	},
 }
 

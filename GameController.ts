@@ -23,6 +23,7 @@ import { levelDataList as sideLevels } from './levels/sideLevels.js'
 import { Scene } from './Scene.js'
 import { store } from './store.js'
 import { TitleScene } from './TitleScene.js'
+import { PlayerStatus } from './Player.js'
 import { Watcher, DictWatcher } from './Watcher.js'
 
 tp.config.WRITE_PTR_CLASSNAME = true;
@@ -50,8 +51,13 @@ type ResetInterfaceOptions = {
 	soft?: boolean;
 }
 
+type MessageHandler = {
+	name: string,
+	func: ( args: Array<string> ) => void
+}
+
 export class GameController extends Controller {
-	messageHandlers: Dict<() => void> = {};
+	messageHandlers: Array<MessageHandler> = [];
 
 	currentScene: Scene = null;
 
@@ -65,6 +71,11 @@ export class GameController extends Controller {
 	lastStateTime: number = 0; // milliseconds of play time since scene started
 
 	floaterScene: FloaterScene;
+
+	playerStatus: PlayerStatus = {
+		lives: 10,
+		defeatedNames: []
+	}
 
 	/* property overrides */
 
@@ -106,8 +117,9 @@ export class GameController extends Controller {
 			this.startLevel();
 		} );
 
-		this.addMessageHandler( 'complete', () => { 
-			this.levelIndex += 1;
+		this.addMessageHandler( 'complete', () => {
+			//this.levelIndex += 1;
+			this.levelIndex = 0;
 
 			if ( this.levelIndex < this.levelDataList.length ) {
 				/*let context = this.canvas.getContext( '2d' );
@@ -128,14 +140,26 @@ export class GameController extends Controller {
 				this.loadScene( this.title );
 			}
 		} );
+
+		this.addMessageHandler( 'begin', ( args: Array<string> ) => {
+			if ( args.length != 1 ) {
+				console.error( 'message.begin: Invalid arguments ' + args );
+				return;
+			}
+
+			let index = parseInt( args[0] );
+
+			if ( isNaN( index ) ) {
+				console.error( 'message.begin: Invalid index ' + args[0] );
+			}
+
+			this.levelIndex = index;
+			this.startLevel();
+		} );
 	}
 
-	addMessageHandler( message: string, func: () => void ) {
-		if ( this.messageHandlers[message] ) {
-			console.warn( 'GameController.addMessageHandler: Overwriting existing handler for ' + message );
-		}
-	
-		this.messageHandlers[message] = func;
+	addMessageHandler( name: string, func: ( args: Array<string> ) => void ) {
+		this.messageHandlers.push( { name: name, func: func } );
 	}
 
 	/* save */
@@ -180,8 +204,8 @@ export class GameController extends Controller {
 			if ( this.levelDataList[this.levelIndex].controlMode == 0 ) {
 				level = new SideLevel( 'level' + this.levelIndex, this.levelDataList[this.levelIndex] );
 			} else {
-				level = new Level( 'level' + this.levelIndex, this.levelDataList[this.levelIndex] );
-				if ( this.levelIndex == this.levelDataList.length - 1 ) level.final = true;	
+				level = new Level( 'level' + this.levelIndex, this.playerStatus, this.levelDataList[this.levelIndex] );
+				if ( this.playerStatus.defeatedNames.length == 5 ) level.final = true;	
 			}
 
 			this.loadScene( level );
@@ -250,8 +274,14 @@ export class GameController extends Controller {
 		}
 
 		for ( let message of this.currentScene.messages ) {
-			if ( message in this.messageHandlers ) {
-				this.messageHandlers[message]();
+			let words = message.split( ' ' );
+
+			if ( words[0] ) {
+				for ( let handler of this.messageHandlers ) {
+					if ( handler.name == words[0] ) {
+						handler.func( words.slice( 1 ) );		
+					}
+				}
 			} else {
 				console.error( 'GameController.update(): Unhandled message type ' + message );
 			}

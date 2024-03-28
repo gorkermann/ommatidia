@@ -32,10 +32,11 @@ import { Scene } from './Scene.js'
 import { Bullet, PlayerBullet } from './Bullet.js'
 import { CenteredEntity } from './CenteredEntity.js'
 import { COL, MILLIS_PER_FRAME, REWIND_SECS } from './collisionGroup.js'
-import { Player } from './Player.js'
-import { shapecast, renderFromEye, renderRays, whiteText, vals } from './render.js'
+import { Player, PlayerStatus } from './Player.js'
+import { shapecast, renderFromEye, renderRays, whiteText, vals as sliderVals } from './render.js'
 
 import { Orbiter, Blocker, Elevator, Tumbler, Door, StaticBumpkin, SniperBumpkin } from './TutorialEntity.js'
+import { PortalRing } from './PortalRing.js'
 
 import * as Debug from './Debug.js'
 
@@ -69,6 +70,7 @@ enum LevelState {
 	DEATH_REPLAY,
 	DEATH_MENU,
 	SUCCESS_MENU,
+	PROMPT,
 }
 
 class Message extends Entity {
@@ -130,6 +132,7 @@ export class Level extends Scene {
 	paused: boolean = false;
 
 	tryCount: number = 0;
+	playerStatus: PlayerStatus;
 	
 	cursorPos: Vec2 = new Vec2( 0, 0 );
 	
@@ -144,6 +147,8 @@ export class Level extends Scene {
 	or: number = 320;
 
 	state: LevelState = LevelState.DEFAULT;
+	promptAccept: string = '';
+	promptReject: string = '';
 
 	replayImages: Array<ReplayImage> = [];
 	replayCount: number = 10;
@@ -184,8 +189,10 @@ export class Level extends Scene {
 					 'replayImages', 'replayCount', 'replayIndex', 'replayAlpha'];
 	//saveFields = ['grid', 'player', 'controlMode', 'grav', 'data', 'bossHealthMax'];
 
-	constructor( name: string, data: any ) {
+	constructor( name: string, playerStatus: PlayerStatus, data: any ) {
 		super( name );
+
+		this.playerStatus = playerStatus;
 
 		this.data = data;
 
@@ -223,6 +230,22 @@ export class Level extends Scene {
 		Debug.setFlags( { 'DRAW_NORMAL': this.data.drawNormal } );
 		this.controlMode = this.data.controlMode;	
 
+		// lighting
+		for ( let key in sliderVals ) {
+			sliderVals[key].val = sliderVals[key].default;
+		}
+
+		if ( this.data.lighting ) {
+			for ( let key in this.data.lighting ) {
+				if ( key in sliderVals ) {
+					sliderVals[key].val = this.data.lighting[key];
+				}
+			}
+		}
+
+		// TODO: update UI sliders, override defaults on UI change?
+
+		// grid
 		let gridEnt = new Entity( new Vec2( 0, 0 ), 0, 0 );
 		gridEnt.isGhost = true;
 		gridEnt.collisionGroup = COL.LEVEL;
@@ -293,6 +316,12 @@ export class Level extends Scene {
 					this.player.material = playerMaterial.copy();
 					this.em.insert( this.player );
 				
+				// portals
+				} else if ( index == 11 ) {
+					let portals = new PortalRing( pos.minus( new Vec2( 0, this.grid.tileWidth ) ), this.playerStatus );
+
+					this.em.insert( portals );
+
 				// static bumpkin
 				} else if ( index == 20 ) {
 					let entity = new StaticBumpkin( pos.copy() );
@@ -320,127 +349,42 @@ export class Level extends Scene {
 					let boss = new LockBoss( pos.plus( new Vec2( -this.grid.tileWidth / 2, 0 ) ), true );
 
 					this.em.insert( boss );
-
-					this.healthBarMax = boss.getHealth();
-
-					if ( boss.messages.length > 0 ) {
-						this.messageQueue = this.messageQueue.concat( boss.messages );
-						boss.messages = [];
-					}
-
-					this.anim.pushFrame( new AnimFrame( {
-						'healthBar': {
-							value: this.healthBarMax, 
-							expireOnReach: true,
-							setDefault: true
-						}
-					} ) );
+					this.startBossFight( boss );
 
 				// big boss bumpkin
 				} else if ( index == 26 ) {
 					let boss = new RollBoss( pos.plus( new Vec2( -this.grid.tileWidth / 2, 0 ) ), true );
 
 					this.em.insert( boss );
-
-					this.healthBarMax = boss.getHealth();
-
-					if ( boss.messages.length > 0 ) {
-						this.messageQueue = this.messageQueue.concat( boss.messages );
-						boss.messages = [];
-					}
-
-					this.anim.pushFrame( new AnimFrame( {
-						'healthBar': {
-							value: this.healthBarMax, 
-							expireOnReach: true,
-							setDefault: true
-						}
-					} ) );
+					this.startBossFight( boss );
 
 				// big boss bumpkin
 				} else if ( index == 27 ) {
 					let boss = new ShellBoss( pos.plus( new Vec2( -this.grid.tileWidth / 2, 0 ) ), true );
 
 					this.em.insert( boss );
-
-					this.healthBarMax = boss.getHealth();
-
-					if ( boss.messages.length > 0 ) {
-						this.messageQueue = this.messageQueue.concat( boss.messages );
-						boss.messages = [];
-					}
-
-					this.anim.pushFrame( new AnimFrame( {
-						'healthBar': {
-							value: this.healthBarMax, 
-							expireOnReach: true,
-							setDefault: true
-						}
-					} ) );
-
+					this.startBossFight( boss );
 
 				// big boss bumpkin
 				} else if ( index == 28 ) {
 					let boss = new SwitchBoss( pos.plus( new Vec2( -this.grid.tileWidth / 2, 0 ) ), true );
 
 					this.em.insert( boss );
-
-					this.healthBarMax = boss.getHealth();
-
-					if ( boss.messages.length > 0 ) {
-						this.messageQueue = this.messageQueue.concat( boss.messages );
-						boss.messages = [];
-					}
-
-					this.anim.pushFrame( new AnimFrame( {
-						'healthBar': {
-							value: this.healthBarMax, 
-							expireOnReach: true,
-							setDefault: true
-						}
-					} ) );
+					this.startBossFight( boss );
 
 				// big boss bumpkin
 				} else if ( index == 29 ) {
 					let boss = new SnakeBoss( pos.plus( new Vec2( -this.grid.tileWidth / 2, 0 ) ), true );
 
 					this.em.insert( boss );
-
-					this.healthBarMax = boss.getHealth();
-
-					if ( boss.messages.length > 0 ) {
-						this.messageQueue = this.messageQueue.concat( boss.messages );
-						boss.messages = [];
-					}
-
-					this.anim.pushFrame( new AnimFrame( {
-						'healthBar': {
-							value: this.healthBarMax, 
-							expireOnReach: true,
-							setDefault: true
-						}
-					} ) );										
+					this.startBossFight( boss );				
 
 				// big boss bumpkin
 				} else if ( index == 30 ) {
 					let boss = new CarrierBoss( pos.plus( new Vec2( -this.grid.tileWidth / 2, 0 ) ), true );
 
 					this.em.insert( boss );
-
-					this.healthBarMax = boss.getHealth();
-
-					if ( boss.messages.length > 0 ) {
-						this.messageQueue = this.messageQueue.concat( boss.messages );
-						boss.messages = [];
-					}
-
-					this.anim.pushFrame( new AnimFrame( {
-						'healthBar': {
-							value: this.healthBarMax, 
-							expireOnReach: true,
-							setDefault: true
-						}
-					} ) );	
+					this.startBossFight( boss );
 
 				} else if ( index >= 50 ) {
 					let msgIndex = index - 50;
@@ -473,13 +417,29 @@ export class Level extends Scene {
 		this.ir = 300;
 
 		this.anim.pushFrame( new AnimFrame( {
-			'or': { value: 120, expireOnReach: true } } ) );
+			'or': { value: 120 } } ) );
 		this.anim.pushFrame( new AnimFrame( { 
-			'ir': { value: 100, expireOnReach: true } } ) );
+			'ir': { value: 100 } } ) );
 
 		return new Promise( function(resolve, reject) {
 			resolve(0);
 		});
+	}
+
+	startBossFight( boss: Boss ) {
+		this.healthBarMax = boss.getHealth();
+
+		if ( boss.messages.length > 0 ) {
+			this.messageQueue = this.messageQueue.concat( boss.messages );
+			boss.messages = [];
+		}
+
+		this.anim.pushFrame( new AnimFrame( {
+			'healthBar': {
+				value: this.healthBarMax,
+				setDefault: true
+			}
+		} ) );
 	}
 
 	update() {
@@ -532,6 +492,7 @@ export class Level extends Scene {
 		} else if ( this.state == LevelState.DEATH_MENU ) {
 			if ( Keyboard.keyHit( KeyCode.R ) ) this.messages.push( 'restart' );
 			if ( Keyboard.keyHit( KeyCode.Z ) ) this.messages.push( 'rewind' );
+			if ( Keyboard.keyHit( KeyCode.S ) ) this.messages.push( 'complete' ); // no defeated name added
 
 			if ( Keyboard.keyHit( KeyCode.LEFT ) ) this.replayIndex -= 1;
 			if ( Keyboard.keyHit( KeyCode.RIGHT ) ) this.replayIndex += 1;
@@ -541,6 +502,10 @@ export class Level extends Scene {
 
 		} else if ( this.state == LevelState.SUCCESS_MENU ) {
 			if ( Keyboard.keyHit( KeyCode.Z ) ) this.messages.push( 'complete' );
+
+		} else if ( this.state == LevelState.PROMPT ) {
+			if ( Keyboard.keyHit( KeyCode.W ) ) this.messages.push( this.promptAccept );
+			if ( Keyboard.keyHit( KeyCode.S ) ) this.state = LevelState.DEFAULT;
 
 		} else {
 			if ( Keyboard.keyHit( KeyCode.SPACE ) ) {
@@ -676,6 +641,7 @@ export class Level extends Scene {
 		let treeGroup: Array<number> = this.em.entities.map( x => x.treeCollisionGroup() );
 		let treeMask: Array<number> = this.em.entities.map( x => x.treeCollisionMask() );
 
+		// overlapping
 		for ( let i = 0; i < this.em.entities.length; i++ ) {
 			let entity = this.em.entities[i];
 
@@ -692,15 +658,39 @@ export class Level extends Scene {
 					entity.hitWithMultiple( otherEntity, contacts );
 				}
 			}
+		}
 
-			if ( entity instanceof Boss || entity instanceof Player ) {
-				if ( entity.messages.length > 0 ) {
-					this.messageQueue = this.messageQueue.concat( entity.messages );
-					entity.messages = [];
+		// message passing
+		for ( let i = 0; i < this.em.entities.length; i++ ) {
+			let entity = this.em.entities[i];
+
+			if ( entity.messages.length > 0 ) {
+				for ( let message of entity.messages ) {
+					if ( message.length > 0 && message[0] == '!' ) {
+						let words = message.split( ',' ).map( x => x.trim() );
+						let ok = false;
+
+						if ( words[0] == '!prompt' && words.length == 3 ) {
+							this.state = LevelState.PROMPT;
+							this.promptAccept = words[1];
+							this.promptReject = words[2]
+
+							ok = true;
+						}
+
+						if ( !ok ) {
+							console.error( 'Level.defaultUpdate: Invalid message ' + message );
+						}
+					} else {
+						this.messageQueue.push( message );
+					}
 				}
+				
+				entity.messages = [];
 			}
 		}
 
+		// solid collision
 		for ( let entity of this.em.entities ) {
 			if ( entity.isPliant ) {
 				solveCollisionsFor( entity, this.em.entities, COL.ENEMY_BODY | COL.LEVEL | COL.PLAYER_BODY, COL.LEVEL, frameStep );
@@ -774,16 +764,17 @@ export class Level extends Scene {
 		this.messageQueue.push( this.player.causeOfDeath )
 		//this.messageQueue.push( 'Press Z to go back ' + REWIND_SECS + ' seconds or R to restart level' );
 		this.messageQueue.push( 'Press R to restart level' );
+		this.messageQueue.push( 'or S to return to the lobby' );
 
 		// change state
 		this.anim.pushFrame( new AnimFrame( {
-			'state': { value: LevelState.DEATH_MENU, expireOnReach: true }
+			'state': { value: LevelState.DEATH_MENU }
 		} ) );
 
 		if ( Debug.flags.SHOW_DEATH ) {
 			// fade out
 			/*this.anim.pushFrame( new AnimFrame( {
-				'replayAlpha': { value: 0.0, expireOnReach: true } 
+				'replayAlpha': { value: 0.0 } 
 			} ) );*/
 
 			// wait
@@ -800,12 +791,12 @@ export class Level extends Scene {
 
 			// fade in
 			this.anim.pushFrame( new AnimFrame( {
-				'replayAlpha': { value: 1.0, expireOnReach: true } 
+				'replayAlpha': { value: 1.0 } 
 			} ) );
 
 			// change state
 			this.anim.pushFrame( new AnimFrame( {
-				'state': { value: LevelState.DEATH_REPLAY, expireOnReach: true }
+				'state': { value: LevelState.DEATH_REPLAY }
 			} ) );
 		}
 	}
@@ -813,11 +804,13 @@ export class Level extends Scene {
 	checkForSuccess() {
 		if ( this.state != LevelState.DEFAULT ) return;
 
-		let success = true;
+		let success = false;
 		let defeatedNames = [];
 
 		for ( let entity of this.em.entities ) {
 			if ( entity instanceof Boss ) {
+				success = true;
+
 				if ( entity.preventSuccess() ) {
 					success = false;
 				} else {
@@ -828,12 +821,21 @@ export class Level extends Scene {
 
 		if ( success ) {
 			if ( defeatedNames.length > 0 ) {
+				this.playerStatus.defeatedNames = this.playerStatus.defeatedNames.concat( defeatedNames );
+
 				this.anim.clear();
 
-				this.messageQueue.push( 'You have defeated the ' + defeatedNames.join( ', ' ) + '\nPress Z to proceed\n' );
+				this.messageQueue.push( 'You have defeated the ' + defeatedNames.join( ', ' ) );
 				
+				if ( this.final ) {
+					this.messageQueue.push( 'All cores have been defeated! Congratulations!' );
+					this.messageQueue.push( 'Press Z to return to the main menu' );
+				} else {
+					this.messageQueue.push( 'Press Z to proceed' );	
+				}
+
 				this.anim.pushFrame( new AnimFrame( {
-					'state': { value: LevelState.SUCCESS_MENU, expireOnReach: true }
+					'state': { value: LevelState.SUCCESS_MENU }
 				} ) );
 
 			} else {
@@ -965,7 +967,7 @@ export class Level extends Scene {
 			context.translate( -this.player.pos.x, -this.player.pos.y );
 
 			for ( let shape of shapes ) {
-				shape.sphericalStroke( context, this.player.pos, ir, vals.lens.val );
+				shape.sphericalStroke( context, this.player.pos, ir, sliderVals.lens.val );
 			}
 		context.restore();
 	}

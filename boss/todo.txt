@@ -14,7 +14,7 @@
 [-] not doing walker -- Walker: big walker (2h)
 [-] not doing crab -- Crab: make rope physics demo (2h)
 [-] not doing crab -- Crab: initial sketch of class, two claws (2h)
-[] make a boss select screen (level?)
+[x] make a boss select screen (level?)
 [] d o n e ?
 [-] no crushing -- RollBoss: react to player being crushed, crush damages not kills (2h)
 [x] SwitchBoss: add limit zone in shape of shell (can't get inside)
@@ -29,10 +29,10 @@
 [-] spawn jewel when boss defeated, jewel teleports back to hub
 [x] Lock: new wave when hit
 [] word wrapping in messages
-[] make RollBoss keepout smaller
+[x] make RollBoss keepout smaller
 [] more messages for boss actions
 [-] no default order -- reorder bosses: Lock, Switch, Carrier/Orbit, Shell, Roll, Snake
 [] prevent spawnEntity from setting collision mask
-[] change lighting defaults
+[x] change lighting defaults
 [] 3 health, 10 lives
 [] bullet clearing item

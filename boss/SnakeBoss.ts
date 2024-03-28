@@ -214,6 +214,7 @@ class SnakeBossSegment extends CenteredEntity {
 		if ( otherEntity instanceof Bullet ) {
 			otherEntity.removeThis = true;
 
+			if ( otherEntity.collisionGroup == COL.ENEMY_BULLET ) return;
 			if ( !this.vulnerable ) return;
 
 			if ( this.health > 0 ) {
@@ -399,6 +400,8 @@ export class SnakeBoss extends Boss {
 	speed: number = 2;
 	speedIncrease: number = 0.2;
 
+	static hue: number = 270;
+
 	/* property overrides */
 
 	flags: SnakeBossFlags = {
@@ -420,7 +423,7 @@ export class SnakeBoss extends Boss {
 	material = new Material( 15, 1.0, 0.5 );
 
 	collisionGroup = COL.LEVEL;
-	collisionMask = COL.PLAYER_BULLET;
+	collisionMask = COL.PLAYER_BULLET | COL.ENEMY_BULLET;
 
 	anim = new Anim( {
 		'pos': new PhysField( this, 'pos', 'vel', this.speed ),
@@ -454,7 +457,7 @@ export class SnakeBoss extends Boss {
 		helmetShape.material.alpha = 0.8;
 		this.helmet.presetShapes = [helmetShape];
 		this.helmet.collisionGroup = COL.LEVEL;
-		this.helmet.collisionMask = COL.PLAYER_BULLET;
+		this.helmet.collisionMask = COL.PLAYER_BULLET | COL.ENEMY_BULLET;
 
 		this.anim.fields['helmet-angle'] = new PhysField( this.helmet, 'angle', 'angleVel', 0.1, { isAngle: true } );
 
@@ -479,7 +482,7 @@ export class SnakeBoss extends Boss {
 			let barrier = new SnakeBossBarrier( this.pos.plus( new Vec2( 90, 90 ) ), fieldWidth );
 			this.spawnEntity( barrier );
 			barrier.collisionGroup = COL.LEVEL;
-			barrier.collisionMask = COL.ENEMY_BULLET;
+			barrier.collisionMask = COL.PLAYER_BULLET | COL.ENEMY_BULLET;
 
 			let points = [];
 			let w = fieldWidth / 7;
@@ -576,6 +579,8 @@ export class SnakeBoss extends Boss {
 
 		} else if ( otherEntity instanceof Bullet ) {
 			otherEntity.removeThis = true;
+
+			if ( otherEntity.collisionGroup == COL.ENEMY_BULLET ) return;
 
 			if ( this.invuln ) return;
 			if ( contact.sub != this ) return; // no weak points except eye

@@ -93,7 +93,8 @@ export class GameControllerDom extends GameController {
 		this.addPanel( this.inspector, container );
 
 		this.addMessageHandler( 'complete', () => { 
-			this.levelIndex += 1;
+			//this.levelIndex += 1;
+			this.levelIndex = 0;
 
 			if ( this.levelIndex < this.levelDataList.length ) {
 				let context = this.canvas.getContext( '2d' );

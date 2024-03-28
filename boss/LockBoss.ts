@@ -133,8 +133,8 @@ export class LockWall extends LockWave {
 
 	isGhost = true;
 
-	material =  new Material( 150, 1.0, 0.3 );
-	altMaterial =  new Material( 150, 1.0, 0.5 );
+	material =  new Material( LockBoss.hue, 1.0, 0.3 );
+	altMaterial =  new Material( LockBoss.hue, 1.0, 0.5 );
 
 	constructor( pos: Vec2=new Vec2(), speed: number=0 ) {
 		super( pos, fieldWidth, wallUnit );
@@ -270,8 +270,8 @@ export class LockJaw extends LockWave {
 
 	isGhost = true;
 
-	material = new Material( 150, 1.0, 0.3 );
-	altMaterial = new Material( 150, 1.0, 0.5 );
+	material = new Material( LockBoss.hue, 1.0, 0.3 );
+	altMaterial = new Material( LockBoss.hue, 1.0, 0.5 );
 
 	constructor( pos: Vec2=new Vec2(), speed: number=0 ) {
 		super( pos, fieldWidth, wallUnit );
@@ -383,8 +383,8 @@ export class LockRing extends LockWave {
 
 	isGhost = true;
 
-	material = new Material( 150, 1.0, 0.3 );
-	altMaterial = new Material( 150, 1.0, 0.5 );
+	material = new Material( LockBoss.hue, 1.0, 0.3 );
+	altMaterial = new Material( LockBoss.hue, 1.0, 0.5 );
 
 	constructor( pos: Vec2=new Vec2(), speed: number=0 ) {
 		super( pos, fieldWidth, wallUnit );
@@ -515,8 +515,8 @@ export class LockHole extends LockWave {
 
 	isGhost = true;
 
-	material = new Material( 150, 1.0, 0.5 );
-	altMaterial = new Material( 150, 1.0, 0.3 );
+	material = new Material( LockBoss.hue, 1.0, 0.5 );
+	altMaterial = new Material( LockBoss.hue, 1.0, 0.3 );
 
 	constructor( pos: Vec2=new Vec2(), speed: number=0 ) {
 		super( pos, fieldWidth, wallUnit );
@@ -579,8 +579,8 @@ export class LockBarrage extends LockWave {
 
 	isGhost = true;
 
-	material = new Material( 150, 1.0, 0.5 );
-	altMaterial = new Material( 150, 1.0, 0.3 );
+	material = new Material( LockBoss.hue, 1.0, 0.5 );
+	altMaterial = new Material( LockBoss.hue, 1.0, 0.3 );
 
 	constructor( pos: Vec2=new Vec2(), speed: number=0 ) {
 		super( pos, fieldWidth, wallUnit );
@@ -719,6 +719,8 @@ export class LockBoss extends Boss {
 	invisibleWall: CenteredEntity;
 	gutter: CenteredEntity;
 	wait: number = 0;
+
+	static hue: number = 150; 
 
 	/* property overrides */
 

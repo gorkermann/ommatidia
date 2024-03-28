@@ -300,6 +300,8 @@ export class RollBoss extends Boss {
 
 	guns: Array<Gun> = [];
 
+	static hue: number = 0;
+
 	/* behavior */
 
 	state: State = BossState.SLEEP;
@@ -432,7 +434,7 @@ export class RollBoss extends Boss {
 		// barrier around eye
 		let invisibleWall = new CenteredEntity( new Vec2( 0, 0 ), 100, 100 );
 		invisibleWall.material.alpha = 0.0;
-		invisibleWall.presetShapes = [Shape.makeCircle( new Vec2( 0, 0 ), 200, 12 )];
+		invisibleWall.presetShapes = [Shape.makeCircle( new Vec2( 0, 0 ), 100, 12 )];
 		invisibleWall.presetShapes[0].material = invisibleWall.material;
 		invisibleWall.collisionGroup = COL.LEVEL;
 		// don't set collisionMask
