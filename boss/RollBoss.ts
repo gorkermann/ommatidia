@@ -455,9 +455,7 @@ export class RollBoss extends Boss {
 		this.bottomSound = new Sound( './sfx/roll_arm_grind.wav', this.pos, { loop: true, distScale: 1000 } );
 
 		this.messages.push( 'You are in a vast circular chamber.\n' );
-		this.messages.push( 'The ROLL CORE lies dormant before you.\n' );
-		this.messages.push( 'Take heed, traveler!.\n' );
-		this.messages.push( 'Most only hear the clap of its terrible hands but once!\n' );
+		this.messages.push( 'The wide, red ROLL CORE lies before you.\n' );
 	}
 
 	/* function overrides */

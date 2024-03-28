@@ -28,3 +28,11 @@
 [x] remove biglevel, add lock level
 [-] spawn jewel when boss defeated, jewel teleports back to hub
 [x] Lock: new wave when hit
+[] word wrapping in messages
+[] make RollBoss keepout smaller
+[] more messages for boss actions
+[-] no default order -- reorder bosses: Lock, Switch, Carrier/Orbit, Shell, Roll, Snake
+[] prevent spawnEntity from setting collision mask
+[] change lighting defaults
+[] 3 health, 10 lives
+[] bullet clearing item

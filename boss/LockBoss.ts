@@ -764,6 +764,8 @@ export class LockBoss extends Boss {
 		this.anim.fields['gutterAlpha'] = new AnimField( this.gutter.material, 'alpha', 0.01 );
 
 		this.maxHealth = this.getHealth();
+
+		this.messages.push( 'You are in a rectangular chamber.\n' );
 	}
 
 	watch( target: Vec2 ) {
@@ -784,9 +786,8 @@ export class LockBoss extends Boss {
 
 			this.gutter.isGhost = false;
 
-			this.messages.push( 'Ah! A giant eye!' );
-			this.messages.push( 'And those green walls are moving!' );
-			this.messages.push( 'Pushing you down toward...a pit of fire!' );
+			this.messages.push( 'The LOCK CORE has appeared!' );
+			this.messages.push( 'A pit of fire ignites below you.' );
 		}
 	}
 

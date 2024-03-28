@@ -256,7 +256,7 @@ export class CarrierBoss extends Boss {
 	attacks = attacks;
 	overrideAttackField = 'CARRIER_ATK';
 
-	flavorName = 'CARRIER CORE';
+	flavorName = 'ORBIT CORE';
 
 	maxHealth = 20;
 	health = this.maxHealth;
@@ -313,6 +313,9 @@ export class CarrierBoss extends Boss {
 			this.spawnEntity( barrier );
 			barrier.collisionGroup = COL.LEVEL;
 		}
+
+		this.messages.push( 'You are in a vast circular chamber.\n' );
+		this.messages.push( 'The ORBIT CORE\'s shield generators are active.\n' );
 	}
 
 	spawnDrone( radius: number, angle: number, vel: Vec2 ) {

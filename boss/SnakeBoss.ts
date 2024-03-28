@@ -494,6 +494,9 @@ export class SnakeBoss extends Boss {
 
 			this.cloud = new VertCloud( points, w + 10 );
 		}
+
+		this.messages.push( 'You are in a maze of passageways.\n' );
+		this.messages.push( 'The elongated purple SNAKE CORE has seen you!\n' );
 	}
 
 	orientSegments() {

@@ -536,6 +536,9 @@ export class ShellBoss extends Boss {
 				ring.collisionMask = COL.PLAYER_BULLET | COL.ENEMY_BULLET;
 			}
 		}
+
+		this.messages.push( 'You are in a vast circular chamber.\n' );
+		this.messages.push( 'Apparitions of the circular SHELL CORE multiply before you' );
 	}
 
 	shootMissile( angle: number ) {

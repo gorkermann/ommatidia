@@ -181,6 +181,7 @@ export class GameController extends Controller {
 				level = new SideLevel( 'level' + this.levelIndex, this.levelDataList[this.levelIndex] );
 			} else {
 				level = new Level( 'level' + this.levelIndex, this.levelDataList[this.levelIndex] );
+				if ( this.levelIndex == this.levelDataList.length - 1 ) level.final = true;	
 			}
 
 			this.loadScene( level );

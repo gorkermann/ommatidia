@@ -468,6 +468,9 @@ export class SwitchBoss extends Boss {
 			this.spawnEntity( barrier );
 			barrier.collisionGroup = COL.LEVEL;
 		}
+
+		this.messages.push( 'You are in a vast circular chamber.\n' );
+		this.messages.push( 'The SWITCH CORE hides behind its square armor.\n' );
 	}
 
 	/**
