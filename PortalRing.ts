@@ -24,6 +24,7 @@ class Portal extends CenteredEntity {
 	name: string;
 	coin: Coin = new Coin( new Vec2( 0, 0 ) );
 
+	// 2-bit latch so that player is only prompted once when they overlap this entity 
 	playerIn: boolean = false;
 	prompted: boolean = false;
 

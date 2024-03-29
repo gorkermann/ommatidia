@@ -809,7 +809,7 @@ export class LockBoss extends Boss {
 
 		let gutterShape = this.getShapes().filter( x => x.parent == this.gutter )[0];
 		if ( gutterShape ) {
-			if ( gutterShape.contains( watchPos, 0.0, false ) ) {
+			if ( gutterShape.contains( watchPos, 0.0 ) ) {
 				this.stopWaves();
 			}
 		}

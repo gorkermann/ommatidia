@@ -1,6 +1,7 @@
 import { Camera } from './lib/juego/Camera.js'
 import { Entity } from './lib/juego/Entity.js'
 import { EntityManager } from './lib/juego/EntityManager.js'
+import { Vec2 } from './lib/juego/Vec2.js'
 
 ///////////
 // SCENE //
@@ -47,7 +48,7 @@ export class Scene {
 
 	update() {}
 
-	describe( entity: Entity ) {}
+	describe( entity: Entity, dir?: Vec2 ) {}
 
 	draw( context: CanvasRenderingContext2D, drawOptions: SceneDrawOptions={} ) {}
 }

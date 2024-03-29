@@ -36,5 +36,5 @@
 [x] change lighting defaults
 [] 3 health, 10 lives
 [] bullet clearing item
-[] single handler per message event in GameController (there are two for 'complete')
-[] object picker-namer in pause menu
+[x] single handler per message event in GameController (there are two for 'complete') <-- GameController one doesn't register if document found
+[x] object picker-namer in pause menu <-- works outside of pause menu also!

@@ -955,7 +955,7 @@ export class Level extends Scene {
 		return [];
 	}
 
-	describe( entity: Entity ) {
+	describe( entity: Entity, dir: Vec2 ) {
 		if ( !entity ) {
 			this.messageQueue.push( 'nothing' );
 			return;
@@ -974,6 +974,16 @@ export class Level extends Scene {
 		if ( entity.collisionGroup == COL.LEVEL ) {
 			attributes.push( 'Solid' );
 		}
+
+		let shapes = entity.getShapes( 0.0, { local: false } ); // entity might have a parent, so apply the parent transform
+
+		for ( let shape of shapes ) {
+			if ( shape.contains( this.player.pos ) ) {
+				attributes.push( 'Inside' );
+				break;
+			}
+		}
+
 		//this.messageQueue.push( 'Vulnerable: unknown' );//+ this.player.canBeHitBy( entity ) );
 		// fire direction of guns (straight, random)
 		if ( entity.collisionGroup == COL.ENEMY_BULLET ) {

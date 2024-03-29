@@ -290,7 +290,15 @@ export class GameControllerDom extends GameController {
 	inspect( targets: Array<Editable> ) {
 		this.inspector.inspect( targets );
 
-		if ( this.currentScene ) this.currentScene.describe( targets[0] as Entity );
+		let dir: Vec2;
+
+		if ( !Debug.flags.DRAW_NORMAL ) {
+			let pos = this.mouse.pos.minus( new Vec2( this.camera.viewportW / 2, this.camera.viewportH / 2 ) );
+
+			dir = pos.unit().scale( 1000 );
+		}
+
+		if ( this.currentScene ) this.currentScene.describe( targets[0] as Entity, dir );
 	}
 
 	updateHovered() {

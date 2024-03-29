@@ -1,4 +1,4 @@
-import { Entity, cullList } from './lib/juego/Entity.js'
+import { Entity, cullList, GetShapesOptions } from './lib/juego/Entity.js'
 import { Material } from './lib/juego/Material.js'
 import { Shape } from './lib/juego/Shape.js'
 import { Vec2 } from './lib/juego/Vec2.js'
@@ -12,10 +12,10 @@ export class CenteredEntity extends Entity {
 
 	watch( target: Vec2 ) {}
 
-	getShapes( step: number=0.0, useCached: boolean=false ): Array<Shape> {
+	getShapes( step: number=0.0, options: GetShapesOptions={} ): Array<Shape> {
 		if ( this.alpha == 0 ) return [];
 
-		else return super.getShapes( step, useCached );
+		else return super.getShapes( step, options );
 	}
 
 	getOwnShapes(): Array<Shape> {
