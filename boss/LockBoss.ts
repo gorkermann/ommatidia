@@ -27,7 +27,8 @@ let subW = Math.floor( fieldWidth / wallUnit );
 export class LockBossBarrier extends CenteredEntity {
 
 	/* property overrides */
-	
+	flavorName: string = 'WALL';
+
 	material = new Material( 210, 0.3, 0.7 );
 	altMaterial = new Material( 210, 0.3, 0.9 );
 	drawWireframe = true;
@@ -36,7 +37,7 @@ export class LockBossBarrier extends CenteredEntity {
 		super( pos, width, height );
 	}
 
-	getShapes(): Array<Shape> {
+	getOwnShapes(): Array<Shape> {
 		//let shape = this.getOwnShapes()[0];
 
 		let points = [];
@@ -60,7 +61,6 @@ export class LockBossBarrier extends CenteredEntity {
 
 		let shape = Shape.fromPoints( points );
 		shape.points.map( x => x.add( new Vec2( -this.width / 2, -this.height / 2 ) ) );
-		shape.points.map( x => x.add( new Vec2( this.pos.x, this.pos.y ) ) );
 
 		shape.material = this.material;
 		shape.parent = this;
@@ -95,7 +95,6 @@ let LockWallState = {
 }
 
 export class LockWave extends CenteredEntity {
-	alpha: number = 0.0;
 
 	/* property overrides */
 
@@ -103,12 +102,11 @@ export class LockWave extends CenteredEntity {
 
 	constructor( pos: Vec2=new Vec2(), width: number=0, height: number=0 ) {
 		super( pos, width, height );
+
+		this.alpha = 0.0;
 	}
 
 	update() {
-		this.material.alpha = this.alpha;
-		this.altMaterial.alpha = this.alpha;
-
 		if ( this.alpha <= 0 ) {
 			this.destructor();
 		}
@@ -140,9 +138,6 @@ export class LockWall extends LockWave {
 		super( pos, fieldWidth, wallUnit );
 
 		this.vel.set( new Vec2( 0, speed ) );
-
-		this.material.alpha = this.alpha;
-		this.altMaterial.alpha = this.alpha;
 
 		// index=0 is left wall
 		// index=subW is 1 away from right wall
@@ -266,8 +261,6 @@ export class LockJaw extends LockWave {
 
 	/* property overrides */
 
-	flavorName: string = 'JAWS of the LOCK CORE';
-
 	isGhost = true;
 
 	material = new Material( LockBoss.hue, 1.0, 0.3 );
@@ -277,9 +270,6 @@ export class LockJaw extends LockWave {
 		super( pos, fieldWidth, wallUnit );
 
 		this.speed = speed;
-
-		this.material.alpha = this.alpha;
-		this.altMaterial.alpha = this.alpha;
 
 		// wall sections
 		let subW = Math.floor( fieldWidth / wallUnit );
@@ -298,6 +288,7 @@ export class LockJaw extends LockWave {
 			let index = indices.splice( Math.floor( Math.random() * indices.length ), 1 )[0];
 
 			let tooth = new CenteredEntity( new Vec2( wallUnit * ( index + 0.5 ), 0 ), wallUnit, wallUnit );
+			tooth.flavorName = 'LOCK JAWS';
 			tooth.material = this.material;
 			tooth.altMaterial = this.altMaterial;
 			this.top.addSub( tooth );
@@ -312,6 +303,7 @@ export class LockJaw extends LockWave {
 			let index = indices.splice( Math.floor( Math.random() * indices.length ), 1 )[0];
 
 			let tooth = new CenteredEntity( new Vec2( wallUnit * ( index + 0.5 ), 0 ), wallUnit, wallUnit );
+			tooth.flavorName = 'LOCK JAWS';
 			tooth.material = this.material;
 			tooth.altMaterial = this.altMaterial;
 			this.bottom.addSub( tooth );
@@ -381,6 +373,8 @@ export class LockRing extends LockWave {
 
 	/* property overrides */
 
+	flavorName: string = 'RING';
+
 	isGhost = true;
 
 	material = new Material( LockBoss.hue, 1.0, 0.3 );
@@ -390,9 +384,6 @@ export class LockRing extends LockWave {
 		super( pos, fieldWidth, wallUnit );
 
 		this.vel.set( new Vec2( 0, speed ) );
-
-		this.material.alpha = this.alpha;
-		this.altMaterial.alpha = this.alpha;
 
 		let moonCount = 8;
 		let bulbCount = 4;
@@ -511,8 +502,6 @@ export class LockHole extends LockWave {
 
 	/* property overrides */
 
-	flavorName: string = 'HOLEWALL of the LOCK CORE';
-
 	isGhost = true;
 
 	material = new Material( LockBoss.hue, 1.0, 0.5 );
@@ -520,9 +509,6 @@ export class LockHole extends LockWave {
 
 	constructor( pos: Vec2=new Vec2(), speed: number=0 ) {
 		super( pos, fieldWidth, wallUnit );
-
-		this.material.alpha = this.alpha;
-		this.altMaterial.alpha = this.alpha;
 
 		/* create subentities */
 
@@ -535,7 +521,8 @@ export class LockHole extends LockWave {
 			if ( i == index ) continue;
 
 			let bit = new CenteredEntity( new Vec2( ( i + 0.5 ) * bitWidth - totalWidth / 2, 0 ), bitWidth, wallUnit );
-
+			bit.flavorName = 'LOCK WALL';
+			
 			bit.material = this.material;
 			bit.altMaterial = this.altMaterial;
 
@@ -575,7 +562,7 @@ export class LockBarrage extends LockWave {
 
 	/* property overrides */
 
-	flavorName: string = 'BARRAGE of the LOCK CORE';
+	flavorName: string = 'BARRAGE';
 
 	isGhost = true;
 
@@ -585,9 +572,6 @@ export class LockBarrage extends LockWave {
 	constructor( pos: Vec2=new Vec2(), speed: number=0 ) {
 		super( pos, fieldWidth, wallUnit );
 
-		this.material.alpha = this.alpha;
-		this.altMaterial.alpha = this.alpha;
-
 		/* create subentities */
 
 		let bitCount = 5;
@@ -595,6 +579,7 @@ export class LockBarrage extends LockWave {
 
 		for ( let i = 0; i < bitCount; i++ ) {
 			let bit = new CenteredEntity( new Vec2( ( i + 0.5 ) * wallUnit * 2 - width / 2, 0 ), wallUnit * 2, wallUnit );
+			bit.flavorName = 'LOCK BARRAGE';
 
 			bit.material = this.material;
 			bit.altMaterial = this.altMaterial;
@@ -799,6 +784,12 @@ export class LockBoss extends Boss {
 		this.anim.update( step, elapsed );
 	}
 
+	kill() {
+		super.kill();
+
+		this.stopWaves();
+	}
+
 	defaultLogic() {
 		if ( this.anim.isDone() && this.waves.length == 0 ) {
 			this.anim.pushFrame( new AnimFrame( {},
@@ -819,7 +810,7 @@ export class LockBoss extends Boss {
 		let gutterShape = this.getShapes().filter( x => x.parent == this.gutter )[0];
 		if ( gutterShape ) {
 			if ( gutterShape.contains( watchPos, 0.0, false ) ) {
-				this.stopWave();
+				this.stopWaves();
 			}
 		}
 
@@ -899,7 +890,7 @@ export class LockBoss extends Boss {
 		}
 	}
 
-	stopWave() {
+	stopWaves() {
 		for ( let wave of this.waves ) {
 			wave.anim.clear();
 			wave.vel.zero();
@@ -992,8 +983,6 @@ export class LockBoss extends Boss {
 			if ( contact.sub == this ) {
 				otherEntity.removeThis = true;
 
-				this.doEyeStrain();
-
 				let anyDefault = false;
 				for ( let wave of this.waves ) {
 					if ( wave.state == LockWallState.DEFAULT ) {
@@ -1001,15 +990,9 @@ export class LockBoss extends Boss {
 					}
 				} 
 
-				if ( anyDefault ) this.stopWave();
+				if ( anyDefault ) this.stopWaves();
 
-				this.health -= 1;
-				if ( Debug.flags.SUPER_SHOT ) this.health -= 10;
-
-				if ( this.health <= 0 ) {
-					this.state = BossState.EXPLODE;
-					this.doEyeDead();
-				}
+				this.damage( 1 );
 			}
 		}
 	}

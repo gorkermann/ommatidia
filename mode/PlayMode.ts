@@ -35,24 +35,29 @@ export class PlayMode extends GenericMode {
 	mousemove( gc: GameController ) {
 		gc.updateHovered();
 
-		if ( gc.mouse.isHeld() ) {
+		if ( Debug.flags.DRAW_NORMAL ) {
+			if ( gc.mouse.isHeld() ) {
 
-			// look for prims at OLD position
-			gc.sel.updateHovered( this.oldPos );
+				// look for prims at OLD position
+				gc.sel.updateHovered( this.oldPos );
 
-			// if hovered prim is NOT in selection, select it only
-			if ( gc.sel.anyHovered() ) {
-				if ( !gc.sel.selection.includes( gc.sel.hoverlist.getTarget() ) ) {
-					this.select( gc, 'drag' );
+				// if hovered prim is NOT in selection, select it only
+				if ( gc.sel.anyHovered() ) {
+					if ( !gc.sel.selection.includes( gc.sel.hoverlist.getTarget() ) ) {
+						this.select( gc, 'drag' );
+					}
 				}
+
+				this.dragged = true;
+
+				gc.changeMode( 'Drag' );
 			}
 
-			this.dragged = true;
+			this.oldPos.set( gc.cursor );
 
-			gc.changeMode( 'Drag' );
+		} else {
+			gc.sel.updateHovered( null );
 		}
-
-		this.oldPos.set( gc.cursor );
 	}
 
 	mousedown( gc: GameController ) {

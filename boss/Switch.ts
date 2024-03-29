@@ -118,11 +118,4 @@ export class Switch extends CenteredEntity {
 
 		return [shape, shape2]
 	}
-
-	shade() {
-		this.material.alpha = this.alpha;
-		this.onMaterial.alpha = this.alpha;
-
-		super.shade();
-	}
 }

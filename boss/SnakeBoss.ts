@@ -39,7 +39,10 @@ Debug.validators['SNAKE_ATK'] = Debug.arrayOfStrings( attackNames );
 class SnakeBossBarrier extends CenteredEntity {
 	altMaterial = new Material( 210, 1.0, 0.9 );
 
-	// overrides
+	/* property overrides */
+
+	flavorName: string = 'WALL';
+
 	material = new Material( 210, 1.0, 0.7 );
 	drawWireframe = true;
 
@@ -94,7 +97,7 @@ class SnakeBossBarrier extends CenteredEntity {
 }
 
 class SnakeBossSegment extends CenteredEntity {
-	fuchsiaMaterial = new Material( 300, 0.5, 0.5 );
+	gunMaterial = new Material( 300, 0.5, 0.5 );
 	coreMaterial = new Material( 30, 1.0, 0.5 );
 
 	vulnerable: boolean = false;
@@ -105,6 +108,8 @@ class SnakeBossSegment extends CenteredEntity {
 	health: number = 5;
 
 	/* property overrides */
+
+	flavorName: string = 'SNAKE SEGMENT';
 
 	transformOrder = TransformOrder.ROTATE_THEN_TRANSLATE;
 
@@ -122,7 +127,7 @@ class SnakeBossSegment extends CenteredEntity {
 		'core-skewS': new AnimField( this.coreMaterial, 'skewS', 0.1 ),
 
 		// thread 2
-		'lum': new AnimField( this.fuchsiaMaterial, 'lum' ),
+		'lum': new AnimField( this.gunMaterial, 'lum' ),
 
 		'wait': new AnimField( this, 'wait' ),
 	},
@@ -183,19 +188,25 @@ class SnakeBossSegment extends CenteredEntity {
 
 		let shape = Shape.makeRectangle( new Vec2( -this.width / 2, -this.height / 2 ), this.width, this.height, 2 );
 		shape.material = this.material;
-		shape.edges[0].material = this.coreMaterial;
-		shape.edges[2].material = this.coreMaterial;
-		shape.edges[3].material = this.altMaterial;
-		shape.edges[4].material = this.coreMaterial;
-		shape.edges[6].material = this.coreMaterial;
-		shape.edges[7].material = this.altMaterial;
+
+		if ( this.vulnerable ) shape.material = this.coreMaterial;
+			
+		/*	//shape.edges[0].material = this.coreMaterial;
+			shape.edges[1].material = this.coreMaterial;
+			//shape.edges[2].material = this.coreMaterial;
+			shape.edges[3].material = this.coreMaterial;
+			//shape.edges[4].material = this.coreMaterial;
+			shape.edges[5].material = this.coreMaterial;
+			//shape.edges[6].material = this.coreMaterial;
+			shape.edges[7].material = this.coreMaterial;
+		}*/
 
 		shape.parent = this;
 
 		let shape2 = Shape.makeRectangle( new Vec2( -5, -this.height / 2 - 5 ), 10, this.height + 10 );
 		shape2.material = this.altMaterial;
-		shape2.edges[0].material = this.fuchsiaMaterial;
-		shape2.edges[2].material = this.fuchsiaMaterial;
+		shape2.edges[0].material = this.gunMaterial;
+		shape2.edges[2].material = this.gunMaterial;
 		shape2.parent = this;
 
 		return [shape, shape2];
@@ -254,11 +265,9 @@ class SnakeBossSegment extends CenteredEntity {
 	shade() {
 		let now = new Date().getTime();
 
-		this.material.alpha = this.alpha;
-		this.altMaterial.alpha = this.alpha;
-
 		this.material.skewL = this.flash;
 		this.altMaterial.skewL = this.flash;
+		this.coreMaterial.skewL = this.flash;
 
 		this.coreMaterial.skewH = 15 * Math.sin( Math.PI * 2 * ( now % 1000 ) / 1000 );
 
@@ -447,6 +456,7 @@ export class SnakeBoss extends Boss {
 
 		// helmet
 		this.helmet = new CenteredEntity( new Vec2(), 90, 90 );
+		this.helmet.flavorName = 'SHIELD';
 		this.helmet.angle = Math.PI / 2;
 		let helmetPoints = [new Vec2( 0, 0 )];
 		for ( let i = 0; i < 9; i++ ) {
@@ -504,7 +514,7 @@ export class SnakeBoss extends Boss {
 
 	orientSegments() {
 		let points: Array<Vec2> = [];
-		let buffer = 10;
+		let buffer = 0;
 		let seekLength = this.segmentLength + buffer; // first point is on eye circumference
 		let len = seekLength / 2;
 
@@ -525,6 +535,8 @@ export class SnakeBoss extends Boss {
 					// update seek length for next segment
 					if ( points.length - 1 < this.tail.length ) {
 						seekLength = this.tail[points.length-1].width + buffer;
+					} else {
+						break;
 					}
 
 					if ( bite + seekLength < diff ) {

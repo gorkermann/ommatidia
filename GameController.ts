@@ -75,7 +75,8 @@ export class GameController extends Controller {
 	playerStatus: PlayerStatus = {
 		startTime: 0,
 		lives: 10,
-		defeatedNames: []
+		defeatedNames: [],
+		messages: ['Note: You can identify objects by clicking them with the mouse']
 	}
 
 	/* property overrides */

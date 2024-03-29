@@ -478,14 +478,20 @@ function getFrame( shapes: Array<Shape>,
 		//context.globalAlpha = 1 / ( Math.sqrt( hitDist ) / 10 );
 		//context.globalAlpha = 1 / ( hitDist / 20 );
 
-		// highlight corners and edges of shapes
+		/* highlight corners and edges of shape*/
+
 		let prevInfo = sliceInfos[(i + sliceInfos.length - 1) % sliceInfos.length];
 		let nextInfo = sliceInfos[(i + 1) % sliceInfos.length];
 
 		if ( Debug.flags.HIGHLIGHT_CORNERS ) {
 			highlightCorners( hits[0], ( prevInfo ? prevInfo.hits[0] : null ), ( nextInfo ? nextInfo.hits[0] : null ))
 		}
+
+		/* make dangerous objects flash */
+
 		approachFlash( vel, hits[0], angle, hitDist );
+
+		/* draw slice */
 
 		blended = { r: 0, g: 0, b: 0, a: 1.0 }; // background color
 
@@ -517,6 +523,12 @@ function getFrame( shapes: Array<Shape>,
 			hue = Math.min( hue, 1.0 );
 			hits[j].material.hue = hue * 360;*/
 
+
+			if ( hits[j].shape.parent && hits[j].shape.parent.hovered ) {
+				hits[j].material.lum *= 0.7;
+				//if ( hits[j].material.lum < 0 ) hits[j].material.lum = 0;
+			}
+
 			let color = hits[j].material.getRGBA();
 
 			if ( hits[j].shape && hits[j].shape.parent ) {
@@ -528,6 +540,8 @@ function getFrame( shapes: Array<Shape>,
 			blended.b = color.b * color.a + blended.b * ( 1 - color.a );
  			//hits[j].material.blendWith( blended );
 		}
+
+		/* alter colors of hovered objects */
 
 		output.push( blended );
 	}

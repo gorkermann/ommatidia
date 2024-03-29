@@ -1,4 +1,5 @@
 import { Camera } from './lib/juego/Camera.js'
+import { Entity } from './lib/juego/Entity.js'
 import { EntityManager } from './lib/juego/EntityManager.js'
 
 ///////////
@@ -8,6 +9,10 @@ import { EntityManager } from './lib/juego/EntityManager.js'
 /*
 	Parent class for cutscenes and levels
 */
+
+export type SceneDrawOptions = {
+	noConsole?: boolean;
+}
 
 export class Scene {
 	name: string = '';
@@ -42,5 +47,7 @@ export class Scene {
 
 	update() {}
 
-	draw( context: CanvasRenderingContext2D ) {}
+	describe( entity: Entity ) {}
+
+	draw( context: CanvasRenderingContext2D, drawOptions: SceneDrawOptions={} ) {}
 }

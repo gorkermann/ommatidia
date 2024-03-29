@@ -20,7 +20,7 @@ export class TitleScene extends Scene {
 	}
 
 	update() {
-		if ( Keyboard.keyHit( KeyCode.Z ) ) this.messages.push( 'start' );
+		if ( Keyboard.keyHit( KeyCode.W ) ) this.messages.push( 'start' );
 
 		if ( Keyboard.keyHeld( KeyCode.LEFT ) ) {
 			this.origin.add( new Vec2( -5, 0 ) );
@@ -114,7 +114,7 @@ export class TitleScene extends Scene {
 
 		whiteText( context, 'Use the [arrow keys] to move and [WASD] to shoot', 5, y - 60 );
 		whiteText( context, 'Press [space] to pause', 5, y - 40 );
-		whiteText( context, 'Press [Z] to start', 5, y - 20 );
+		whiteText( context, 'Press [W] to start', 5, y - 20 );
 
 		whiteText( context, 'Graham Smith 2023', this.camera.viewportW - 5, y - 20, true );
 	}

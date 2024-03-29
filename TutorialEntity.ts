@@ -421,9 +421,6 @@ export class StaticBumpkin extends CenteredEntity {
 		let now = new Date().getTime();
 
 		this.material.skewH = 15 * Math.sin( Math.PI * 2 * ( now % 1000 ) / 1000 );
-
-		this.material.alpha = this.alpha;
-		this.whiteMaterial.alpha = this.alpha;
 	}
 
 	hitWith( otherEntity: Entity ) {
@@ -547,9 +544,6 @@ export class SniperBumpkin extends CenteredEntity {
 		let now = new Date().getTime();
 
 		this.material.skewH = 15 * Math.sin( Math.PI * 2 * ( now % 1000 ) / 1000 );
-
-		this.material.alpha = this.alpha;
-		this.whiteMaterial.alpha = this.alpha;
 
 		// white of eye flashing red
 		if ( this.blink < 0 ) {

@@ -77,7 +77,9 @@ function getSegmentedRect( pos: Vec2, width: number, height: number, segLength: 
 export class CarrierBossBarrier extends CenteredEntity {
 	altMaterial = new Material( 210, 1.0, 0.9 );
 
-	// overrides
+	/* property overrides */
+	flavorName: string = 'WALL';
+
 	material = new Material( 210, 1.0, 0.7 );
 	drawWireframe = true;
 
@@ -87,9 +89,9 @@ export class CarrierBossBarrier extends CenteredEntity {
 
 	/* Entity overrides */
 
-	getShapes(): Array<Shape> {
+	getOwnShapes(): Array<Shape> {
 		//let shape = getSegmentedRect( this.pos, this.width, this.width, 100 );
-		let shape = Shape.makeCircle( this.pos, this.width, 16, -0.5 );
+		let shape = Shape.makeCircle( new Vec2( 0, 0 ), this.width, 16, -0.5 );
 
 		shape.material = this.material;
 		shape.parent = this;
@@ -124,6 +126,7 @@ class Drone extends CenteredEntity {
 	health = this.baseHealth;
 
 	/* property overrides */
+	flavorName: string = 'SHIELD GENERATOR';
 
 	material = new Material( CarrierBoss.hue, 1.0, 0.5 );
 
@@ -287,6 +290,7 @@ export class CarrierBoss extends Boss {
 		this.flags['health'] = this.getHealth();
 
 		this.shell = new CenteredEntity( new Vec2( 0, 0 ), this.width + 20, this.width + 20 );
+		this.shell.flavorName = 'SHIELD';
 		this.shell.presetShapes = [Shape.makeCircle( new Vec2( 0, 0 ), this.width + 20, 12 ) ];
 		this.shell.presetShapes[0].material = new Material( CarrierBoss.hue, 1.0, 0.8 );
 		this.shell.presetShapes[0].material.alpha = 0.8;
@@ -296,12 +300,14 @@ export class CarrierBoss extends Boss {
 		this.addSub( this.shell );
 
 		this.left = new CenteredEntity( new Vec2( this.width / 2 + wallUnit * 0.75, 0 ), wallUnit / 2, wallUnit );
+		this.left.flavorName = 'ENERGY PORT';
 		this.left.material = this.material;
 		this.left.collisionGroup = COL.LEVEL;
 		this.left.collisionMask = COL.PLAYER_BULLET;
 		this.addSub( this.left );
 
 		this.right = new CenteredEntity( new Vec2( this.width / 2 + wallUnit * 0.75, 0 ), wallUnit / 2, wallUnit );
+		this.right.flavorName = 'ENERGY PORT';
 		this.right.material = this.material;
 		this.right.collisionGroup = COL.LEVEL;
 		this.right.collisionMask = COL.PLAYER_BULLET;
@@ -332,6 +338,7 @@ export class CarrierBoss extends Boss {
 		this.drones.push( drone );
 
 		let gutter = new Gutter( new Vec2( 0, 0 ), wallUnit, wallUnit / 2 );
+		gutter.flavorName = 'ENERGY BEAM';
 		gutter.alpha = 0.3;
 		this.spawnEntity( gutter );
 		gutter.collisionGroup = COL.ENEMY_BULLET;

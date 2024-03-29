@@ -23,6 +23,8 @@ export class Barrier extends CenteredEntity {
 	altMaterial = new Material( 210, 1.0, 0.9 );
 
 	// overrides
+	flavorName: string = 'WALL';
+
 	material = new Material( 210, 1.0, 0.7 );
 	drawWireframe = true;
 
@@ -30,8 +32,8 @@ export class Barrier extends CenteredEntity {
 		super( pos, diameter, diameter );
 	}
 
-	getShapes(): Array<Shape> {
-		let shape = Shape.makeCircle( this.pos, this.width, 16, -0.5 );
+	getOwnShapes(): Array<Shape> {
+		let shape = Shape.makeCircle( new Vec2( 0, 0 ), this.width, 16, -0.5 );
 
 		shape.material = this.material;
 		shape.parent = this;
@@ -65,6 +67,7 @@ export class Gun extends CenteredEntity {
 	fireInterval: number = 5000;
 
 	/* property overrides */
+	flavorName: string = 'GUN';
 
 	collisionGroup = COL.LEVEL;
 	collisionMask = COL.PLAYER_BULLET;
@@ -161,10 +164,6 @@ export class Balloon extends Bullet {
 		this.height = 30;
 
 		//this.angleVel = 0.02 * ( Math.random() > 0.5 ? -1: 1 );
-	}
-
-	update() {
-		this.material.alpha = this.alpha;
 	}
 
 	hitWith( otherEntity: Entity ) {
@@ -281,6 +280,7 @@ export class Roller extends CenteredEntity {
 		this.isGhost = true;
 
 		this.block = new CenteredEntity( new Vec2(), 20, rollerLength );
+		this.block.flavorName = 'ROLLER';
 		this.block.material = new Material( 0, 1.0, 0.3 );
 		this.block.altMaterial = new Material( 0, 1.0, 0.5 );
 		this.block.collisionGroup = COL.LEVEL;
@@ -597,9 +597,12 @@ export class RollBoss extends Boss {
 				// starts at 0.005rad/frame, increases by 0.005rad/frame per 20% of health lost 
 				let sweepSpeed = ( 1 + Math.floor( healthLoss / this.tunnelPctSweepSpeed ) ) * 0.005 + 0.005;
 
-				// starts at 2000ms, decreases to 500ms over the first 50% of health lost (300ms per 10%)
-				let fireInterval = 500 + ( 5 - Math.min( Math.floor( healthLoss / this.tunnelPctFireInterval ), 5 ) ) * 300;
-
+				// starts at ~2000ms, decreases to ~500ms over the first 50% of health lost (300ms per 10%)
+				// (randomize slightly to mitigate gaps where the player can hide)
+				let fireInterval = 400 +
+								   Math.floor( Math.random() * 100 ) +
+								   ( 5 - Math.min( Math.floor( healthLoss / this.tunnelPctFireInterval ), 5 ) ) * 300;
+								   
 				this.setFireInterval( fireInterval );
 
 				this.anim.pushFrame( new AnimFrame( {

@@ -29,6 +29,10 @@ class Portal extends CenteredEntity {
 
 	defeated: boolean = false;
 
+	/* property overrides */
+
+	flavorName: string = 'PORTAL COURTYARD';
+
 	constructor( pos: Vec2, material: Material, index: number, name: string ) {
 		super( pos, 50, 50 );
 
@@ -40,6 +44,7 @@ class Portal extends CenteredEntity {
 		this.collisionGroup = COL.ITEM;
 		this.collisionMask = COL.PLAYER_BODY;
 
+		this.coin.flavorName = 'PORTAL';
 		this.coin.collisionGroup = COL.ITEM;
 		this.coin.collisionMask = COL.PLAYER_BODY;
 		this.addSub( this.coin );
@@ -83,8 +88,9 @@ type PortalSpec = {
 }
 
 export class PortalRing extends CenteredEntity {
+	
 	/* property overrides */
-
+	
 	collisionGroup = COL.ITEM;
 	isGhost = true;
 

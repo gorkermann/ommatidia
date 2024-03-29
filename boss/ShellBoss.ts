@@ -91,7 +91,9 @@ Debug.validators['SHELL_ATK'] = Debug.arrayOfStrings( attackNames );
 export class ShellBossBarrier extends CenteredEntity {
 	altMaterial = new Material( 210, 1.0, 0.9 );
 
-	// overrides
+	/* property overrides */
+	flavorName: string = 'WALL';
+
 	material = new Material( 210, 1.0, 0.7 );
 	drawWireframe = true;
 
@@ -101,8 +103,8 @@ export class ShellBossBarrier extends CenteredEntity {
 
 	/* Entity overrides */
 
-	getShapes(): Array<Shape> {
-		let shape = Shape.makeCircle( this.pos, this.width, 16, -0.5 );
+	getOwnShapes(): Array<Shape> {
+		let shape = Shape.makeCircle( new Vec2( 0, 0 ), this.width, 16, -0.5 );
 
 		shape.material = this.material;
 		shape.parent = this;
@@ -140,6 +142,7 @@ class ShellBossMissile extends CenteredEntity {
 	angleFuel: number = Math.PI * 2;
 
 	/* property overrides */
+	flavorName: string = 'MISSILE';
 
 	anim = new Anim( {
 		//'pos': new PhysField( this, 'pos', 'vel', 2 ),
@@ -225,12 +228,12 @@ class ShellBossMissile extends CenteredEntity {
 
 	shade() {
 		this.material.skewL = this.flash;
-		this.material.alpha = this.alpha;
 
 		for ( let sub of this.getSubs() ) {
 			sub.material.skewL = this.flash;
-			sub.material.alpha = this.alpha;
 		}
+
+		super.shade();
 	}
 
 	/* CenteredEntity overrides */
@@ -270,6 +273,8 @@ class ShellBossRing extends CenteredEntity {
 
 		for ( let i = 0; i < wallCount; i++ ) {
 			let sub = new CenteredEntity( this.radiusVec, wallUnit, wallUnit * 2 ); // position is shared by all subs
+			sub.flavorName = 'SHELL SECTION';
+
 			sub.vel = this.radiusVel;
 
 			sub.angle = ( i + 0.5 ) * Math.PI * 2 / wallCount; // angle = 0 is open
@@ -294,13 +299,6 @@ class ShellBossRing extends CenteredEntity {
 		if ( otherEntity instanceof Bullet ) {
 			otherEntity.removeThis = true;
 		}
-	}
-
-	shade() {
-		this.material.alpha = this.alpha;
-		this.altMaterial.alpha = this.alpha;
-
-		super.shade();
 	}
 }
 
@@ -368,8 +366,6 @@ class Mosquito extends Bullet {
 	shellRight: CenteredEntity;
 
 	/* property overrides */
-
-	alpha: number = 0.0;
 
 	anim = new Anim( {
 		'pos': new PhysField( this, 'pos', 'vel', this.speed ), // high speed to maintain seek position
@@ -478,10 +474,10 @@ export class ShellBoss extends Boss {
 
 	/* property overrides */
 
+	flavorName = 'SHELL CORE';
+
 	attacks = attacks;
 	overrideAttackField = 'SHELL_ATK';
-
-	flavorName = 'SHELL CORE';
 
 	maxHealth = 40;
 	health = this.maxHealth;

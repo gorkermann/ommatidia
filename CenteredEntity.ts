@@ -12,10 +12,10 @@ export class CenteredEntity extends Entity {
 
 	watch( target: Vec2 ) {}
 
-	getShapes( step: number=1.0 ): Array<Shape> {
+	getShapes( step: number=0.0, useCached: boolean=false ): Array<Shape> {
 		if ( this.alpha == 0 ) return [];
 
-		else return super.getShapes( step );
+		else return super.getShapes( step, useCached );
 	}
 
 	getOwnShapes(): Array<Shape> {
@@ -42,14 +42,6 @@ export class CenteredEntity extends Entity {
 			for ( let i = 1; i < shape.edges.length; i += 2 ) {
 				shape.edges[i].material = this.altMaterial;
 			}
-		}
-
-		if ( this.hovered ) {
-			this.material.skewH = 20;
-			if ( this.altMaterial ) this.altMaterial.skewH = 20;
-		} else {
-			this.material.skewH = 0;
-			if ( this.altMaterial ) this.altMaterial.skewH = 0;
 		}
 
 		return [shape];

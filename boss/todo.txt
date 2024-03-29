@@ -37,3 +37,4 @@
 [] 3 health, 10 lives
 [] bullet clearing item
 [] single handler per message event in GameController (there are two for 'complete')
+[] object picker-namer in pause menu

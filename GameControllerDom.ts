@@ -97,16 +97,6 @@ export class GameControllerDom extends GameController {
 			this.levelIndex = 0;
 
 			if ( this.levelIndex < this.levelDataList.length && this.playerStatus.defeatedNames.length < 6 ) {
-				let context = this.canvas.getContext( '2d' );
-
-				context.clearRect( 0, 0, this.canvas.width, this.canvas.height );
-				this.currentScene.draw( context );
-
-				var image = new Image();
-				image.src = this.canvas.toDataURL();
-
-				oldImages.push( new FadingImage( image ) );
-
 				this.startLevel();
 
 			} else {
@@ -224,6 +214,22 @@ export class GameControllerDom extends GameController {
 		}
 	}
 
+	startLevel() {
+		if ( this.currentScene ) {
+			let context = this.canvas.getContext( '2d' );
+
+			context.clearRect( 0, 0, this.canvas.width, this.canvas.height );
+			this.currentScene.draw( context, { noConsole: true } );
+
+			var image = new Image();
+			image.src = this.canvas.toDataURL();
+
+			oldImages.push( new FadingImage( image ) );
+		}
+	
+		super.startLevel();
+	}
+
 	loadScene( scene: Scene, doLoad: boolean=true ) {
 		super.loadScene( scene, doLoad );
 		
@@ -282,14 +288,19 @@ export class GameControllerDom extends GameController {
 	}
 
 	inspect( targets: Array<Editable> ) {
-		this.inspector.inspect( targets ); 
+		this.inspector.inspect( targets );
+
+		if ( this.currentScene ) this.currentScene.describe( targets[0] as Entity );
 	}
 
 	updateHovered() {
 		this.sel.clearHovered();
 
-		if ( this.currentScene instanceof Level ) {
-			if ( !Debug.flags.DRAW_NORMAL && Debug.flags.MOUSE_SELECT ) {
+		if ( Debug.flags.DRAW_NORMAL ) {
+			this.sel.updateHovered( this.cursor );
+
+		} else {
+			if ( this.currentScene instanceof Level && Debug.flags.MOUSE_SELECT ) {
 				let pos = this.mouse.pos.minus( new Vec2( this.camera.viewportW / 2, this.camera.viewportH / 2 ) );
 
 				let dir = pos.unit().scale( 1000 );
@@ -297,8 +308,6 @@ export class GameControllerDom extends GameController {
 				this.sel.hoverlist.add( this.currentScene.pickFromEye( dir ) );
 			}
 		}
-
-		this.sel.updateHovered( this.cursor );
 	}
 
 	drawOldImage( context: CanvasRenderingContext2D ) {

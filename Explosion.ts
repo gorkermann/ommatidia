@@ -9,6 +9,10 @@ export class Explosion extends CenteredEntity {
 	maxWidth = 40 + Math.random() * 40;
 	alpha: number = 1.0;
 
+	/* property overrides */
+
+	flavorName: string = 'EXPLOSION';
+
 	constructor( pos: Vec2 ) {
 		super( pos, 2, 2 );
 	
@@ -27,8 +31,6 @@ export class Explosion extends CenteredEntity {
 		//this.material.lum *= 1.1;
 		this.alpha *= 0.95;
 		this.material.hue *= 0.95;
-
-		this.material.alpha = this.alpha;
 	}
 
 	draw( context: CanvasRenderingContext2D ) {

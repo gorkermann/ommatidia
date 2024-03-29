@@ -195,26 +195,27 @@ export class Boss extends CenteredEntity {
 	damage( value: number ) {
 		this.health -= value;
 
-		this.anim.pushFrame( new AnimFrame( {
-			'flash': { value: 0.0, expireOnReach: true, overrideRate: 0.1 },
-		} ), { threadIndex: 1, tag: 'exit' } );
-		this.anim.pushFrame( new AnimFrame( {
-			'flash': { value: 0.5, expireOnReach: true },
-		} ), { threadIndex: 1 } );
+		if ( 'flash' in this.anim.fields ) {
+			this.anim.pushFrame( new AnimFrame( {
+				'flash': { value: 0.0, expireOnReach: true, overrideRate: 0.1 },
+			} ), { threadIndex: 1, tag: 'exit' } );
+			this.anim.pushFrame( new AnimFrame( {
+				'flash': { value: 0.5, expireOnReach: true },
+			} ), { threadIndex: 1 } );
+		}
 
 		this.doEyeStrain();
 
 		if ( this.health <= 0 ) {
-			this.doEyeDead();
-			this.state = BossState.EXPLODE;
-
-			this.anim.clear();
+			this.kill();
 		}
 	}
 
 	kill() {
 		this.doEyeDead();
 		this.state = BossState.EXPLODE;
+
+		this.messages.push( '!wipe' );
 
 		this.anim.clear();
 	}
@@ -223,7 +224,7 @@ export class Boss extends CenteredEntity {
 		this.counts['attention'].count = 0;
 	}
 
-	doEyeStrain() {
+	private doEyeStrain() {
 		this.eyeAnim.clear();
 		this.eyeAnim.pushFrame( new AnimFrame( {
 			'blink': { value: 0.0, expireOnReach: true },
@@ -239,7 +240,7 @@ export class Boss extends CenteredEntity {
 		this.counts['attention'].reset();
 	}
 
-	doEyeDead() {
+	private doEyeDead() {
 		this.eyeAnim.clear();
 		this.eyeAnim.pushFrame( new AnimFrame( {
 			'blink': { value: 1.0, expireOnReach: true, overrideRate: 0.04, setDefault: true },
@@ -356,10 +357,6 @@ export class Boss extends CenteredEntity {
 			this.whiteMaterial.skewS = 0.0;
 			this.whiteMaterial.skewL = 0.0;
 		}
-
-		this.coreMaterial.alpha = this.alpha;
-		this.whiteMaterial.alpha = this.alpha;
-		this.pupilMaterial.alpha = this.alpha;
 
 		super.shade();
 	}

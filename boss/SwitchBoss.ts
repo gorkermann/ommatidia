@@ -47,7 +47,10 @@ Debug.validators['SWITCH_ATK'] = Debug.arrayOfStrings( attackNames );
 class SwitchBossBarrier extends CenteredEntity {
 	altMaterial = new Material( 210, 1.0, 0.9 );
 
-	// overrides
+	/* property overrides */
+
+	flavorName: string = 'WALL';
+
 	material = new Material( 210, 1.0, 0.7 );
 	drawWireframe = true;
 
@@ -57,8 +60,8 @@ class SwitchBossBarrier extends CenteredEntity {
 
 	/* Entity overrides */
 
-	getShapes(): Array<Shape> {
-		let shape = Shape.makeCircle( this.pos, this.width, 16, -0.5 );
+	getOwnShapes(): Array<Shape> {
+		let shape = Shape.makeCircle( new Vec2( 0, 0 ), this.width, 16, -0.5 );
 
 		shape.material = this.material;
 		shape.parent = this;
@@ -94,6 +97,8 @@ class SwitchBossBomb extends CenteredEntity {
 	alpha: number = 1.0;
 
 	/* property overrides */
+
+	flavorName: string = 'Bomb';
 
 	anim = new Anim( {
 		'pos': new PhysField( this, 'pos', 'vel', 10 ), // thread 0
@@ -201,13 +206,8 @@ class SwitchBossBomb extends CenteredEntity {
 
 	shade() {
 		this.material.skewL = this.flash;
-		this.material.alpha = this.alpha;
 
 		super.shade();
-
-		for ( let sub of this.getSubs() ) {
-		//	sub.material.alpha = this.alpha;
-		}
 	}
 }
 
@@ -223,6 +223,9 @@ class SwitchBossCover extends CenteredEntity {
 	coreMaterial = new Material( 30, 1.0, 0.5 );
 
 	/* property overrides */
+
+	flavorName: string = 'HATCH COVER';
+
 	material: Material = new Material( 15, 1.0, 0.1 );
 
 	anim: Anim = new Anim( {
@@ -261,7 +264,6 @@ class SwitchBossCover extends CenteredEntity {
 		let now = new Date().getTime();
 
 		this.material.skewL = this.flash;
-		this.material.alpha = this.alpha;
 
 		this.coreMaterial.skewH = 15 * Math.sin( Math.PI * 2 * ( now % 1000 ) / 1000 );
 	}
@@ -280,6 +282,8 @@ class SwitchBossSide extends CenteredEntity {
 	wait: boolean = false;
 
 	/* property overrides */
+
+	flavorName: string = 'ARMOR PLATE';
 
 	material = new Material( 15, 1.0, 0.3 );
 	altMaterial = new Material( 15, 1.0, 0.5 );
@@ -307,6 +311,7 @@ class SwitchBossSide extends CenteredEntity {
 		for ( let i = 0; i < this.coverCount; i++ ) {
 			let sw = new CenteredEntity( 
 				new Vec2( 0, swSpacing * i ).plus( swOrigin ), wallUnit / 4, wallUnit / 2 );
+			sw.flavorName = 'GUN';
 			sw.collisionGroup = COL.LEVEL;
 			sw.collisionMask = COL.PLAYER_BULLET;
 
@@ -364,18 +369,6 @@ class SwitchBossSide extends CenteredEntity {
 
 		this.spawnEntity( bullet );
 		bullet.collisionGroup = COL.ENEMY_BULLET;
-	}
-
-	shade() {
-		this.material.alpha = this.alpha;
-		this.altMaterial.alpha = this.alpha;
-
-		super.shade();
-
-		for ( let sub of this.getSubs() ) {
-			//sub.material.alpha *= this.alpha;
-			//( sub as CenteredEntity ).altMaterial.alpha *= this.alpha;
-		}
 	}
 }
 

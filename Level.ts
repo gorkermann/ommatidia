@@ -27,7 +27,7 @@ import { CarrierBoss } from './boss/CarrierBoss.js'
 
 import { HorizDoor } from './Door.js'
 import { RoomManager } from './RoomManager.js'
-import { Scene } from './Scene.js'
+import { Scene, SceneDrawOptions } from './Scene.js'
 
 import { Bullet, PlayerBullet } from './Bullet.js'
 import { CenteredEntity } from './CenteredEntity.js'
@@ -140,6 +140,7 @@ export class Level extends Scene {
 	healthBarMax: number = 0;
 	haloWidth: number = 40;
 
+	oldGameTime: number = 0;
 	oldTime: number = 0;
 	elapsedTotal: number = 0;
 
@@ -185,7 +186,7 @@ export class Level extends Scene {
 	} ) );
 
 	discardFields: Array<string> = ['em', 'textBox', 'textBoxHeight', 'text', 'textIndex', 'speaker',
-					 'updateQueue', 'boundKeyHandler', 'cursorPos', 'oldTime',
+					 'updateQueue', 'boundKeyHandler', 'cursorPos', 'oldGameTime',
 					 'replayImages', 'replayCount', 'replayIndex', 'replayAlpha'];
 	//saveFields = ['grid', 'player', 'controlMode', 'grav', 'data', 'bossHealthMax'];
 
@@ -445,113 +446,143 @@ export class Level extends Scene {
 	update() {
 		let now = new Date().getTime();
 
+		// in-game time
+		if ( this.oldGameTime == 0 ) this.oldGameTime = now;
+		let gameElapsed = now - this.oldGameTime;
+		this.oldGameTime = now;
+
+		// real time
 		if ( this.oldTime == 0 ) this.oldTime = now;
-		let elapsed = now - this.oldTime;
+		let realElapsed = now - this.oldTime;
 		this.oldTime = now;
 
 		let frameStep = 1.0;//elapsed / 60;
 
-		if ( this.state != LevelState.DEFAULT ) this.paused = false;
-
 		if ( !this.paused ) {
-			this.anim.update( frameStep, elapsed );
-			this.messageAnim.update( frameStep, elapsed );
+			this.anim.update( frameStep, gameElapsed );
+		}
 
-			if ( this.messageAnim.isDone() ) {
-				if ( this.messageQueue.length > 0 ) {
+		/* update text output */
 
-					// new line for new message
-					if ( this.stringIndex == 0 ) {
-						this.displayText.push( '' );
+		if ( this.playerStatus.messages.length > 0 ) {
+			this.messageQueue = this.messageQueue.concat( this.playerStatus.messages );
 
-					// new line for word wrapping
-					//} else if ( this.displayText.length > 0 && this.displayText[this.displayText.length - 1].length >= 32 ) {
-					//	this.displayText.push( '' );
-					
-					} else if ( this.displayText.length > 0 ) {
-						let text = this.displayText.slice(-1)[0];
+			this.playerStatus.messages.length = 0;
+		}
 
-						if ( text.length > 0 && text[text.length - 1] == ' ' ) {
-							let index = this.messageQueue[0].indexOf( ' ', text.length );
-							
-							let remainingInWord = index - text.length;
-							if ( index < 0 ) remainingInWord = this.messageQueue[0].length - this.stringIndex;
+		this.messageAnim.update( frameStep, realElapsed );
 
-							if ( text.length + remainingInWord > 32 ) {
-								this.displayText.push( '' );
-							}
-						}
-					}
+		if ( this.messageAnim.isDone() ) {
+			if ( this.messageQueue.length > 0 ) {
 
-					// done with message
-					if ( this.stringIndex >= this.messageQueue[0].length ) {
-						this.stringIndex = 0;
-						this.messageQueue.shift();
+				// new line for new message
+				if ( this.stringIndex == 0 ) {
+					this.displayText.push( '' );
 
-					// add next character
-					} else {
-						let char = this.messageQueue[0][this.stringIndex];
+				// new line for word wrapping
+				//} else if ( this.displayText.length > 0 && this.displayText[this.displayText.length - 1].length >= 32 ) {
+				//	this.displayText.push( '' );
+				
+				} else if ( this.displayText.length > 0 ) {
+					let text = this.displayText.slice(-1)[0];
 
-						if ( char == '\n' ) {
+					if ( text.length > 0 && text[text.length - 1] == ' ' ) {
+						let index = this.messageQueue[0].indexOf( ' ', text.length );
+						
+						let remainingInWord = index - text.length;
+						if ( index < 0 ) remainingInWord = this.messageQueue[0].length - this.stringIndex;
+
+						if ( text.length + remainingInWord > 32 ) {
 							this.displayText.push( '' );
-						} else {
-							this.displayText[this.displayText.length - 1] += char;
 						}
+					}
+				}
 
-						this.stringIndex += 1;
+				// done with message
+				if ( this.stringIndex >= this.messageQueue[0].length ) {
+					this.stringIndex = 0;
+					this.messageQueue.shift();
+
+				// add next character
+				} else {
+					let char = this.messageQueue[0][this.stringIndex];
+
+					if ( char == '\n' ) {
+						this.displayText.push( '' );
+					} else {
+						this.displayText[this.displayText.length - 1] += char;
 					}
 
-					this.messageAnim.pushFrame( new AnimFrame( {
-						'newChar': { value: true, expireOnCount: 50 }
-					} ) );
+					this.stringIndex += 1;
+				}
+
+				this.messageAnim.pushFrame( new AnimFrame( {
+					'newChar': { value: true, expireOnCount: 50 }
+				} ) );
+			}
+		}
+
+		/* pause/unpause */
+
+		if ( Keyboard.keyHit( KeyCode.SPACE ) ) {
+			if ( this.paused ) {
+				this.paused = false;
+				if ( optionPanel ) optionPanel.classList.add( 'hidden' );
+
+				for ( let sound of this.sounds ) {
+				//	sound.play();
+				}
+			} else {
+				this.paused = true;
+				if ( optionPanel ) optionPanel.classList.remove( 'hidden' );
+
+				for ( let sound of this.sounds ) {
+				//	sound.pause();
 				}
 			}
 		}
+
+		/* update game state */
 
 		if ( this.state == LevelState.DEATH_REPLAY ) {
 			// do nothing, anim only
 
 		} else if ( this.state == LevelState.DEATH_MENU ) {
-			if ( Keyboard.keyHit( KeyCode.R ) ) this.messages.push( 'restart' );
-			if ( Keyboard.keyHit( KeyCode.Z ) ) this.messages.push( 'rewind' );
+			if ( Keyboard.keyHit( KeyCode.W ) ) this.messages.push( 'restart' );
+			//if ( Keyboard.keyHit( KeyCode.Z ) ) this.messages.push( 'rewind' );
 			if ( Keyboard.keyHit( KeyCode.S ) ) this.messages.push( 'complete' ); // no defeated name added
 
-			if ( Keyboard.keyHit( KeyCode.LEFT ) ) this.replayIndex -= 1;
-			if ( Keyboard.keyHit( KeyCode.RIGHT ) ) this.replayIndex += 1;
+			//if ( Keyboard.keyHit( KeyCode.LEFT ) ) this.replayIndex -= 1;
+			//if ( Keyboard.keyHit( KeyCode.RIGHT ) ) this.replayIndex += 1;
 
 			if ( this.replayIndex < 0 ) this.replayIndex = 0;
 			if ( this.replayIndex > this.replayImages.length - 1 ) this.replayIndex = this.replayImages.length - 1;
 
 		} else if ( this.state == LevelState.SUCCESS_MENU ) {
-			if ( Keyboard.keyHit( KeyCode.Z ) ) this.messages.push( 'complete' );
+			if ( Keyboard.keyHit( KeyCode.W ) ) this.messages.push( 'complete' );
 
 		} else if ( this.state == LevelState.PROMPT ) {
 			if ( Keyboard.keyHit( KeyCode.W ) ) this.messages.push( this.promptAccept );
 			if ( Keyboard.keyHit( KeyCode.S ) ) this.state = LevelState.DEFAULT;
 
-		} else {
-			if ( Keyboard.keyHit( KeyCode.SPACE ) ) {
-				if ( this.paused ) {
-					this.paused = false;
-					if ( optionPanel ) optionPanel.classList.add( 'hidden' );
-
-					for ( let sound of this.sounds ) {
-					//	sound.play();
-					}
-				} else {
-					this.paused = true;
-					if ( optionPanel ) optionPanel.classList.remove( 'hidden' );
-
-					for ( let sound of this.sounds ) {
-					//	sound.pause();
-					}
-				}
-			}
-
+		} else { // this.state == LevelState.DEFAULT
 			if ( this.paused ) {
-				this.oldTime = new Date().getTime();
+				this.oldGameTime = new Date().getTime(); // game time doesn't pass when paused
+
+				if ( Keyboard.keyHit( KeyCode.UP ) || Keyboard.keyHit( KeyCode.W ) ) {
+					// this.describe( this.lookVector );
+				}
+				
+				if ( Keyboard.keyHit( KeyCode.RIGHT ) ) {
+					// this.advanceLookVector( 1 );
+				}
+
+				if ( Keyboard.keyHit( KeyCode.RIGHT ) ) {
+					// this.advanceLookVector( -1 );
+				}
+
 			} else {
-				this.defaultUpdate( frameStep, elapsed );
+				this.defaultUpdate( frameStep, gameElapsed );
 			}
 		}
 	}
@@ -682,36 +713,6 @@ export class Level extends Scene {
 			}
 		}
 
-		// message passing
-		for ( let i = 0; i < this.em.entities.length; i++ ) {
-			let entity = this.em.entities[i];
-
-			if ( entity.messages.length > 0 ) {
-				for ( let message of entity.messages ) {
-					if ( message.length > 0 && message[0] == '!' ) {
-						let words = message.split( ',' ).map( x => x.trim() );
-						let ok = false;
-
-						if ( words[0] == '!prompt' && words.length == 3 ) {
-							this.state = LevelState.PROMPT;
-							this.promptAccept = words[1];
-							this.promptReject = words[2]
-
-							ok = true;
-						}
-
-						if ( !ok ) {
-							console.error( 'Level.defaultUpdate: Invalid message ' + message );
-						}
-					} else {
-						this.messageQueue.push( message );
-					}
-				}
-				
-				entity.messages = [];
-			}
-		}
-
 		// solid collision
 		for ( let entity of this.em.entities ) {
 			if ( entity.isPliant ) {
@@ -729,6 +730,48 @@ export class Level extends Scene {
 		let playerShape = this.player.getShapes()[0];
 		for ( let room of this.rooms ) {
 			room.update( playerShape );
+		}
+
+		// message passing
+		for ( let i = 0; i < this.em.entities.length; i++ ) {
+			let entity = this.em.entities[i];
+
+			if ( entity.messages.length > 0 ) {
+				for ( let message of entity.messages ) {
+
+					// do something
+					if ( message.length > 0 && message[0] == '!' ) {
+						let words = message.split( ',' ).map( x => x.trim() );
+						let ok = false;
+
+						if ( words[0] == '!prompt' && words.length == 3 ) {
+							this.state = LevelState.PROMPT;
+							this.promptAccept = words[1];
+							this.promptReject = words[2];
+
+							ok = true;
+						} else if ( words[0] == '!wipe' ) {
+							for ( let entity of this.em.entities ) {
+								if ( entity instanceof Bullet ) {
+									entity.destructor(); // TODO: fade bullets out nicely
+								}
+							}
+
+							ok = true;
+						}
+
+						if ( !ok ) {
+							console.error( 'Level.defaultUpdate: Invalid message ' + message );
+						}
+
+					// output text to console
+					} else {
+						this.messageQueue.push( message );
+					}
+				}
+				
+				entity.messages = [];
+			}
 		}
 
 		let messages = this.em.entities.filter( x => x instanceof Message ) as Array<Message>;
@@ -752,7 +795,7 @@ export class Level extends Scene {
 			this.killPlayer();
 		}
 
-		this.checkForSuccess();
+		this.checkForSuccess(); // do this second, so if player wins and is killed in the same frame, the kill is overridden
 
 		this.em.insertSpawned();
 		this.em.cull();
@@ -785,7 +828,7 @@ export class Level extends Scene {
 
 		this.messageQueue.push( this.player.causeOfDeath )
 		//this.messageQueue.push( 'Press Z to go back ' + REWIND_SECS + ' seconds or R to restart level' );
-		this.messageQueue.push( 'Press R to restart level' );
+		this.messageQueue.push( 'Press W to restart level' );
 		this.messageQueue.push( 'or S to return to the lobby' );
 
 		// change state
@@ -865,11 +908,11 @@ export class Level extends Scene {
 					let timeStr = minuteStr + ':' + secondStr;
 
 					this.messageQueue.push( 'All cores have been defeated! Congratulations!' );
-					this.messageQueue.push( 'You total time was ' + timeStr );
-					this.messageQueue.push( 'Press Z to return to the main menu' );
+					this.messageQueue.push( 'Your total time was ' + timeStr );
+					this.messageQueue.push( 'Press W to return to the main menu' );
 
 				} else {
-					this.messageQueue.push( 'Press Z to proceed' );	
+					this.messageQueue.push( 'Press W to proceed' );	
 				}
 
 				this.anim.pushFrame( new AnimFrame( {
@@ -892,8 +935,17 @@ export class Level extends Scene {
 		return shapes;
 	}
 
+	/* User Interface */
+
 	pickFromEye( dir: Vec2 ): Array<Entity> {
-		let shapes = this.getShapes();
+		let shapes = [];
+
+		for ( let entity of this.em.entities ) {
+			if ( entity == this.player ) continue;
+
+			shapes.push( ...entity.getShapes( 0.0 ) );
+		}
+
 		let hits = shapecast( Line.fromPoints( this.player.pos.copy(), this.player.pos.plus( dir ) ), shapes );
 
 		if ( hits.length > 0 ) {
@@ -903,9 +955,39 @@ export class Level extends Scene {
 		return [];
 	}
 
+	describe( entity: Entity ) {
+		if ( !entity ) {
+			this.messageQueue.push( 'nothing' );
+			return;
+		}
+
+		let msg = '';
+
+		if ( entity.flavorName ) {
+			msg = entity.flavorName;
+		} else {
+			msg = entity.constructor.name;
+		}
+
+		let attributes = [];
+
+		if ( entity.collisionGroup == COL.LEVEL ) {
+			attributes.push( 'Solid' );
+		}
+		//this.messageQueue.push( 'Vulnerable: unknown' );//+ this.player.canBeHitBy( entity ) );
+		// fire direction of guns (straight, random)
+		if ( entity.collisionGroup == COL.ENEMY_BULLET ) {
+			attributes.push( 'Dangerous' );
+		}
+
+		if ( attributes.length ) msg += ' (' + attributes.join( ', ' ) + ')';
+
+		this.messageQueue.push( msg );
+	}
+
 	/* Drawing */
 
-	draw( context: CanvasRenderingContext2D ) {
+	draw( context: CanvasRenderingContext2D, options: SceneDrawOptions={} ) {
 		this.camera.pos.set( this.player.pos );
 
 		if ( this.state == LevelState.DEATH_REPLAY ) {
@@ -931,7 +1013,7 @@ export class Level extends Scene {
 			}
 		}
 
-		if ( typeof document !== 'undefined' ) {
+		if ( typeof document !== 'undefined' && !options.noConsole ) {
 			// draw newest messages lowest
 			let y = this.camera.viewportH - 20;
 			let x = 10;

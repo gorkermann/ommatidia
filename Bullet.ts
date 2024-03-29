@@ -9,6 +9,9 @@ import { CenteredEntity } from './CenteredEntity.js'
 export class Bullet extends CenteredEntity {
 	speed: number;
 
+	/* property overrides */
+	flavorName: string = 'BULLET';
+
 	constructor( pos: Vec2, vel: Vec2 ) {
 		super( pos, 8, 8 );
 	
@@ -62,6 +65,9 @@ export class PlayerBullet extends Bullet {
 }
 
 export class Gutter extends CenteredEntity {
+	/* property overrides */
+	flavorName: string = 'GUTTER';
+
 	constructor( pos: Vec2=new Vec2(), w: number=20, h: number=100 ) {
 		super( pos, w, h );
 

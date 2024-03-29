@@ -13,6 +13,8 @@ export type PlayerStatus = {
 	startTime: number;
 	lives: number;
 	defeatedNames: Array<string>;
+
+	messages: Array<string>;
 }
 
 export class Player extends Entity {
