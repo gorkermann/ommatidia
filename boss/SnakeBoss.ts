@@ -498,8 +498,8 @@ export class SnakeBoss extends Boss {
 			this.cloud = new VertCloud( points, w + 10 );
 		}
 
-		this.messages.push( 'You are in a maze of passageways.\n' );
-		this.messages.push( 'The elongated purple SNAKE CORE has seen you!\n' );
+		this.messages.push( 'You are in a maze of blue-gray passageways.' );
+		this.messages.push( 'The elongated purple SNAKE CORE has seen you!' );
 	}
 
 	orientSegments() {
@@ -570,6 +570,13 @@ export class SnakeBoss extends Boss {
 		if ( this.tail.length < prevLength ) {
 			this.speed += this.speedIncrease;
 			this.anim.fields['pos'].rate = this.speed;
+
+			this.messages.push( 'You have destroyed a segment of the SNAKE CORE!' );
+			if ( this.tail.length > 0 ) {
+				this.messages.push( this.tail.length + ' segments remain.' );	
+			} else {
+				this.messages.push( 'The SNAKE CORE is exposed through a narrow opening in the back of its head!' );
+			}
 		}
 	}
 

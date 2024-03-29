@@ -10,6 +10,7 @@ import { Coin } from './Coin.js'
 import { Bullet, Gutter } from './Bullet.js'
 
 export type PlayerStatus = {
+	startTime: number;
 	lives: number;
 	defeatedNames: Array<string>;
 }

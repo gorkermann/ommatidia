@@ -96,7 +96,7 @@ export class GameControllerDom extends GameController {
 			//this.levelIndex += 1;
 			this.levelIndex = 0;
 
-			if ( this.levelIndex < this.levelDataList.length ) {
+			if ( this.levelIndex < this.levelDataList.length && this.playerStatus.defeatedNames.length < 6 ) {
 				let context = this.canvas.getContext( '2d' );
 
 				context.clearRect( 0, 0, this.canvas.width, this.canvas.height );

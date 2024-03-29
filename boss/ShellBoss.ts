@@ -539,8 +539,8 @@ export class ShellBoss extends Boss {
 			}
 		}
 
-		this.messages.push( 'You are in a vast circular chamber.\n' );
-		this.messages.push( 'Apparitions of the circular SHELL CORE multiply before you' );
+		this.messages.push( 'You are in a vast circular chamber.' );
+		this.messages.push( 'Apparitions of the green SHELL CORE multiply before you.' );
 	}
 
 	shootMissile( angle: number ) {

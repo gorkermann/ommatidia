@@ -443,7 +443,7 @@ export class SwitchBoss extends Boss {
 		this.shell.isGhost = true;
 		this.addSub( this.shell );
 
-		this.anim.fields['angle'] = new PhysField( this.shell, 'angle', 'angleVel', 0.01, { isAngle: true } );
+		this.anim.fields['angle'] = new PhysField( this.shell, 'angle', 'angleVel', 0.02, { isAngle: true } );
 
 		let invisibleWall = new CenteredEntity( new Vec2( 0, 0 ), wallUnit * 5, wallUnit * 7 );
 		invisibleWall.material.alpha = 0.0;
@@ -469,8 +469,8 @@ export class SwitchBoss extends Boss {
 			barrier.collisionGroup = COL.LEVEL;
 		}
 
-		this.messages.push( 'You are in a vast circular chamber.\n' );
-		this.messages.push( 'The SWITCH CORE hides behind its square armor.\n' );
+		this.messages.push( 'You are in a vast circular chamber.' );
+		this.messages.push( 'The SWITCH CORE hides behind its square armor and rotates slowly.' );
 	}
 
 	/**
@@ -637,6 +637,10 @@ export class SwitchBoss extends Boss {
 			this.anim.clear( { withoutTag: 'exit' } );
 
 			this.anim.pushFrame( new AnimFrame( {}, [
+				new FuncCall<typeof this.pushMessage>( this, 'pushMessage', ['The SWITCH CORE has reconstructed its armor.'] )
+			] ) );
+
+			this.anim.pushFrame( new AnimFrame( {}, [
 				new FuncCall<typeof this.rebuildSides>( this, 'rebuildSides', [] )
 			] ) );
 
@@ -645,12 +649,12 @@ export class SwitchBoss extends Boss {
 			} ) );
 
 			let frame = new AnimFrame();
-
 			for ( let [i, side] of Object.entries( this.sides ) ) {
 				frame.targets['side' + i + '-alpha'] = new AnimTarget( 0.0 );
 			}
-
 			this.anim.pushFrame( frame );
+
+			this.messages.push( 'The SWITCH CORE is exposed!' );
 		}
 
 		/* attack change */

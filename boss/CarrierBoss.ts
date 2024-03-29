@@ -316,8 +316,8 @@ export class CarrierBoss extends Boss {
 			barrier.collisionGroup = COL.LEVEL;
 		}
 
-		this.messages.push( 'You are in a vast circular chamber.\n' );
-		this.messages.push( 'The ORBIT CORE\'s shield generators are active.\n' );
+		this.messages.push( 'You are in a vast circular chamber.' );
+		this.messages.push( 'The ORBIT CORE\'s blue shield generators are active.' );
 	}
 
 	spawnDrone( radius: number, angle: number, vel: Vec2 ) {
@@ -387,6 +387,8 @@ export class CarrierBoss extends Boss {
 				//drone.vel.set( Vec2.fromPolar( Math.PI * 2 * Math.random(), drone.speed ) );
 			//}
 		}
+
+		this.messages.push( 'The ORBIT CORE\'s shield generators have restarted.' );
 
 		this.flags['stunned'] = false;
 	}
@@ -471,6 +473,8 @@ export class CarrierBoss extends Boss {
 			} ) );
 
 			this.flags['stunned'] = true;
+
+			this.messages.push( 'The ORBIT CORE\'s shield is down!' );
 		}
 
 	}

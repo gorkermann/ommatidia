@@ -767,7 +767,7 @@ export class LockBoss extends Boss {
 
 		this.maxHealth = this.getHealth();
 
-		this.messages.push( 'You are in a rectangular chamber.\n' );
+		this.messages.push( 'You are in a rectangular chamber.' );
 	}
 
 	watch( target: Vec2 ) {

@@ -459,14 +459,36 @@ export class Level extends Scene {
 
 			if ( this.messageAnim.isDone() ) {
 				if ( this.messageQueue.length > 0 ) {
+
+					// new line for new message
 					if ( this.stringIndex == 0 ) {
 						this.displayText.push( '' );
+
+					// new line for word wrapping
+					//} else if ( this.displayText.length > 0 && this.displayText[this.displayText.length - 1].length >= 32 ) {
+					//	this.displayText.push( '' );
+					
+					} else if ( this.displayText.length > 0 ) {
+						let text = this.displayText.slice(-1)[0];
+
+						if ( text.length > 0 && text[text.length - 1] == ' ' ) {
+							let index = this.messageQueue[0].indexOf( ' ', text.length );
+							
+							let remainingInWord = index - text.length;
+							if ( index < 0 ) remainingInWord = this.messageQueue[0].length - this.stringIndex;
+
+							if ( text.length + remainingInWord > 32 ) {
+								this.displayText.push( '' );
+							}
+						}
 					}
 
+					// done with message
 					if ( this.stringIndex >= this.messageQueue[0].length ) {
 						this.stringIndex = 0;
 						this.messageQueue.shift();
 
+					// add next character
 					} else {
 						let char = this.messageQueue[0][this.stringIndex];
 
@@ -825,11 +847,27 @@ export class Level extends Scene {
 
 				this.anim.clear();
 
-				this.messageQueue.push( 'You have defeated the ' + defeatedNames.join( ', ' ) );
+				this.messageQueue.push( 'You have defeated the ' + defeatedNames.join( ', ' ) + '.' );
 				
 				if ( this.final ) {
+					let now = new Date().getTime();
+					let totalTime = ( now - this.playerStatus.startTime ) / 1000;
+					let minuteStr = Math.floor( totalTime / 60 ) + '';
+					while ( minuteStr.length < 2 ) {
+						minuteStr = '0' + minuteStr;
+					}
+
+					let secondStr = Math.floor( totalTime % 60 ) + '';
+					while ( secondStr.length < 2 ) {
+						secondStr = '0' + secondStr;
+					}
+
+					let timeStr = minuteStr + ':' + secondStr;
+
 					this.messageQueue.push( 'All cores have been defeated! Congratulations!' );
+					this.messageQueue.push( 'You total time was ' + timeStr );
 					this.messageQueue.push( 'Press Z to return to the main menu' );
+
 				} else {
 					this.messageQueue.push( 'Press Z to proceed' );	
 				}
@@ -898,9 +936,17 @@ export class Level extends Scene {
 			let y = this.camera.viewportH - 20;
 			let x = 10;
 
+			// center of circle
+			let textAreaWidth = this.ir * 2 * this.camera.viewportW / 400 * 0.9;
+
+			// context.font = '14px Monospace';
+			// let charWidth = context.measureText( 'm' ).width;
+
+			// let lineWidthChars = Math.floor( textAreaWidth / charWidth );
+
 			if ( !Debug.flags.DRAW_NORMAL ) {
 				y = this.camera.viewportH / 2 + 20;
-				x = this.camera.viewportW / 2 - this.ir * this.camera.viewportW / 400 * 0.9;
+				x = this.camera.viewportW / 2 - textAreaWidth / 2;
 			}
 
 			for ( let i = this.displayText.length - 1; i >= this.displayText.length - 4 && i >= 0; i-- ) {

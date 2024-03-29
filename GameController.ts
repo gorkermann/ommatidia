@@ -73,6 +73,7 @@ export class GameController extends Controller {
 	floaterScene: FloaterScene;
 
 	playerStatus: PlayerStatus = {
+		startTime: 0,
 		lives: 10,
 		defeatedNames: []
 	}
@@ -94,6 +95,7 @@ export class GameController extends Controller {
 
 		this.addMessageHandler( 'start', () => { 
 			this.levelIndex = 0;
+			this.playerStatus.startTime = new Date().getTime();
 
 			this.startLevel();
 		} );
@@ -117,29 +119,31 @@ export class GameController extends Controller {
 			this.startLevel();
 		} );
 
-		this.addMessageHandler( 'complete', () => {
-			//this.levelIndex += 1;
-			this.levelIndex = 0;
+		if ( typeof document === 'undefined' ) {
+			this.addMessageHandler( 'complete', () => {
+				//this.levelIndex += 1;
+				this.levelIndex = 0;
 
-			if ( this.levelIndex < this.levelDataList.length ) {
-				/*let context = this.canvas.getContext( '2d' );
+				if ( this.levelIndex < this.levelDataList.length ) {
+					/*let context = this.canvas.getContext( '2d' );
 
-				context.clearRect( 0, 0, this.canvas.width, this.canvas.height );
-				this.currentScene.draw( context );
+					context.clearRect( 0, 0, this.canvas.width, this.canvas.height );
+					this.currentScene.draw( context );
 
-				var image = new Image();
-				image.src = this.canvas.toDataURL();
+					var image = new Image();
+					image.src = this.canvas.toDataURL();
 
-				oldImages.push( new FadingImage( image ) );*/
+					oldImages.push( new FadingImage( image ) );*/
 
-				this.startLevel();
+					this.startLevel();
 
-			} else {
-				oldImages = [];
+				} else {
+					oldImages = [];
 
-				this.loadScene( this.title );
-			}
-		} );
+					this.loadScene( this.title );
+				}
+			} );
+		}
 
 		this.addMessageHandler( 'begin', ( args: Array<string> ) => {
 			if ( args.length != 1 ) {

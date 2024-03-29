@@ -326,6 +326,10 @@ export class Boss extends CenteredEntity {
 		return this.state != BossState.DEAD;
 	}
 
+	pushMessage( msg: string ) {
+		this.messages.push( msg );
+	}
+
 	shade() {
 		let now = new Date().getTime();
 
