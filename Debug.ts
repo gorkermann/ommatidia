@@ -21,7 +21,7 @@ export let flags: Dict<boolean> = {
 	LEVEL_ALT_MAT: true,
 	LOG_PANEL_UPDATES: true,
 	LOG_STATE_SAVELOAD: false, 
-	MOUSE_SELECT: false,
+	MOUSE_SELECT: true,
 	SHOW_DEATH: false,
 	DRAW_ROOMS: false,
 	SEND_SERVER_FRAME: false,

@@ -4,7 +4,7 @@ export let levelDataList = [
 		height: 10,
 		tilewidth: 30,
 		tileheight: 30,
-		hue: 30,
+		hue: 150,
 		controlMode: 0,
 
 		layers: [
@@ -18,6 +18,50 @@ export let levelDataList = [
 			},
 		],
 		drawNormal: true,
+
+		waves: [
+			[
+				{ pos: { x: 0, y: -200 }, vel: { x: 0, y: 5 } },
+				{ pos: { x: 60, y: -200 }, vel: { x: 0, y: 5 } },
+				{ pos: { x: 120, y: -200 }, vel: { x: 0, y: 5 } },
+				{ pos: { x: 180, y: -200 }, vel: { x: 0, y: 5 } },
+				{ pos: { x: 240, y: -200 }, vel: { x: 0, y: 5 } },
+			],
+			[
+				{ pos: { x: 400, y: 67 }, vel: { x: -5, y: 0 } },
+				{ pos: { x: 450, y: 67 }, vel: { x: -5, y: 0 }, coin: true },
+				{ pos: { x: 500, y: 67 }, vel: { x: -5, y: 0 } }
+			],
+			[
+				{ pos: { x: 400, y: 67 }, vel: { x: -5, y: 0 } },
+				{ pos: { x: 400, y: 37 }, vel: { x: -5, y: 0 }, coin: true },
+				{ pos: { x: 400, y: 7 }, vel: { x: -5, y: 0 } }
+			],
+			[
+				{ pos: { x: -200, y: 67 }, vel: { x: 5, y: 0 }, stack: 5 }
+			],
+			[
+				{ pos: { x: -200, y: 67 }, vel: { x: 5, y: 0 }, stack: 5 }
+			],
+			[
+				{ pos: { x: -200, y: 67 }, vel: { x: 5, y: 0 }, stack: 5 }
+			],
+			[
+				{ pos: { x: -200, y: 67 }, vel: { x: 5, y: 0 }, stack: 5 }
+			],
+			[
+				{ pos: { x: 400, y: 67 }, vel: { x: -5, y: 0 } }
+			],
+			[
+				{ pos: { x: -200, y: 67 }, vel: { x: 5, y: 0 } }
+			],
+			[
+				{ pos: { x: -200, y: 67 }, vel: { x: 5, y: 0 }, stack: true }
+			],
+			[
+				{ pos: { x: 400, y: 67 }, vel: { x: -3, y: 0 }, coin: true }
+			],
+		]
 	},
 	{
 		width: 10,

@@ -209,6 +209,9 @@ export class Boss extends CenteredEntity {
 		if ( this.health <= 0 ) {
 			this.kill();
 		}
+
+		this.messages.push( '!clearmsg, Enemy health:' );
+		this.messages.push( 'Enemy health: ' + this.health );
 	}
 
 	kill() {

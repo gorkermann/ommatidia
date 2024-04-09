@@ -28,7 +28,7 @@ import { Watcher, DictWatcher } from './Watcher.js'
 
 tp.config.WRITE_PTR_CLASSNAME = true;
 
-let levelDataList = levels;
+let levelDataList = sideLevels;
 
 class FadingImage {
 	image: HTMLImageElement;

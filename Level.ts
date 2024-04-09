@@ -758,6 +758,15 @@ export class Level extends Scene {
 							}
 
 							ok = true;
+						} else if ( words[0] == '!clearmsg' ) {
+							let pattern = words[1];
+
+							// very basic string matching
+							this.messageQueue = this.messageQueue.filter( x => {
+								return x.indexOf( pattern ) != 0;
+							} );
+
+							ok = true;
 						}
 
 						if ( !ok ) {

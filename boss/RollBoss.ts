@@ -460,6 +460,7 @@ export class RollBoss extends Boss {
 		this.messages.push( 'The wide, red ROLL CORE lies before you.' );
 	}
 
+
 	/* function overrides */
 
 	animate( step: number, elapsed: number ) {

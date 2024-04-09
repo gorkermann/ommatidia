@@ -35,6 +35,13 @@
 [] prevent spawnEntity from setting collision mask
 [x] change lighting defaults
 [] 3 health, 10 lives
-[] bullet clearing item
+[] bullet clearing item -- red, rotating, sends out translucent halo
 [x] single handler per message event in GameController (there are two for 'complete') <-- GameController one doesn't register if document found
 [x] object picker-namer in pause menu <-- works outside of pause menu also!
+[] move eigenbloom hosting to porkbun
+[] put ommatidia on porkbun
+[] post on BAD discord
+[] resend to Nate
+[] play with Scott
+[] add movement info to report - rotating about internal axis, rotating about external axis, straight trajectory, following another object, following player, stationary (relative to world), click center of circle for info about the player
+[] add vulnerability info to report

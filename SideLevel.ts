@@ -98,6 +98,48 @@ class LevelGrid extends GridArea {
 	}
 }
 
+class Wave {
+	entities: Array<Entity> = [];
+
+	constructor( list: any ) {
+		for ( let obj of list ) {
+			if ( obj['pos'] && obj['vel'] ) {
+				let pos = new Vec2( obj['pos'].x, obj['pos'].y );
+				let vel = new Vec2( obj['vel'].x, obj['vel'].y );
+
+				if ( obj['coin'] ) {
+					let coin = new Coin( pos );
+					coin.vel = vel;
+					coin.collisionGroup = COL.ITEM;
+
+					this.entities.push( coin );
+				} else {
+					if ( obj['stack'] ) {
+						let y = 0;
+
+						for ( let i = 0; i < obj['stack']; i++ ) {
+							let bullet = new Bullet( pos.plus( new Vec2( 0, y ) ), vel );
+							bullet.collisionGroup = COL.ENEMY_BULLET;
+
+							this.entities.push( bullet );
+
+							y -= 30;
+							if ( Math.random() > 0.7 ) y -= 30;
+						}
+					} else {
+						let bullet = new Bullet( pos, vel );
+						bullet.collisionGroup = COL.ENEMY_BULLET;
+
+						this.entities.push( bullet );
+					}
+				}
+			}
+		}
+
+		console.log( 'Wave.constructor(): created ' + this.entities.length + ' entites' );
+	}
+}
+
 export class SideLevel extends Scene {
 	grid: LevelGrid = new LevelGrid();
 
@@ -142,6 +184,9 @@ export class SideLevel extends Scene {
 	displayText: Array<string> = [] // one line each
 
 	sounds: Array<Sound> = [];
+
+	waves: Array<Wave> = [];
+	currentWave: Wave = null;
 
 	messageAnim = new Anim( {
 		'newChar': new AnimField( this, 'newChar' )
@@ -291,6 +336,12 @@ export class SideLevel extends Scene {
 
 		for ( let room of this.rooms ) {
 			room.freeze();
+		}
+
+		if ( this.data['waves'] ) {
+			for ( let obj of this.data['waves'] ) {
+				this.waves.push( new Wave( obj ) );
+			}
 		}
 
 		this.em.insert( gridEnt );
@@ -530,15 +581,30 @@ export class SideLevel extends Scene {
 			this.killPlayer();
 		}
 
+		if ( !this.currentWave && this.waves.length > 0 ) {
+			this.currentWave = this.waves.shift();
+
+			for ( let entity of this.currentWave.entities ) {
+				this.em.insert( entity );
+			}
+		}
+
 		this.checkForSuccess();
 
 		this.em.insertSpawned();
 		this.em.cull();
 
+		if ( this.currentWave ) {
+			cullList( this.currentWave.entities );
+			if ( this.currentWave.entities.length == 0 ) {
+				this.currentWave = null;
+			}
+		}
+
 		let boundary = 400;
 
 		for ( let entity of this.em.entities ) {
-			if ( entity == this.player || entity instanceof Bullet ) {
+			if ( entity == this.player ) {
 				if ( entity.pos.x < -boundary ||
 					 entity.pos.x > this.grid.hTiles * this.grid.tileWidth + boundary ||
 					 entity.pos.y < -boundary ||
@@ -551,6 +617,15 @@ export class SideLevel extends Scene {
 						entity.removeThis = true;
 					}
 				}
+			}
+		}
+
+		for ( let entity of this.em.entities ) {
+			if ( entity instanceof Bullet ) {
+				if ( entity.pos.x < 0 && entity.vel.x < 0 ) entity.removeThis = true;
+				if ( entity.pos.x > this.grid.hTiles * this.grid.tileWidth && entity.vel.x > 0 ) entity.removeThis = true;
+				if ( entity.pos.y < 0 && entity.vel.y < 0 ) entity.removeThis = true;
+				if ( entity.pos.y > this.grid.vTiles * this.grid.tileWidth && entity.vel.y > 0 ) entity.removeThis = true;
 			}
 		}
 	}
