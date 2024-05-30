@@ -13,7 +13,9 @@ export default {
   devtool: 'inline-source-map',
   externals: {
     'rpio': /^rpio$/,
-    'rpi-ws281x-native': /^rpi-ws281x-native$/
+    'rpi-ws281x-native': /^rpi-ws281x-native$/,
+    'i2c-bus': /^i2c-bus$/,
+    'fs': '/^fs$/'
   },
   optimization: {
     minimize: false,

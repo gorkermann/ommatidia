@@ -26,6 +26,8 @@ export let flags: Dict<boolean> = {
 	DRAW_ROOMS: false,
 	SEND_SERVER_FRAME: false,
 	ALLOW_CRUSH: false,
+	RANGING_VIEW: false,
+	THERMAL_CAMERA: false,
 }
 
 export type DebugField = {

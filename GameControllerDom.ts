@@ -5,7 +5,7 @@ import { Editable } from './lib/juego/Editable.js'
 import { Entity } from './lib/juego/Entity.js'
 import { Keyboard, KeyCode } from './lib/juego/keyboard.js'
 import { constructors, nameMap } from './lib/juego/constructors.js'
-import { Scene } from './Scene.js'
+import { OmmatidiaScene } from './Scene.js'
 import { Selector } from './lib/juego/Selector.js'
 import { Dict } from './lib/juego/util.js'
 import { Vec2 } from './lib/juego/Vec2.js'
@@ -25,7 +25,6 @@ import { CommandPanel } from './ctlr/CommandPanel.js'
 import * as Debug from './Debug.js'
 import { gameCommands } from './gameCommands.js'
 import { GameController } from './GameController.js'
-import { FloaterScene } from './FloaterScene.js'
 import { Level } from './Level.js'
 import { store } from './store.js'
 import { TitleScene } from './TitleScene.js'
@@ -63,8 +62,6 @@ export class GameControllerDom extends GameController {
 
 	inspector: InspectorPanel;
 	panels: Array<Panel> = [];
-
-	floaterScene: FloaterScene;
 
 	constructor() {
 		super();
@@ -135,11 +132,6 @@ export class GameControllerDom extends GameController {
 	initCanvas() {
 		this.canvas = document.getElementById( 'canvas' ) as HTMLCanvasElement;
 		this.resize();
-
-		this.floaterScene = new FloaterScene( this.canvas );
-		this.floaterScene.camera.setViewport( this.canvas.width, this.canvas.height );
-
-		this.title.floaters = this.floaterScene.floaters;
 
 		window.addEventListener( 'resize', ( e ) => {
 			this.resize();
@@ -230,7 +222,7 @@ export class GameControllerDom extends GameController {
 		super.startLevel();
 	}
 
-	loadScene( scene: Scene, doLoad: boolean=true ) {
+	loadScene( scene: OmmatidiaScene, doLoad: boolean=true ) {
 		super.loadScene( scene, doLoad );
 		
 		this.resize();
@@ -346,15 +338,6 @@ export class GameControllerDom extends GameController {
 		}
 
 		context.clearRect( 0, 0, this.canvas.width, this.canvas.height );
-
-		// background
-		if ( this.currentScene == this.title ) {
-
-			context.save();
-				context.translate( -this.title.origin.x, -this.title.origin.y );
-				this.floaterScene.draw( context );
-			context.restore();
-		}
 
 		this.currentScene.draw( context );
 

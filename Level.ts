@@ -11,11 +11,9 @@ import { constructors, nameMap } from './lib/juego/constructors.js'
 import { RayHit } from './lib/juego/RayHit.js'
 import { ScrollBox } from './lib/juego/ScrollBox.js'
 import { Shape } from './lib/juego/Shape.js'
-import { Sound } from './lib/juego/Sound.js'
 import { TileArray } from './lib/juego/TileArray.js'
 import { Vec2 } from './lib/juego/Vec2.js'
-
-import * as tp from './lib/toastpoint.js'
+import { Sound } from './lib/juego/Sound.js'
 
 import { Boss } from './boss/Boss.js'
 import { RollBoss, Barrier } from './boss/RollBoss.js' 
@@ -27,7 +25,7 @@ import { CarrierBoss } from './boss/CarrierBoss.js'
 
 import { HorizDoor } from './Door.js'
 import { RoomManager } from './RoomManager.js'
-import { Scene, SceneDrawOptions } from './Scene.js'
+import { OmmatidiaScene, SceneDrawOptions } from './Scene.js'
 
 import { Bullet, PlayerBullet } from './Bullet.js'
 import { CenteredEntity } from './CenteredEntity.js'
@@ -109,7 +107,7 @@ export class LevelGrid extends GridArea {
 	}
 }
 
-export class Level extends Scene {
+export class Level extends OmmatidiaScene {
 	grid: LevelGrid = new LevelGrid();
 
 	rooms: Array<RoomManager> = [];
@@ -119,14 +117,6 @@ export class Level extends Scene {
 	controlMode: number = MODE_GRAVITY;
 	grav: Vec2 = new Vec2( 0, 1 );
 	data: any;
-	
-	// text box
-	textBox: Entity = new TopLeftEntity( new Vec2( 0, 300 ), DEFAULT_WIDTH, 0 );
-	textBoxHeight: number = 50;
-
-	text: string = '';
-	textIndex: number = 0;
-	speaker: Entity = null;
 
 	//
 	paused: boolean = false;
@@ -161,8 +151,6 @@ export class Level extends Scene {
 	stringIndex: number = 0; // character index of messageQueue[0] as it is transferred to displayText[-1]
 	displayText: Array<string> = [] // one line each
 
-	sounds: Array<Sound> = [];
-
 	messageAnim = new Anim( {
 		'newChar': new AnimField( this, 'newChar' )
 	},
@@ -196,28 +184,6 @@ export class Level extends Scene {
 		this.playerStatus = playerStatus;
 
 		this.data = data;
-
-		this.textBox.material = new Material( 0, 0, 0.92 );
-	}
-
-	protected toToast( toaster: tp.Toaster ): any {
-		let fields = Object.keys( this );
-
-		// never save these fields (which are lists of other fields)
-		let exclude = ['editFields', 'saveFields', 'discardFields']
-
-		// fields for for serialization only (exclude the old value if left in by mistake)
-		exclude = exclude.concat( ['entities', '__entities'] );
-
-		exclude = exclude.concat( this.discardFields );
-		fields = fields.filter( x => !exclude.includes( x ) );
-
-		let flat: any = {};
-
-		tp.setMultiJSON( flat, fields, this, toaster );
-		tp.setJSON( flat, '__entities', this.em.entities, toaster );
-
-		return flat;
 	}
 
 	load(): Promise<any> {
@@ -587,39 +553,6 @@ export class Level extends Scene {
 		}
 	}
 
-	updateSounds() {
-		for ( let entity of this.em.entities ) {
-			if ( !( entity instanceof Boss )) continue;
-
-			for ( let source of entity.sounds ) {
-				this.updateSound( source );
-			}
-		}
-
-		for ( let sound of this.sounds ) {
-			this.updateSound( sound );
-		}
-	}
-
-	updateSound( source: Sound ) {
-		let dist = 0;
-
-		if ( source.pos ) {
-			dist = this.player.pos.distTo( source.pos );
-		}
-
-		let vol = source.distScale / ( dist ** 2 + 1 );
-		source.audio.volume = Math.min( vol, 1.0 );
-
-		let atStart = source.audio.currentTime == 0 || source.audio.ended;
-
-		if ( atStart && source.count > 0 ) {
-			source.audio.play();
-
-			if ( !source.audio.loop ) source.count -= 1;
-		}
-	}
-
 	defaultUpdate( frameStep: number, elapsed: number ) {
 		this.elapsedTotal += elapsed;
 
@@ -691,8 +624,12 @@ export class Level extends Scene {
 
 		Debug.strokeAll( this.em.entities );
 
-		let treeGroup: Array<number> = this.em.entities.map( x => x.treeCollisionGroup() );
-		let treeMask: Array<number> = this.em.entities.map( x => x.treeCollisionMask() );
+		let treeGroup: Array<number> = [];
+		let treeMask: Array<number> = [];
+		for ( let entity of this.em.entities ) {
+			treeGroup.push( entity.treeCollisionGroup() );
+			treeMask.push( entity.treeCollisionMask() );
+		}
 
 		// overlapping
 		for ( let i = 0; i < this.em.entities.length; i++ ) {
@@ -934,16 +871,6 @@ export class Level extends Scene {
 		}
 	}
 
-	getShapes(): Array<Shape> {
-		let shapes = [];
-
-		for ( let entity of this.em.entities ) {
-			shapes.push( ...entity.getShapes( 0.0 ) );
-		}
-
-		return shapes;
-	}
-
 	/* User Interface */
 
 	pickFromEye( dir: Vec2 ): Array<Entity> {
@@ -955,11 +882,12 @@ export class Level extends Scene {
 			shapes.push( ...entity.getShapes( 0.0 ) );
 		}
 
+		/* EDIT
 		let hits = shapecast( Line.fromPoints( this.player.pos.copy(), this.player.pos.plus( dir ) ), shapes );
 
 		if ( hits.length > 0 ) {
 			return [hits[0].shape.parent];
-		}
+		}*/
 
 		return [];
 	}
@@ -1025,7 +953,6 @@ export class Level extends Scene {
 			}
 
 			this.defaultDraw( context );
-			this.drawTextboxOverlay( context );
 
 			if ( this.paused ) {
 				this.drawPauseOverlay( context );
@@ -1231,80 +1158,6 @@ export class Level extends Scene {
 				context.restore();
 			}
 		}
-	}
-
-	drawTextboxOverlay( context: CanvasRenderingContext2D ) {
-		if ( typeof document === 'undefined' ) return;
-
-		this.textBox.draw( context );
-
-		if ( this.text != '' ) {
-			if ( this.speaker !== null && this.textBox.height > 10 ) {
-				context.fillStyle = this.speaker.material.getFillStyle();
-				context.fillRect( this.textBox.pos.x + 5,
-								  this.textBox.pos.y + 5,
-								  40,
-								  this.textBox.height - 10 );
-			}
-
-			context.font = '10px Arial';
-			context.fillStyle = 'black';
-
-			let y = 15;
-			let lineWidth = 50;
-			let word = '';
-			let line = '';
-			let lineStart = 0;
-
-			for ( let i = 0; i < this.textIndex; i++ ) {
-				word += this.text[i];
-
-				if ( this.text[i] == ' ' ) {
-					line += word;
-					word = '';
-				}
-
-				// on spaces, decide whether to print the line and move to the next one
-				let index = this.text.indexOf( ' ', i+1 );
-				if ( index < 0 ) index = this.text.length;
-				let crossed = index > lineStart + lineWidth;
-
-				if ( i == this.textIndex - 1 ) {
-					context.fillText( line + word, 100, this.textBox.pos.y + y );
-
-				} else if ( crossed ) {
-					lineStart += line.length;
-
-					context.fillText( line, 100, this.textBox.pos.y + y );
-					line = '';
-					y += 15;
-				}
-			}
-		}
-
-		/*if ( this.updateQueue.length > 0 ) {
-			context.fillStyle = 'black';
-			context.fillRect( 400 - 36,
-				   			  400 - 16,
-				   			  32, 13 );
-			context.fillStyle = 'white';
-			context.fillText( 'Z: skip', 400 - 35,
-				   			  400 - 6 );
-		}*/	
-	}
-
-	drawPauseOverlay( context: CanvasRenderingContext2D ) {
-		if ( typeof document === 'undefined' ) return;
-
-		context.fillStyle = 'hsl( 0, 0%, 90%)';
-		context.font = '24px Arial';
-
-		let text = 'P A U S E';
-		let meas = context.measureText( text );
-		let w = meas.width;
-		let h = meas.actualBoundingBoxAscent + meas.actualBoundingBoxDescent;
-		
-		context.fillText( text, this.camera.viewportW / 2 - w / 2, this.camera.viewportH / 2 - 100 + h / 2 );
 	}
 
 	deathDraw( context: CanvasRenderingContext2D ) {

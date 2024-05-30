@@ -1,6 +1,6 @@
 import ws281x from 'rpi-ws281x-native'
 
-import { Angle } from './lib/juego/Angle.js'
+import { Angle, Angle_HalfTurn } from './lib/juego/Angle.js'
 import { Entity } from './lib/juego/Entity.js'
 import { Vec2 } from './lib/juego/Vec2.js'
 import { Line } from './lib/juego/Line.js'
@@ -20,43 +20,61 @@ if ( typeof document === 'undefined' ) {
 	channel = ws281x(144, { stripType: 'ws2812', gpio: 18 } );
 }
 
-export function shapecast( line: Line, shapes: Array<Shape>, minSweep: Array<number>=null, maxSweep: Array<number>=null ): Array<ShapeHit> {
-	let closestRayHits: Array<ShapeHit> = [];
+export function shapecast( sliceInfo: SliceInfo, line: Line, shapes: Array<Shape>, minSweep: Array<number>=null, maxSweep: Array<number>=null ) {//: Array<ShapeHit> {
+	//let closestRayHits: Array<ShapeHit> = [];
 	let v = line.p2.minus( line.p1 );
 	let angle = v.angle();
 
+	let hit: ShapeHit;
+
 	for ( let i = 0; i < shapes.length; i++ ) {
-		let shape = shapes[i];
+		if ( !shapes[i].material ) continue;
+		//if ( minSweep && maxSweep && !Angle.between( angle, minSweep[i], maxSweep[i] ) ) continue;
+		if ( shapes[i].material.alpha == 0.0 ) continue;
 
-		if ( !shape.material ) continue;
-		if ( minSweep && maxSweep && !Angle.between( angle, minSweep[i], maxSweep[i] ) ) continue;
+		// let hits = shape.rayIntersect( line );
 
-		let hits = shape.rayIntersect( line );
+		// for ( let i = 0; i < hits.length; i++ ) {
+		// 	if ( hits[i].material.alpha == 0.0 ) continue;
 
-		for ( let i = 0; i < hits.length; i++ ) {
-			if ( hits[i].material.alpha == 0.0 ) continue;
+		// 	//hits[i].vel = shape.getVel( hits[i].point ); // EDIT don't need if not doing approach flash
+		// 	hits[i].shape = shape;
+		// 	hits[i].incidentDot = -1;//line.p2.minus( line.p1 ).unit().dot( hits[i].normal ); // EDIT don't need if not doing corner highlight
 
-			hits[i].vel = shape.getVel( hits[i].point );
-			hits[i].shape = shape;
-			hits[i].incidentDot = line.p2.minus( line.p1 ).unit().dot( hits[i].normal );
+		// 	// inside shape
+		// 	if ( hits[i].incidentDot > 0 ) {
+		// 		hits[i].incidentDot *= -1;
+		// 		hits[i].normal.flip();
+		// 	}
+
+		// 	hits[i].normalDist = -hits[i].incidentDot * hits[i].dist;
+
+		// 	closestRayHits.push( hits[i] );
+
+		// 	if ( hits[i].material.alpha == 1.0 ) break;
+		// }
+
+		hit = sliceInfo.hits[0];
+		if ( shapes[i].rayIntersectSingle( line, hit ) ) {
+			//hit.vel = shape.getVel( hit.point ); // EDIT don't need if not doing approach flash
+			hit.shape = shapes[i];
+			hit.incidentDot = -1;//line.p2.minus( line.p1 ).unit().dot( hit.normal ); // EDIT don't need if not doing corner highlight
 
 			// inside shape
-			if ( hits[i].incidentDot > 0 ) {
-				hits[i].incidentDot *= -1;
-				hits[i].normal.flip();
+			if ( hit.incidentDot > 0 ) {
+				hit.incidentDot *= -1;
+				hit.normal.flip();
 			}
 
-			hits[i].normalDist = -hits[i].incidentDot * hits[i].dist;
+			hit.normalDist = -hit.incidentDot * hit.dist;
 
-			closestRayHits.push( hits[i] );
-
-			if ( hits[i].material.alpha == 1.0 ) break;
+			//closestRayHits.push( hit );
 		}
 	}
 
-	closestRayHits.sort( ( a: ShapeHit, b: ShapeHit ) => a.dist - b.dist );
+	//closestRayHits.sort( ( a: ShapeHit, b: ShapeHit ) => a.dist - b.dist );
 
-	return closestRayHits;	
+	//return closestRayHits;	
 }
 
 class SliceInfo {
@@ -87,43 +105,78 @@ function getSlices( sliceCount: number ): Array<number> {
 	return slices;
 }
 
+let getHitsOutput: Array<SliceInfo> = [];
+let minmax: [Angle_HalfTurn, Angle_HalfTurn] = [0, 0];
+
+let cosTable: Array<number> = [];
+let sinTable: Array<number> = [];
+
 function getHits( shapes: Array<Shape>,
 				  origin: Vec2,
 				  slices: Array<number> ): Array<SliceInfo> {
-	let output: Array<SliceInfo> = [];
+	//let output: Array<SliceInfo> = [];
+
+	if ( cosTable.length != slices.length ) {
+		cosTable = [];
+		sinTable = [];
+
+		let angle: number = 0;
+
+		for ( let i = 0; i < slices.length; i++ ) {
+			angle += slices[i] / 2;
+
+			cosTable[i] = Math.cos( angle );
+			sinTable[i] = Math.sin( angle );
+
+			angle += slices[i] / 2;
+		}
+	}
+
+	while ( getHitsOutput.length < slices.length ) {
+		getHitsOutput.push( new SliceInfo( 0, 0, [new ShapeHit( new Vec2(), new Vec2(), new Material( 0, 0, 0.5 ) )] ) );
+	}
+
+	if ( getHitsOutput.length > slices.length ) {
+		getHitsOutput = getHitsOutput.slice( 0, slices.length );
+	}
 
 	let angle = 0;
 	let opaqueIndex = 0;
 
-	let minSweep = [];
-	let maxSweep = [];
+	let minSweep: Array<number> = [];
+	let maxSweep: Array<number> = [];
 
-	for ( let shape of shapes ) {
-		let [min, max] = Angle.getSweep( shape.points, origin );
+	let line = new Line( 0, 0, 0, 0 );
 
-		minSweep.push( min );
-		maxSweep.push( max );
-	}
+	// for ( let shape of shapes ) {
+	// 	Angle.getSweep( shape.points, origin, minmax );
 
-	for ( let slice of slices ) {
-		angle += slice / 2;
+	// 	minSweep.push( minmax[0] );
+	// 	maxSweep.push( minmax[1] );
+	// }
 
-		let hits = shapecast( new Line( origin.x, 
-										origin.y,
-									    origin.x + Math.cos( angle ) * 1000, 
-									    origin.y + Math.sin( angle ) * 1000 ), shapes, minSweep, maxSweep );
+	pushMark( '_sw' );
 
-		if ( hits.length > 0 ) {
-			output.push( new SliceInfo( angle, slice, hits ) );
+	let slice: number;
 
-		} else {
-			output.push( null );
-		}
+	for ( let i = 0; i < slices.length; i++ ) {
+		slice = slices[i];
 
 		angle += slice / 2;
+
+		line.p1.set( origin );
+		line.p2.x = origin.x + cosTable[i] * 1000;
+		line.p2.y = origin.y + sinTable[i] * 1000;
+
+		getHitsOutput[i].angle = angle;
+		getHitsOutput[i].slice = slice;
+		getHitsOutput[i].hits[0].dist = -1;
+		shapecast( getHitsOutput[i], line, shapes, minSweep, maxSweep );
+
+		angle += slice / 2;
 	}
 
-	return output;
+	return getHitsOutput;
 }
 
 export function renderRays( context: CanvasRenderingContext2D, 
@@ -160,12 +213,6 @@ export function renderRays( context: CanvasRenderingContext2D,
 		context.lineTo( n.x, n.y );
 		context.stroke();
 	}
-}
-
-type SliderVal = {
-	id: string,
-	val: number;
-	default: number;
 }
 
 let sliceCount = 360;
@@ -258,6 +305,12 @@ function approachFlash( eyeVel: Vec2, hit: ShapeHit, angle: number, hitDist: num
 	}
 }
 
+type SliderVal = {
+	id: string,
+	val: number;
+	default: number;
+}
+
 export let vals: Dict<SliderVal> = {
 	satFactor: {
 		id: 'sat-factor',
@@ -274,7 +327,7 @@ export let vals: Dict<SliderVal> = {
 		val: 0.3,
 		default: 0.3,
 	},	
-	lumFactor: {
+	lumFactor: {			// distance over which luminance descends to the minimum
 		id: 'lum-factor',
 		val: 500,
 		default: 500,
@@ -284,7 +337,7 @@ export let vals: Dict<SliderVal> = {
 		val: 1.0,
 		default: 1.0,
 	},
-	lumMin: {
+	lumMin: {				// minimum luminance value for any occupied slice
 		id: 'lum-min',
 		val: 0.2,
 		default: 0.2,
@@ -319,13 +372,44 @@ if ( typeof document !== 'undefined' ) {
 let rollingAvgDist = 0;
 let rollingFactor = 0.01;
 
-function rescale( x: number ): number {
-	x *= 255;
-	x -= 32;
+function updateRollingAvgDist( sliceInfos: Array<SliceInfo> ) {
+	let maxDist = -1;
 
-	if ( x < 0 ) return 0;
+	for ( let i = 0; i < sliceInfos.length; i++ ) {
+		if ( !sliceInfos[i] ) continue;
 
-	return Math.min( 2 ^ ( x / 16 ), 255 );
+		let hits = sliceInfos[i].hits;
+
+		let opaqueIndex = hits.length - 1;
+		for ( let j = 0; j < hits.length; j++ ) {
+			if ( hits[j].material.alpha == 1.0 ) {
+				opaqueIndex = j;
+				break;
+			}
+		}
+
+		if ( hits[opaqueIndex].dist > maxDist ) {
+			maxDist = hits[opaqueIndex].dist;
+		}
+	}
+
+	if ( rollingAvgDist == 0 ) {
+		rollingAvgDist = maxDist;
+	} else {
+		rollingAvgDist = ( 1 - rollingFactor ) * rollingAvgDist + rollingFactor * maxDist;
+	}
+}
+
+type Mark = {
+	name: string;
+	timestamp: number;
+}
+
+let start = 0;
+let marks: Array<Mark> = [];
+
+function pushMark( name: string ) {
+	marks.push( { name: name, timestamp: new Date().getTime() } );
 }
 
 export function renderFromEye( context: CanvasRenderingContext2D, 
@@ -335,13 +419,20 @@ export function renderFromEye( context: CanvasRenderingContext2D,
 							   sliceCount: number,
 							   or: number, ir: number ) {
 
+	marks = [];
+	pushMark( 'start' );
+
 	let slices = getSlices( sliceCount );
+
+	pushMark( 'slices' );
 
 	let blendedSegments = getFrame( shapes, origin, vel, slices );
 	if ( blendedSegments.length != sliceCount ) {
 		console.error( 'render.renderFromEye(): Slice count mismatch: ' + blendedSegments.length + ' != ' + sliceCount );
 		return;
 	}
+
+	pushMark( 'frame' );
 
 	for ( let i = 0; i < sliceCount; i++ ) {
 		blendedSegments[i].a = 1.0;
@@ -387,6 +478,8 @@ export function renderFromEye( context: CanvasRenderingContext2D,
 		XhrInterface.post( 'render', { slices: segs } );
 	}
 
+	pushMark( 'segs' );
+
 	// optionally send to local GPIO
 	if ( typeof document === 'undefined' ) {
 		let offset = parseInt( Debug.fields['SLICE_OFFSET'].value );
@@ -402,57 +495,60 @@ export function renderFromEye( context: CanvasRenderingContext2D,
 	    }
 
 	    ws281x.render();
-	
-		//console.log( 'leds' );
 	}
 
-	//console.log( 'render' );
+	pushMark( 'end' );
+
+	let str = '';
+	for ( let i = 1; i < marks.length; i++ ) {
+		str += marks[i].name + ':' + ( marks[i].timestamp - marks[i-1].timestamp ) + ', ';
+	}
+	console.log( str );
 }
+
+let buffer: Array<RGBA> = [];
 
 function getFrame( shapes: Array<Shape>,
 				   origin: Vec2,
 				   vel: Vec2,
 				   slices: Array<number> ): Array<RGBA> {
 	let sliceInfos = getHits( shapes, origin, slices );
-	let blended;
-	let maxDist = -1;
-	let lumFactor, satFactor: number;
-
-	let output: Array<RGBA> = [];
 
 	if ( Debug.flags.AUTO_BRIGHT_ADJUST ) {
-		for ( let i = 0; i < sliceInfos.length; i++ ) {
-			if ( !sliceInfos[i] ) continue;
-
-			let angle = sliceInfos[i].angle;
-			let slice = sliceInfos[i].slice;
-			let hitDist = sliceInfos[i].hits[0].dist;
-
-			let hits = sliceInfos[i].hits;
-
-			let opaqueIndex = hits.length - 1;
-			for ( let j = 0; j < hits.length; j++ ) {
-				if ( hits[j].material.alpha == 1.0 ) {
-					opaqueIndex = j;
-					break;
-				}
-			}
-
-			if ( hits[opaqueIndex].dist > maxDist ) {
-				maxDist = hits[opaqueIndex].dist;
-			}
-		}
-
-		if ( rollingAvgDist == 0 ) {
-			rollingAvgDist = maxDist;
-		} else {
-			rollingAvgDist = ( 1 - rollingFactor ) * rollingAvgDist + rollingFactor * maxDist;
-		}
+		updateRollingAvgDist( sliceInfos );
 	}
 
+	/* adjust buffer allocation to match slice count */
+
+	while ( buffer.length < sliceInfos.length ) {
+		buffer.push( { r: 0, g: 0, b: 0, a: 0 } );
+	}
+
+	if ( buffer.length > sliceInfos.length ) {
+		buffer = buffer.slice( 0, sliceInfos.length );
+	}
+
+	/* update buffer */
+
+	let blended: RGBA;
+	let lumFactor, satFactor: number;
+
 	for ( let i = 0; i < sliceInfos.length; i++ ) {
-		if ( !sliceInfos[i] ) {
-			output.push( { r: 0, g: 0, b: 0, a: 0 } );
+		if ( !sliceInfos[i] || sliceInfos[i].hits.length == 0 || sliceInfos[i].hits[0].dist < 0 ) {
+			buffer[i].r = 0;
+			buffer[i].g = 0;
+			buffer[i].b = 0;
+			buffer[i].a = 0;
+			continue;
+		}
+
+		if ( Debug.flags.NO_COLOR_ADJUSTMENT ) {
+			let color = sliceInfos[i].hits[0].material.getRGBA();
+
+			buffer[i].r = color.r;
+			buffer[i].g = color.g;
+			buffer[i].b = color.b;
+			buffer[i].a = color.a;
 			continue;
 		}
 
@@ -474,9 +570,6 @@ function getFrame( shapes: Array<Shape>,
 				break;
 			}
 		}
-
-		//context.globalAlpha = 1 / ( Math.sqrt( hitDist ) / 10 );
-		//context.globalAlpha = 1 / ( hitDist / 20 );
 
 		/* highlight corners and edges of shape*/
 
@@ -504,9 +597,6 @@ function getFrame( shapes: Array<Shape>,
 			satFactor = Math.min( ( vals.satFactor.val - hits[j].dist ) / ( vals.satFactor.val - 10 ), 1.0 );
 			satFactor = Math.max( satFactor, vals.satMin.val );
 
-			hits[j].material.sat *= Math.max( hits[j].material.emit, satFactor );
-			
-
 			//lumFactor = Math.min( vals.lumFactor.val / ( hits[j].dist ** vals.lumPower.val ), 1.0 );
 			lumFactor = Math.min( ( distCutoff - hits[j].dist ) / ( distCutoff - 10 ), 1.0 );
 			lumFactor = Math.max( lumFactor, vals.lumMin.val );
@@ -517,16 +607,38 @@ function getFrame( shapes: Array<Shape>,
 				lumFactor = Math.min( lumFactor, 1.0 );
 			}
 
-			hits[j].material.lum *= Math.max( hits[j].material.emit, lumFactor );
+			// apply emit parameter for bright objects
+			satFactor = Math.max( hits[j].material.emit, satFactor ) 
+			lumFactor = Math.max( hits[j].material.emit, lumFactor );
 
-			/*let hue = hits[j].dist / distCutoff;
-			hue = Math.min( hue, 1.0 );
-			hits[j].material.hue = hue * 360;*/
+			/* */
 
+			hits[j].material.sat *= satFactor;
+			hits[j].material.lum *= lumFactor;
 
+			/* thermal camera view */
+			if ( Debug.flags.THERMAL_CAMERA ) {
+				let hue = hits[j].dist / distCutoff;
+				hue = Math.min( hue, 1.0 );
+				hits[j].material.hue = hue * 240; // closest is red, farthest is blue
+			}
+
+			/* angle view */  
+			let distFac: number = 0;
+
+			if ( Debug.flags.RANGING_VIEW ) {
+				distFac = hits[j].dist / distCutoff;
+				distFac = Math.min( distFac, 1.0 );
+
+				let angle = hits[j].normal.angle();
+				let angFac = Math.abs( Math.sin( angle ) );
+
+				hits[j].material.hue = 90 + angFac * 60; // horiz is cyan, vert is yellow
+			}
+
+			// highlight hovered entities
 			if ( hits[j].shape.parent && hits[j].shape.parent.hovered ) {
 				hits[j].material.lum *= 0.7;
-				//if ( hits[j].material.lum < 0 ) hits[j].material.lum = 0;
 			}
 
 			let color = hits[j].material.getRGBA();
@@ -535,41 +647,24 @@ function getFrame( shapes: Array<Shape>,
 				color.a *= hits[j].shape.parent.getAlpha();
 			}
 
+
+			if ( Debug.flags.RANGING_VIEW ) {
+				color.g *= ( 1 - distFac );
+			}
+
 			blended.r = color.r * color.a + blended.r * ( 1 - color.a );
 			blended.g = color.g * color.a + blended.g * ( 1 - color.a );
 			blended.b = color.b * color.a + blended.b * ( 1 - color.a );
  			//hits[j].material.blendWith( blended );
 		}
 
-		/* alter colors of hovered objects */
-
-		output.push( blended );
+		buffer[i].r = blended.r;
+		buffer[i].g = blended.g;
+		buffer[i].b = blended.b;
+		buffer[i].a = 1.0;
 	}
 
-		/*let redness = 0;
-
-		for ( let entity of this.em.entities ) {
-			if ( entity instanceof Coin ) {
-				let floaterPos = entity.pos.copy();
-				let floaterDir = floaterPos.minus( origin ).normalize();
-				let floaterDist = floaterPos.minus( origin ).length();
-
-				if ( hit !== null && floaterDist > hitDist ) {
-					continue;
-				}
-
-				let floatDot = dir.dot( floaterDir );
-				if ( floatDot > 0.995 ) {
-					let intensity = ( floatDot - 0.995 ) / 0.1;
-					intensity *= 1 / ( floaterPos.minus( origin ).length() / 200 );
-
-					redness += intensity; 
-				}
-			}
-		}
-		if ( redness > 1.0 ) redness = 1.0;*/
-
-	return output;
+	return buffer;
 }
 
 let canvasData: ImageData;
@@ -653,3 +748,34 @@ export function whiteText( context: CanvasRenderingContext2D, text: string, posX
 	    //return image;
 	//}
  */
+
+/*if ( !upsampled ) upsampled = context.createImageData( this.canvas.width, this.canvas.height );
+
+getDownsampled( this.canvas, context, 16, upsampled );
+context.putImageData( upsampled, 0, 0 );*/
+
+/*
+multi-slice glow
+
+let redness = 0;
+
+for ( let entity of this.em.entities ) {
+	if ( entity instanceof Coin ) {
+		let floaterPos = entity.pos.copy();
+		let floaterDir = floaterPos.minus( origin ).normalize();
+		let floaterDist = floaterPos.minus( origin ).length();
+
+		if ( hit !== null && floaterDist > hitDist ) {
+			continue;
+		}
+
+		let floatDot = dir.dot( floaterDir );
+		if ( floatDot > 0.995 ) {
+			let intensity = ( floatDot - 0.995 ) / 0.1;
+			intensity *= 1 / ( floaterPos.minus( origin ).length() / 200 );
+
+			redness += intensity; 
+		}
+	}
+}
+if ( redness > 1.0 ) redness = 1.0;*/

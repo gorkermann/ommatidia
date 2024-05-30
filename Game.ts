@@ -10,9 +10,11 @@ import { MILLIS_PER_FRAME } from './collisionGroup.js'
 import { GameController } from './GameController.js'
 import { GameControllerDom } from './GameControllerDom.js'
 import { empty } from './objDef.js'
-import { whiteText } from './render.js'
+import { whiteText, vals } from './render.js'
 
 import * as Debug from './Debug.js'
+
+import fs from 'fs'
 
 let ctlr: GameController = null;
 
@@ -77,6 +79,12 @@ let update = function() {
 }
 
 if ( typeof document !== 'undefined' ) {
+	init_web();
+} else {
+	init_rpi();
+}
+
+function init_web() {
 	window.onload = function() {
 		console.log( 'init from window' );
 
@@ -135,25 +143,28 @@ if ( typeof document !== 'undefined' ) {
 
 		scrollTop = rightPane.scrollTop;
 	}
-} else {
-	Debug.fields['SLICE_COUNT'].value = '143'; // used to be 144 but I made the circle too small, so cut one off
-	Debug.fields['SLICE_OFFSET'].value = '38'; // 144 / 4 = 35.75, closest is 36, end of strip is 2 positions past center, 36+2=38
+}
 
-	console.log( 'init from console (should be on a raspberry pi)' );
-	console.log( 'slice count %d', parseInt( Debug.fields['SLICE_COUNT'].value ) );
+function init_rpi() {
 
-	ctlr = new GameController();
-
-	setInterval( update, MILLIS_PER_FRAME );
+	/* set hardware-specific fields */
 
 	if ( !process.env.SUDO_UID ) {
 	    console.error( '[ommatidia-server] Must run as root to satisfy ws281x' );
 	    process.exit( 1 );
 	}
 
+	Debug.fields['SLICE_COUNT'].value = '143'; // used to be 144 but I made the circle too small, so cut one off
+	Debug.fields['SLICE_OFFSET'].value = '38'; // 144 / 4 = 35.75, closest is 36, end of strip is 2 positions past center, 36+2=38
+
+	console.log( 'init from console (should be on a raspberry pi)' );
+	console.log( 'slice count %d', parseInt( Debug.fields['SLICE_COUNT'].value ) );
+
+	/* input */
+
     let cabinetKeyCodes: Array<KeyCode> = [];
 
-    cabinetKeyCodes[15] = KeyCode.Z;
+    cabinetKeyCodes[15] = KeyCode.W;
     cabinetKeyCodes[16] = KeyCode.X;
     cabinetKeyCodes[26] = KeyCode.RIGHT;
     cabinetKeyCodes[24] = KeyCode.LEFT;
@@ -189,4 +200,32 @@ if ( typeof document !== 'undefined' ) {
 		rpio.open( index, rpio.INPUT, rpio.PULL_UP);
 		rpio.poll( index, pollDown, rpio.POLL_BOTH);
 	}
+
+	/* */
+
+	ctlr = new GameController();
+
+	let filepath = './sliderVals.json'; 
+	fs.readFile( filepath, 'utf-8', ( err, data ) => {
+		try {
+			let json = JSON.parse( data );
+			for ( let key in json ) {
+				if ( key in vals && typeof json[key] == 'number' ) {
+					vals[key].val = json[key];
+					console.log( 'Config set ' + key + '=' + json[key] );
+				} else {
+					console.error( 'Could not use config value ' + key + '=' + json[key] );
+				}
+			}
+
+			if ( 'offsetIndex' in json ) {
+				ctlr.offsetIndex = json['offsetIndex'];
+			}
+
+		} catch ( e: any ) {
+			console.error( 'Could not read config file ' + filepath + ': ' + e );
+		}
+	} );
+
+	setInterval( update, MILLIS_PER_FRAME );
 }

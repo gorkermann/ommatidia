@@ -1,25 +1,45 @@
 import { Entity } from './lib/juego/Entity.js'
-import { Scene } from './Scene.js'
+import { OmmatidiaScene } from './Scene.js'
 import { Keyboard, KeyCode } from './lib/juego/keyboard.js'
 import { Shape } from './lib/juego/Shape.js'
 import { Vec2 } from './lib/juego/Vec2.js'
- 
+
+import * as Debug from './Debug.js'
 import { titleData } from './titleData.js'
+import { FloaterScene } from './FloaterScene.js'
 
 import { renderFromEye, getDownsampled, whiteText } from './render.js'
 
-export class TitleScene extends Scene {
+import { clearLcdQueue, sendLcdByte } from './lcd.js'
+
+export class TitleScene extends OmmatidiaScene {
 	name: string = '';
 
+	floaterScene: FloaterScene;
 	floaters: Array<Entity> = [];
 	titleDrift: number = 0;
 	origin = new Vec2( 0, 0 );
 
 	constructor() {
 		super( 'Title' );
+
+		sendLcdByte( false, 0x01 ); // clear
+		sendLcdByte( false, 0x02 ); // return
+
+		let str = 'Press A to start';
+		for ( let i = 0; i < str.length; i++ ) {
+			sendLcdByte( true, str.charCodeAt( i ) );
+		}
+
+		this.floaterScene = new FloaterScene();
+		this.floaterScene.camera.setViewport( 400, 400 );
+
+		this.floaters = this.floaterScene.floaters;
 	}
 
 	update() {
+		this.em.updateShapeCache();
+
 		if ( Keyboard.keyHit( KeyCode.W ) ) this.messages.push( 'start' );
 
 		if ( Keyboard.keyHeld( KeyCode.LEFT ) ) {
@@ -38,11 +58,12 @@ export class TitleScene extends Scene {
 		if ( Keyboard.keyHeld( KeyCode.DOWN ) ) {
 			this.origin.add( new Vec2( 0, 5 ) );
 		}		
+
+		this.floaterScene.update();
 	}
 
 	draw( context: CanvasRenderingContext2D ) {
-		let rStep = 20 * this.camera.viewportW / 400;
-		let slice = Math.PI * 2 / 180;
+		let sliceCount = parseInt( Debug.fields['SLICE_COUNT'].value );
 
 		let ir = 120 * this.camera.viewportW / 400;
 		let or = 180 * this.camera.viewportH / 400;
@@ -62,60 +83,68 @@ export class TitleScene extends Scene {
 						   shapes, 
 						   this.origin,
 						   new Vec2(),
-						   180, or, ir );
-			return;
-		}
+						   sliceCount,
+						   or, ir );
+		} else {
+			context.globalAlpha = 1.0;
 
-		context.globalAlpha = 1.0;
+			this.camera.moveContext( context );
 
-		this.camera.moveContext( context );
+				renderFromEye( context, 
+							   shapes, 
+							   this.origin,
+							   new Vec2(),
+							   sliceCount,
+							   or, ir );
 
-			renderFromEye( context, 
-						   shapes, 
-						   this.origin,
-						   new Vec2(),
-						   180, or, ir );
+				this.drawTitle( context, sliceCount );
+
+			this.camera.unMoveContext( context );
 
 			context.globalAlpha = 1.0;
-			context.fillStyle = 'white';
-			let angle = Math.PI * 2 * (9/16) + this.titleDrift;
 
-			this.titleDrift -= 0.0000;
+			let y = this.camera.viewportH;
 
-			for ( let i = 0; i < titleData[0].length; i++ ) {
-				angle += slice / 2;
+			whiteText( context, 'Use the [arrow keys] to move and [WASD] to shoot', 5, y - 60 );
+			whiteText( context, 'Press [space] to pause', 5, y - 40 );
+			whiteText( context, 'Press [W] to start', 5, y - 20 );
 
-				let or = 190 * this.camera.viewportW / 400;
-				let ir;
+			whiteText( context, 'Graham Smith 2023', this.camera.viewportW - 5, y - 20, true );
+		}
+	}
 
-				for ( let j = 0; j < titleData.length; j++ ) {
-					ir = or - rStep;
-
-					if ( titleData[j][i] ) {
-						context.beginPath();
-						context.moveTo( Math.cos( angle - slice / 2 ) * ir, Math.sin( angle - slice / 2 ) * ir );
-						context.lineTo( Math.cos( angle - slice / 2 ) * or, Math.sin( angle - slice / 2 ) * or );
-						context.lineTo( Math.cos( angle + slice / 2 ) * or, Math.sin( angle + slice / 2 ) * or );
-						context.lineTo( Math.cos( angle + slice / 2 ) * ir, Math.sin( angle + slice / 2 ) * ir );
-						context.fill();
-					}
-				
-					or = ir;
-				}
-
-				angle += slice / 2;
-			}
-
-		this.camera.unMoveContext( context );
+	drawTitle( context: CanvasRenderingContext2D, sliceCount: number ) {
+		let slice = Math.PI * 2 / 180; // not sliceCount
+		let rStep = 20 * this.camera.viewportW / 400;
 
 		context.globalAlpha = 1.0;
+		context.fillStyle = 'white';
+		let angle = Math.PI * 2 * (9/16) + this.titleDrift;
 
-		let y = this.camera.viewportH;
+		this.titleDrift -= 0.0000;
 
-		whiteText( context, 'Use the [arrow keys] to move and [WASD] to shoot', 5, y - 60 );
-		whiteText( context, 'Press [space] to pause', 5, y - 40 );
-		whiteText( context, 'Press [W] to start', 5, y - 20 );
+		for ( let i = 0; i < titleData[0].length; i++ ) {
+			angle += slice / 2;
 
-		whiteText( context, 'Graham Smith 2023', this.camera.viewportW - 5, y - 20, true );
+			let or = 190 * this.camera.viewportW / 400;
+			let ir;
+
+			for ( let j = 0; j < titleData.length; j++ ) {
+				ir = or - rStep;
+
+				if ( titleData[j][i] ) {
+					context.beginPath();
+					context.moveTo( Math.cos( angle - slice / 2 ) * ir, Math.sin( angle - slice / 2 ) * ir );
+					context.lineTo( Math.cos( angle - slice / 2 ) * or, Math.sin( angle - slice / 2 ) * or );
+					context.lineTo( Math.cos( angle + slice / 2 ) * or, Math.sin( angle + slice / 2 ) * or );
+					context.lineTo( Math.cos( angle + slice / 2 ) * ir, Math.sin( angle + slice / 2 ) * ir );
+					context.fill();
+				}
+			
+				or = ir;
+			}
+
+			angle += slice / 2;
+		}
 	}
 }

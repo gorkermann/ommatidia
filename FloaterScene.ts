@@ -2,24 +2,20 @@ import { Entity } from './lib/juego/Entity.js'
 import { Material } from './lib/juego/Material.js'
 import { Vec2 } from './lib/juego/Vec2.js'
 
-import { Scene } from './Scene.js'
+import { OmmatidiaScene } from './Scene.js'
 
 import { getDownsampled } from './render.js'
  
 let downsampled: ImageData = null;
 let upsampled: ImageData = null;
 
-export class FloaterScene extends Scene {
+export class FloaterScene extends OmmatidiaScene {
 	floaters: Array<Entity> = [];
 	startTime: number = new Date().getTime();
 	hue: number = Math.random() * 360;
 
-	canvas: HTMLCanvasElement;
-
-	constructor( canvas: HTMLCanvasElement ) {
+	constructor() {
 		super( "Floaters" );
-
-		this.canvas = canvas;
 	}
 
 	update() {
@@ -65,8 +61,6 @@ export class FloaterScene extends Scene {
 	}
 
 	draw( context: CanvasRenderingContext2D ) {
-		if ( !this.canvas ) return;
-
 		this.camera.moveContext( context );
 
 			context.globalAlpha = 0.1;
@@ -74,11 +68,6 @@ export class FloaterScene extends Scene {
 			for ( let floater of this.floaters ) {
 				floater.draw( context );
 			}
-
-			/*if ( !upsampled ) upsampled = context.createImageData( this.canvas.width, this.canvas.height );
-
-			getDownsampled( this.canvas, context, 16, upsampled );
-			context.putImageData( upsampled, 0, 0 );*/
 
 			context.globalAlpha = 1.0;
 		this.camera.unMoveContext( context );

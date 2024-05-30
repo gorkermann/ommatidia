@@ -11,16 +11,14 @@ import { Vec2 } from './lib/juego/Vec2.js'
 
 import * as tp from './lib/toastpoint.js'
  
-import { PlayMode } from './mode/PlayMode.js'
-
+import { BareMode } from './mode/BareMode.js'
 import * as Debug from './Debug.js'
 import { gameCommands } from './gameCommands.js'
-import { FloaterScene } from './FloaterScene.js'
 import { Level } from './Level.js'
 import { SideLevel } from './SideLevel.js'
 import { levelDataList as levels } from './levels/level1.js'
 import { levelDataList as sideLevels } from './levels/sideLevels.js'
-import { Scene } from './Scene.js'
+import { OmmatidiaScene } from './Scene.js'
 import { store } from './store.js'
 import { TitleScene } from './TitleScene.js'
 import { PlayerStatus } from './Player.js'
@@ -59,18 +57,17 @@ type MessageHandler = {
 export class GameController extends Controller {
 	messageHandlers: Array<MessageHandler> = [];
 
-	currentScene: Scene = null;
+	currentScene: OmmatidiaScene = null;
 
 	title: TitleScene = new TitleScene();
 
 	levelDataList: any = levelDataList;
 	levelIndex: number = 0;
+	offsetIndex: number = 0;
 
 	recentStates: Array<any> = [];
 	saveStateInterval: number = 1000;
 	lastStateTime: number = 0; // milliseconds of play time since scene started
-
-	floaterScene: FloaterScene;
 
 	playerStatus: PlayerStatus = {
 		startTime: 0,
@@ -87,15 +84,11 @@ export class GameController extends Controller {
 		super( [] );
 
 		this.canvas = null;
-		this.floaterScene = new FloaterScene( this.canvas );
-		this.floaterScene.camera.setViewport( 400, 400 );
 
-		this.title.floaters = this.floaterScene.floaters;
-
-		this.changeMode( new PlayMode() );
+		this.changeMode( new BareMode() ); // change to PlayMode to get back drag actions
 
 		this.addMessageHandler( 'start', () => { 
-			this.levelIndex = 0;
+			this.levelIndex = 0 + this.offsetIndex;
 			this.playerStatus.startTime = new Date().getTime();
 
 			this.startLevel();
@@ -122,20 +115,9 @@ export class GameController extends Controller {
 
 		if ( typeof document === 'undefined' ) {
 			this.addMessageHandler( 'complete', () => {
-				//this.levelIndex += 1;
-				this.levelIndex = 0;
+				this.levelIndex += 1;
 
 				if ( this.levelIndex < this.levelDataList.length ) {
-					/*let context = this.canvas.getContext( '2d' );
-
-					context.clearRect( 0, 0, this.canvas.width, this.canvas.height );
-					this.currentScene.draw( context );
-
-					var image = new Image();
-					image.src = this.canvas.toDataURL();
-
-					oldImages.push( new FadingImage( image ) );*/
-
 					this.startLevel();
 
 				} else {
@@ -204,13 +186,14 @@ export class GameController extends Controller {
 
 	startLevel() {
 		try {
-			let level: Scene;
+			let level: OmmatidiaScene;
 
 			if ( this.levelDataList[this.levelIndex].controlMode == 0 ) {
-				level = new SideLevel( 'level' + this.levelIndex, this.levelDataList[this.levelIndex] );
+				level = new SideLevel( 'level' + this.levelIndex, this.levelDataList[this.levelIndex],
+									   ['Level ' + ( this.levelIndex + 1 )] );
 			} else {
 				level = new Level( 'level' + this.levelIndex, this.playerStatus, this.levelDataList[this.levelIndex] );
-				if ( this.playerStatus.defeatedNames.length == 5 ) level.final = true;	
+				if ( this.playerStatus.defeatedNames.length == 5 ) level.final = true;
 			}
 
 			this.loadScene( level );
@@ -252,7 +235,7 @@ export class GameController extends Controller {
 		this.resetInterface( { soft: sameLevel && !options.forceEraseHistory } );
 	}
 
-	loadScene( scene: Scene, doLoad: boolean=true ) {
+	loadScene( scene: OmmatidiaScene, doLoad: boolean=true ) {
 		if ( doLoad ) {
 			scene.load();
 		}
@@ -267,8 +250,6 @@ export class GameController extends Controller {
 	updateHovered() {}
 
 	update() {
-		this.floaterScene.update();
-
 		if ( this.currentScene === null ) {
 			this.loadScene( this.title );
 		}

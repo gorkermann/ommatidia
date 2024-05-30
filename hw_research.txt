@@ -5,3 +5,88 @@ https://www.superlightingled.com/dense-tm1824-sk6812-4040-rgbw-digital-addressab
 
 mA per element?
 
+
+I2C
+SDA is not inverted! 0 is low
+bit checked on falling edge of SCL
+
+bus voltage:
+pi is 3.3V, the screen I have is 5V. Seems to be OK?
+Not sure if the screen is sending back any real data, reading any data address returns that address.
+So all the slave has to do is pull SDA low to ACK.
+https://raspberrypi.stackexchange.com/questions/68172/i2c-bus-voltage
+
+i2cdetect, i2cdump, i2cget, i2cset:
+--> manufacturer may report address as 8 bits OR 7-bits. 8-bit addresses will be 2x 7-bit addresses (with the read bit possibly set). So potentially, 0x79 == 0x27 (linux i2c tools use 7-bit addresses with the read bit set)
+--> look for a /dev/i2c-0 or /dev/i2c-1
+--> pass -y to override "do you want to proceed Y/n..." prompt
+--> send many blocks at once by ending the sequence with "i"
+
+i2c i/o expander chip:
+https://www.ti.com/lit/ds/symlink/pcf8574.pdf
+
+enable i2c from command line (or check status without opening raspi-config):
+$ sudo raspi-config nonint get_i2c
+--> 0 is on, 1 is off
+
+$ sudo raspi-config nonint do_i2c 0
+
+
+RPI
+shell into raspberry pi with an ethernet cable ([] need to find ip address first)
+https://raspberrypi.stackexchange.com/questions/3867/ssh-to-rpi-without-a-network-connection
+
+$ crontab -l 
+...
+@reboot  /home/pi/startup.sh
+...
+(not sure how it was added)
+
+RPI-ONLY PACKAGES:
+add to webpack.config.js:
+	...
+	externals: {
+    	'rpio': /^rpio$/,
+    	'rpi-ws281x-native': /^rpi-ws281x-native$/
+  	},
+  	...
+
+npm i $PACKAGE_NAME (don't run as root, root can't run mkdir inside node_modules for some reason)
+
+prints a '?'
+pi@raspberrypi:~ $ i2cset -y 1 0x27 0x0C 0x08 i
+pi@raspberrypi:~ $ i2cset -y 1 0x27 0x09 0x3D 0x09 i
+
+both of these set 4-bit mode and print a 'W'
+pi@raspberrypi:~ $ i2cset -y 1 0x27 0x08 0x28 0x28 0x2C 0x28 0x08 i ; set four-bit mode
+pi@raspberrypi:~ $ i2cset -y 1 0x27 0x08 0x28 0x28 0x2C 0x28 0x08 i ; set four-bit mode again
+pi@raspberrypi:~ $ i2cset -y 1 0x27 0x08 0x08 0x08 0x0C 0x08 0x08 i ; ^
+pi@raspberrypi:~ $ i2cset -y 1 0x27 0x08 0x08 0x08 0x0C 0x08 0x08 i ; turn on display
+pi@raspberrypi:~ $ i2cset -y 1 0x27 0x08 0xf8 0xf8 0xfC 0xf8 0x08 i ; ^
+pi@raspberrypi:~ $ i2cset -y 1 0x27 0x09 0x59 0x59 0x5d 0x59 0x09 i ; W (0x57)
+pi@raspberrypi:~ $ i2cset -y 1 0x27 0x09 0x79 0x79 0x7d 0x79 0x09 i ; ^
+
+pi@raspberrypi:~ $ i2cset -y 1 0x27 0x08 0x2C 0x28 i
+pi@raspberrypi:~ $ i2cset -y 1 0x27 0x08 0x2C 0x28 i
+pi@raspberrypi:~ $ i2cset -y 1 0x27 0x08 0x8C 0x88 i
+pi@raspberrypi:~ $ i2cset -y 1 0x27 0x08 0x0C 0x08 i
+pi@raspberrypi:~ $ i2cset -y 1 0x27 0x08 0xfC 0xf8 i
+pi@raspberrypi:~ $ i2cset -y 1 0x27 0x09 0x5d 0x59 i
+pi@raspberrypi:~ $ i2cset -y 1 0x27 0x09 0x7d 0x79 i
+
+this one didn't work (I think the time the data is exposed is too short):
+pi@raspberrypi:~ $ i2cset -y 1 0x27 0x08 0x28 0x2C 0x28 0x08 i
+pi@raspberrypi:~ $ i2cset -y 1 0x27 0x08 0x28 0x2C 0x28 0x08 i
+pi@raspberrypi:~ $ i2cset -y 1 0x27 0x08 0x08 0x0C 0x08 0x08 i
+pi@raspberrypi:~ $ i2cset -y 1 0x27 0x08 0x08 0x0C 0x08 0x08 i
+pi@raspberrypi:~ $ i2cset -y 1 0x27 0x08 0xf8 0xfC 0xf8 0x08 i
+
+
+TIME CRAWLS LIKE AN ARROW (FUNCTION)
+
+for loop: 218ms
+named func inside for loop: 443ms
+anon arrow func inside map: 2133ms
+named function inside map: 2039ms
+
+code: arrow_test.js

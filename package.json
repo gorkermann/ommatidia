@@ -1,11 +1,13 @@
 {
   "dependencies": {
+    "i2c-bus": "^5.2.3",
     "md5": "^2.3.0",
     "rpi-ws281x-native": "^1.0.4",
     "rpio": "^2.4.2",
     "terser-webpack-plugin": "^5.3.9"
   },
   "devDependencies": {
+    "@types/i2c-bus": "^5.1.2",
     "@types/md5": "^2.3.3",
     "@types/rpi-ws281x-native": "^1.0.3",
     "@types/rpio": "^2.4.6",

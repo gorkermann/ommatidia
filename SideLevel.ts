@@ -11,7 +11,6 @@ import { constructors, nameMap } from './lib/juego/constructors.js'
 import { RayHit } from './lib/juego/RayHit.js'
 import { ScrollBox } from './lib/juego/ScrollBox.js'
 import { Shape } from './lib/juego/Shape.js'
-import { Sound } from './lib/juego/Sound.js'
 import { TileArray } from './lib/juego/TileArray.js'
 import { Vec2 } from './lib/juego/Vec2.js'
 
@@ -20,7 +19,7 @@ import * as tp from './lib/toastpoint.js'
 import { Coin } from './Coin.js'
 
 import { RoomManager } from './RoomManager.js'
-import { Scene } from './Scene.js'
+import { OmmatidiaScene } from './Scene.js'
 
 import { Bullet, PlayerBullet } from './Bullet.js'
 import { CenteredEntity } from './CenteredEntity.js'
@@ -28,11 +27,19 @@ import { COL, MILLIS_PER_FRAME, REWIND_SECS } from './collisionGroup.js'
 import { Player } from './Player.js'
 import { shapecast, renderFromEye, renderRays, whiteText, vals } from './render.js'
 
+import { clearLcdQueue, sendLcdByte, lcdPrint } from './lcd.js'
+
 import * as Debug from './Debug.js'
 
 let MODE_GRAVITY = 0;
 let MODE_SQUARE = 1;
 let MODE_FREE = 2;
+
+async function sleepAsync( ms: number ): Promise<void> {
+	return new Promise( ( resolve, reject ) => {
+		setTimeout( resolve, ms );
+	} );
+}
 
 ///////////
 // LEVEL //
@@ -45,6 +52,18 @@ let MODE_FREE = 2;
 /*let tempCanvas = document.createElement( 'canvas' ) as HTMLCanvasElement;
 tempCanvas.width = 400;
 tempCanvas.height = 400;*/
+
+type Mark = {
+	name: string;
+	timestamp: number;
+}
+
+let start = 0;
+let marks: Array<Mark> = [];
+
+function pushMark( name: string ) {
+	marks.push( { name: name, timestamp: new Date().getTime() } );
+}
 
 let DEFAULT_WIDTH = 400;
 
@@ -136,11 +155,11 @@ class Wave {
 			}
 		}
 
-		console.log( 'Wave.constructor(): created ' + this.entities.length + ' entites' );
+		console.log( 'Wave.constructor(): created ' + this.entities.length + ' entities' );
 	}
 }
 
-export class SideLevel extends Scene {
+export class SideLevel extends OmmatidiaScene {
 	grid: LevelGrid = new LevelGrid();
 
 	rooms: Array<RoomManager> = [];
@@ -149,15 +168,8 @@ export class SideLevel extends Scene {
 	player: Player = null;
 	controlMode: number = MODE_GRAVITY;
 	grav: Vec2 = new Vec2( 0, 1 );
+	maxFallSpeed: number = 10;
 	data: any;
-	
-	// text box
-	textBox: Entity = new TopLeftEntity( new Vec2( 0, 300 ), DEFAULT_WIDTH, 0 );
-	textBoxHeight: number = 50;
-
-	text: string = '';
-	textIndex: number = 0;
-	speaker: Entity = null;
 
 	//
 	paused: boolean = false;
@@ -183,10 +195,12 @@ export class SideLevel extends Scene {
 	stringIndex: number = 0; // character index of messageQueue[0] as it is transferred to displayText[-1]
 	displayText: Array<string> = [] // one line each
 
-	sounds: Array<Sound> = [];
-
 	waves: Array<Wave> = [];
 	currentWave: Wave = null;
+
+	coinCount: number = 0;
+
+	start: number = 0;
 
 	messageAnim = new Anim( {
 		'newChar': new AnimField( this, 'newChar' )
@@ -212,36 +226,20 @@ export class SideLevel extends Scene {
 					 'replayImages', 'replayCount', 'replayIndex', 'replayAlpha'];
 	//saveFields = ['grid', 'player', 'controlMode', 'grav', 'data', 'bossHealthMax'];
 
-	constructor( name: string, data: any ) {
+	constructor( name: string, data: any, messages: Array<string> ) {
 		super( name );
 
 		this.data = data;
+		this.start = new Date().getTime();
 
-		this.textBox.material = new Material( 0, 0, 0.92 );
-	}
-
-	protected toToast( toaster: tp.Toaster ): any {
-		let fields = Object.keys( this );
-
-		// never save these fields (which are lists of other fields)
-		let exclude = ['editFields', 'saveFields', 'discardFields']
-
-		// fields for for serialization only (exclude the old value if left in by mistake)
-		exclude = exclude.concat( ['entities', '__entities'] );
-
-		exclude = exclude.concat( this.discardFields );
-		fields = fields.filter( x => !exclude.includes( x ) );
-
-		let flat: any = {};
-
-		tp.setMultiJSON( flat, fields, this, toaster );
-		tp.setJSON( flat, '__entities', this.em.entities, toaster );
-
-		return flat;
+		clearLcdQueue();
+		this.messageQueue.push( ' ' );
+		//this.messageQueue.push( ...messages );
 	}
 
 	load(): Promise<any> {
 		this.em.clear();
+
 		this.grid = new LevelGrid();
 
 		this.grid.load( this.data );
@@ -338,21 +336,23 @@ export class SideLevel extends Scene {
 			room.freeze();
 		}
 
-		if ( this.data['waves'] ) {
+		/*if ( this.data['waves'] ) {
 			for ( let obj of this.data['waves'] ) {
 				this.waves.push( new Wave( obj ) );
 			}
-		}
+		}*/
 
 		this.em.insert( gridEnt );
+
+		this.coinCount = this.em.entities.filter( x => x instanceof Coin ).length;
 
 		this.or = 320;
 		this.ir = 300;
 
-		this.anim.pushFrame( new AnimFrame( {
+		/*this.anim.pushFrame( new AnimFrame( {
 			'or': { value: 120, expireOnReach: true } } ) );
 		this.anim.pushFrame( new AnimFrame( { 
-			'ir': { value: 100, expireOnReach: true } } ) );
+			'ir': { value: 100, expireOnReach: true } } ) );*/
 
 		return new Promise( function(resolve, reject) {
 			resolve(0);
@@ -361,6 +361,9 @@ export class SideLevel extends Scene {
 
 	update() {
 		let now = new Date().getTime();
+		marks = [];
+
+		pushMark( 'start' );
 
 		if ( this.oldTime == 0 ) this.oldTime = now;
 		let elapsed = now - this.oldTime;
@@ -374,44 +377,13 @@ export class SideLevel extends Scene {
 			this.anim.update( frameStep, elapsed );
 			this.messageAnim.update( frameStep, elapsed );
 
-			if ( this.messageAnim.isDone() ) {
-				if ( this.messageQueue.length > 0 ) {
-					if ( this.stringIndex == 0 ) {
-						this.displayText.push( '' );
-					}
-
-					if ( this.stringIndex >= this.messageQueue[0].length ) {
-						this.stringIndex = 0;
-						this.messageQueue.shift();
-
-					} else {
-						let char = this.messageQueue[0][this.stringIndex];
-
-						if ( char == '\n' ) {
-							this.displayText.push( '' );
-						} else {
-							this.displayText[this.displayText.length - 1] += char;
-						}
-
-						this.stringIndex += 1;
-					}
-
-					this.messageAnim.pushFrame( new AnimFrame( {
-						'newChar': { value: true, expireOnCount: 50 }
-					} ) );
-				}
-			}
+			this.updateMessages();
 		}
 
-		if ( this.state == LevelState.DEATH_REPLAY ) {
-			// do nothing, anim only
+		pushMark( 'm' );
 
-		} else if ( this.state == LevelState.DEATH_MENU ) {
-			if ( Keyboard.keyHit( KeyCode.R ) ) this.messages.push( 'restart' );
-			if ( Keyboard.keyHit( KeyCode.Z ) ) this.messages.push( 'rewind' );
-
-		} else if ( this.state == LevelState.SUCCESS_MENU ) {
-			if ( Keyboard.keyHit( KeyCode.Z ) ) this.messages.push( 'complete' );
+		if ( this.state == LevelState.SUCCESS_MENU ) {
+			if ( Keyboard.keyHit( KeyCode.W ) ) this.messages.push( 'complete' );
 
 		} else {
 			if ( Keyboard.keyHit( KeyCode.SPACE ) ) {
@@ -432,36 +404,73 @@ export class SideLevel extends Scene {
 				}
 			}
 
+			if ( Keyboard.keyHit( KeyCode.X ) ) {
+				Debug.toggleFlag( 'RANGING_VIEW' );
+
+				if ( Debug.flags.RANGING_VIEW ) {
+					lcdPrint( 'RANGING MODE' );
+				} else {
+					lcdPrint( 'TRUE COLOR MODE' );
+				}
+			}
+
 			if ( this.paused ) {
 				this.oldTime = new Date().getTime();
 			} else {
 				this.defaultUpdate( frameStep, elapsed );
 			}
 		}
+
+		pushMark( 'end' );
+
+		let str = '';
+		for ( let i = 1; i < marks.length; i++ ) {
+			str += marks[i].name + ':' + ( marks[i].timestamp - marks[i-1].timestamp ) + ', ';
+		}
+		console.log( str );
 	}
 
-	updateSounds() {
-		for ( let sound of this.sounds ) {
-			this.updateSound( sound );
-		}
-	}
+	updateMessages() {
+		if ( this.messageAnim.isDone() ) {
+			if ( this.messageQueue.length > 0 ) {
+				if ( this.stringIndex == 0 ) {
+					this.displayText.push( '' );
+				}
 
-	updateSound( source: Sound ) {
-		let dist = 0;
+				if ( this.stringIndex >= this.messageQueue[0].length ) {
+					this.stringIndex = 0;
+					this.messageQueue.shift();
 
-		if ( source.pos ) {
-			dist = this.player.pos.distTo( source.pos );
-		}
+					if ( this.messageQueue.length == 0 ) {
+						//this.messageQueue.push( new Date().getTime() - this.start + 'ms' );
+						this.start = new Date().getTime();
+					}
 
-		let vol = source.distScale / ( dist ** 2 + 1 );
-		source.audio.volume = Math.min( vol, 1.0 );
+				} else {
+					let char = this.messageQueue[0][this.stringIndex];
 
-		let atStart = source.audio.currentTime == 0 || source.audio.ended;
+					if ( char == '\n' ) {
+						this.displayText.push( '' );
+					} else {
+						this.displayText[this.displayText.length - 1] += char;
+					}
 
-		if ( atStart && source.count > 0 ) {
-			source.audio.play();
+					if ( typeof document === 'undefined' ) {
+						if ( this.stringIndex == 0 ) {
+							sendLcdByte( false, 0x01 ); // clear
+							sendLcdByte( false, 0x02 ); // return
+						}
 
-			if ( !source.audio.loop ) source.count -= 1;
+						sendLcdByte( true, char.charCodeAt( 0 ) );
+					}
+
+					this.stringIndex += 1;
+				}
+
+				this.messageAnim.pushFrame( new AnimFrame( {
+					'newChar': { value: true, expireOnCount: 50 }
+				} ) );
+			}
 		}
 	}
 
@@ -470,56 +479,36 @@ export class SideLevel extends Scene {
 
 		this.updateSounds();
 
-		this.player.vel.x = 0;
-		if ( this.player.collideDown ) this.player.vel.y = 0;
+		this.player.updateGrav( this.grav );
 
-		// left/right
-		if ( Keyboard.keyHeld( KeyCode.LEFT ) ) {
-			this.player.vel.x = -5;
-		}
-
-		if ( Keyboard.keyHeld( KeyCode.RIGHT ) ) {
-			this.player.vel.x = 5;
-		}
-
-		// up/down
-		if ( this.player.collideDown ) {
-			this.player.jumpFrames = this.player.maxJumpFrames;
-		} else {
-			this.player.vel.y += this.grav.y;
-		}
-
-		if ( Keyboard.keyHeld( KeyCode.Z ) && this.player.collideDown ) {
-			this.player.jumping = true;
-		}
-
-		if ( Keyboard.keyHeld( KeyCode.Z ) && this.player.jumping && this.player.jumpFrames > 0 ) {
-			this.player.vel.y = -5;
-			this.player.jumpFrames -= 1;
-
-		} else {
-			this.player.jumping = false;
-		}
-
-		this.player.vel.y += this.grav.y;
+		pushMark( 'k' );
 
 		// insert player bullets
 		this.em.insertSpawned();
+		pushMark( '_' );
+
 		this.em.updateShapeCache();
+		pushMark( '_' );
 
 		Debug.strokeAll( this.em.entities );
 
-		let treeGroup: Array<number> = this.em.entities.map( x => x.treeCollisionGroup() );
-		let treeMask: Array<number> = this.em.entities.map( x => x.treeCollisionMask() );
+		let treeGroup: Array<number> = [];
+		let treeMask: Array<number> = [];
+		for ( let entity of this.em.entities ) {
+			treeGroup.push( entity.treeCollisionGroup() );
+			treeMask.push( entity.treeCollisionMask() );
+		}
+
+		let entity, otherEntity: Entity;
 
 		for ( let i = 0; i < this.em.entities.length; i++ ) {
-			let entity = this.em.entities[i];
+			entity = this.em.entities[i];
 
 			for ( let j = 0; j < this.em.entities.length; j++ ) {
 				if ( i == j ) continue;
 				if ( ( treeMask[i] & treeGroup[j] ) == 0 ) continue;
 
-				let otherEntity = this.em.entities[j];
+				otherEntity = this.em.entities[j];
 				let contacts = entity.overlaps( otherEntity, frameStep, true );
 
 				if ( contacts.length > 0 ) {
@@ -545,33 +534,39 @@ export class SideLevel extends Scene {
 
 		let result = solveCollisionsFor( this.player, this.em.entities, COL.ENEMY_BODY | COL.LEVEL, COL.LEVEL, frameStep );
 
+		pushMark( 'c' );
+
 		this.em.advance( frameStep );
 		for ( let entity of this.em.entities ) {
 			entity.watch( this.player.pos );
 		}
+
+		pushMark( '_' );
 
 		let playerShape = this.player.getShapes()[0];
 		for ( let room of this.rooms ) {
 			room.update( playerShape );
 		}
 
-		let messages = this.em.entities.filter( x => x instanceof Message ) as Array<Message>;
-		for ( let msg of messages ) {
-			if ( this.player.overlaps( msg, 0.0 ).length > 0 ) {
-				this.messageQueue.push( msg.text );
-				msg.destructor();
+		pushMark( '_' );
+
+		for ( let entity of this.em.entities ) {
+			if ( entity instanceof Message ) {
+				if ( this.player.overlaps( entity, 0.0, true ).length > 0 ) {
+					this.messageQueue.push( ( entity as Message ).text );
+					entity.destructor();
+				}
 			}
 		}
 
 		// no position changes from here on (animate only sets velocities)
 
+		pushMark( 'adv' );
+
 		this.em.animate( frameStep, elapsed );
 		this.em.update();
 
-		this.player.collideDown = false;
-		for ( let dir of result.blockedDirs ) {
-			if ( dir.dot( this.grav ) < 0 ) this.player.collideDown = true;
-		}
+		this.player.updateCollisionGrav( result.blockedDirs, this.grav );
 
 		if ( this.player.health <= 0 || result.crushed ) {
 			if ( result.crushed ) {
@@ -589,10 +584,19 @@ export class SideLevel extends Scene {
 			}
 		}
 
+		pushMark( 'upd' );
+
 		this.checkForSuccess();
 
 		this.em.insertSpawned();
 		this.em.cull();
+
+		let coinCount = this.em.entities.filter( x => x instanceof Coin ).length;
+		if ( coinCount != this.coinCount ) {
+			this.coinCount = coinCount;
+			this.messageQueue.push( this.coinCount + ' unstable photon' + ( this.coinCount == 1 ? '' : 's' ) + ' remaining' );
+		}
+		
 
 		if ( this.currentWave ) {
 			cullList( this.currentWave.entities );
@@ -601,17 +605,28 @@ export class SideLevel extends Scene {
 			}
 		}
 
-		let boundary = 400;
+		let boundary = 200;
+
+		pushMark( 'ins' );
 
 		for ( let entity of this.em.entities ) {
 			if ( entity == this.player ) {
-				if ( entity.pos.x < -boundary ||
-					 entity.pos.x > this.grid.hTiles * this.grid.tileWidth + boundary ||
-					 entity.pos.y < -boundary ||
-					 entity.pos.y > this.grid.vTiles * this.grid.tileWidth + boundary ) {
+				//if ( entity.pos.x < -boundary ||
+				//	 entity.pos.x > this.grid.hTiles * this.grid.tileWidth + boundary ||
+				//	 entity.pos.y < -boundary ||
+				if ( entity.pos.y > this.grid.vTiles * this.grid.tileWidth + boundary ) {
 
 					if ( entity == this.player ) {
-						this.messages.push( 'death' );
+						if ( this.state == LevelState.DEFAULT ) {
+							clearLcdQueue();
+							this.messageQueue.push( 'CONNECTION LOST' );
+
+							setTimeout( () => {
+								this.messages.push( 'death' );
+							}, 5000 )
+
+							this.state = LevelState.DEATH_MENU;
+						}
 						
 					} else if ( entity instanceof Bullet ) {
 						entity.removeThis = true;
@@ -660,21 +675,15 @@ export class SideLevel extends Scene {
 		}
 	}
 
-	getShapes(): Array<Shape> {
-		let shapes = [];
-
-		for ( let entity of this.em.entities ) {
-			shapes.push( ...entity.getShapes( 0.0 ) );
-		}
-
-		return shapes;
-	}
-
 	pickFromEye( dir: Vec2 ): Array<Entity> { return [] }
 
 	/* Drawing */
 
 	draw( context: CanvasRenderingContext2D ) {
+		marks = [];
+
+		pushMark( 'start' );
+
 		this.camera.pos.set( this.player.pos );
 
 		if ( this.state == LevelState.DEATH_REPLAY ) {
@@ -693,7 +702,6 @@ export class SideLevel extends Scene {
 			}
 
 			this.defaultDraw( context );
-			this.drawTextboxOverlay( context );
 
 			if ( this.paused ) {
 				this.drawPauseOverlay( context );
@@ -715,26 +723,52 @@ export class SideLevel extends Scene {
 				y -= 20;
 			}
 		}
+
+		pushMark( 'end' );
+
+		let str = '';
+		for ( let i = 1; i < marks.length; i++ ) {
+			str += marks[i].name + ':' + ( marks[i].timestamp - marks[i-1].timestamp ) + ', ';
+		}
+		console.log( str );
 	}
 
 	defaultDraw( context: CanvasRenderingContext2D, camera: Camera=this.camera ) {
 
 		/* Prepare Scene */
 
-		let origin = this.player.pos.copy();
+		// put origin near the top of the player to give a better view (than origin at center)
+		/*
+			considerations:
+			the player is chamfered at the upper corners in order to accommodate slight
+			misalignments when jumping beside (so as to go up the side, not hit the bottom)
+
+			--> origin should be no higher than the beginning of this chamfer
+
+
+			an origin on the edge of some object may see its inside	
+		
+			--> viewpoint should not be on an edge of the player 
+		*/
+
+
+		let origin = this.player.pos.minus( new Vec2( 0, this.player.height / 4 ) );
 
 		let ir = this.ir * camera.viewportW / 400;
 		let or = this.or * camera.viewportW / 400;
 		let haloW = this.haloWidth * camera.viewportW / 400;
 
-		let shapes = this.getShapes();
 		let shapesMinusPlayer = [];
 
 		for ( let entity of this.em.entities ) {
 			if ( entity == this.player ) continue;
 
-			shapesMinusPlayer.push( ...entity.getShapes( 0.0 ) );
+			for ( let shape of entity.getShapes( 1.0, { useCached: true } ) ) {
+				shapesMinusPlayer.push( shape );	
+			}
 		}
+
+		pushMark( '_' );
 
 		let sliceCount = parseInt( Debug.fields['SLICE_COUNT'].value );
 		if ( isNaN( sliceCount ) ) sliceCount = 360;
@@ -744,8 +778,12 @@ export class SideLevel extends Scene {
 		if ( typeof document === 'undefined' ) {
 			renderFromEye( context, shapesMinusPlayer, origin, this.player.vel, sliceCount, or, ir );
 
+			pushMark( 'r' );
+
 			return;
 		}
+
+		let shapes = this.getShapes();
 
 		// draw 2D
 		if ( Debug.flags.DRAW_NORMAL ) {
@@ -801,80 +839,6 @@ export class SideLevel extends Scene {
 				context.restore();
 			}
 		}
-	}
-
-	drawTextboxOverlay( context: CanvasRenderingContext2D ) {
-		if ( typeof document === 'undefined' ) return;
-
-		this.textBox.draw( context );
-
-		if ( this.text != '' ) {
-			if ( this.speaker !== null && this.textBox.height > 10 ) {
-				context.fillStyle = this.speaker.material.getFillStyle();
-				context.fillRect( this.textBox.pos.x + 5,
-								  this.textBox.pos.y + 5,
-								  40,
-								  this.textBox.height - 10 );
-			}
-
-			context.font = '10px Arial';
-			context.fillStyle = 'black';
-
-			let y = 15;
-			let lineWidth = 50;
-			let word = '';
-			let line = '';
-			let lineStart = 0;
-
-			for ( let i = 0; i < this.textIndex; i++ ) {
-				word += this.text[i];
-
-				if ( this.text[i] == ' ' ) {
-					line += word;
-					word = '';
-				}
-
-				// on spaces, decide whether to print the line and move to the next one
-				let index = this.text.indexOf( ' ', i+1 );
-				if ( index < 0 ) index = this.text.length;
-				let crossed = index > lineStart + lineWidth;
-
-				if ( i == this.textIndex - 1 ) {
-					context.fillText( line + word, 100, this.textBox.pos.y + y );
-
-				} else if ( crossed ) {
-					lineStart += line.length;
-
-					context.fillText( line, 100, this.textBox.pos.y + y );
-					line = '';
-					y += 15;
-				}
-			}
-		}
-
-		/*if ( this.updateQueue.length > 0 ) {
-			context.fillStyle = 'black';
-			context.fillRect( 400 - 36,
-				   			  400 - 16,
-				   			  32, 13 );
-			context.fillStyle = 'white';
-			context.fillText( 'Z: skip', 400 - 35,
-				   			  400 - 6 );
-		}*/	
-	}
-
-	drawPauseOverlay( context: CanvasRenderingContext2D ) {
-		if ( typeof document === 'undefined' ) return;
-
-		context.fillStyle = 'hsl( 0, 0%, 90%)';
-		context.font = '24px Arial';
-
-		let text = 'P A U S E';
-		let meas = context.measureText( text );
-		let w = meas.width;
-		let h = meas.actualBoundingBoxAscent + meas.actualBoundingBoxDescent;
-		
-		context.fillText( text, this.camera.viewportW / 2 - w / 2, this.camera.viewportH / 2 - 100 + h / 2 );
 	}
 
 	deathDraw( context: CanvasRenderingContext2D ) {}

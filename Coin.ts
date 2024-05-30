@@ -19,7 +19,7 @@ export class Coin extends CenteredEntity {
 
 		for ( let i = 0; i < 6; i++ ) {
 			this.materials.push( new Material( i * 60, 1.0, 0.7 ) );
-			this.materials[i].alpha = 0.7;
+			this.materials[i].alpha = 1.0;
 			this.materials[i].emit = 1.0;
 		}
 	}

@@ -1,0 +1,111 @@
+Commander Smith? Commander Smith?
+Come in, Commander!
+A: Reply B: Ignore
+(if ignore, repeats)
+
+Commander, we believe we have you 
+located to within 100,000,000 meters.
+
+We're trying to achieve a spatial lock.
+
+We need you to imagine a cube. Resist
+the urge to extrude it into 4-space.
+A: Imagine B: Ignore
+
+Now allow the cube to rotate clockwise
+around the long axis of your body.
+A: Rotate B: Ignore
+
+(if ignore)
+Commander, we're having trouble getting
+a spatial lock. We may be able to find
+a projection back to 3-space if you make
+some kind of periodic movement.
+
+Spatial lock achieved! Beginning
+transmission.
+
+Your surroundings may appear heavily
+distorted. That's partially my fault.
+I broke 97% of your probe's
+entanglements trying to reach you.
+We're left with 143.
+11 times 13, right? I used to roll my
+eyes when you said prime numbers
+were lucky. But here we are.
+
+Anyway, the connection is lightning
+fast -- well, faster, actually -- but
+the bandwidth is severely limited.
+
+The other reason for the distortion
+is that you're the first human to
+observe the inside of a black hole.
+
+Try moving to the left.
+
+(if move right)
+I'm getting a mirrored result. You did
+imagine a clockwise rotation, right?
+
+Great, that looks better.
+
+Now, to the right.
+
+Based on the spectrograph readings,
+that thing you're standing on is a
+piece of your ship.
+
+It's arresting your downward movement
+somehow. Which is to say, if you step
+off of it, you'll fall.
+
+I think there's another piece nearby,
+but there's an uncollapsed particle
+somewhere closer that's throwing off the
+spectral readings.
+
+Can you collapse it? You should just
+have to touch it.
+
+Great. The second piece is below you,
+to your left.
+
+Wow, you made it! You always were a
+crack shot. Which everyone back here
+knows already, because while your ship
+was disintegrating, you managed to aim
+the probe launcher by hand.
+
+Even more uncollapsed particles here.
+
+You're standing on one of the engine
+manifolds.
+
+We only knew where to look for your
+probe because one day, a massive amount
+of atomized debris began pouring in
+from a patch of empty space.
+
+I've been thinking. The probe appeared
+after the ship's debris, but if it had
+gone straight into the core of the
+black hole, it would have come out
+first.
+
+Maybe it got into some kind of decaying
+orbit, and survived by moving slowly
+enough that its molecular bonds didn't
+break down.
+
+You, unfortunately, will fall straight
+down.
+
+Although...your final velocity will be
+determined by how far you are from the
+center of the black hole when you fall.
+
+So every section of your ship you land
+on along the way lowers your overall
+acceleration!
+
