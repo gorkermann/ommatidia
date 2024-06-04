@@ -7,7 +7,7 @@ import { Line } from './lib/juego/Line.js'
 import { RGBA, Material, RGBAtoFillStyle } from './lib/juego/Material.js'
 import { RayHit, closestTo } from "./lib/juego/RayHit.js"
 import { Shape, ShapeHit } from './lib/juego/Shape.js'
-import { Dict } from './lib/juego/util.js'
+import { vals } from './SliderVal.js'
 
 import { COL, MILLIS_PER_FRAME } from './collisionGroup.js'
 import * as Debug from './Debug.js'
@@ -17,64 +17,7 @@ import { XhrInterface } from './NodeServer.js'
 let channel: any;
 
 if ( typeof document === 'undefined' ) {
-	channel = ws281x(144, { stripType: 'ws2812', gpio: 18 } );
-}
-
-export function shapecast( sliceInfo: SliceInfo, line: Line, shapes: Array<Shape>, minSweep: Array<number>=null, maxSweep: Array<number>=null ) {//: Array<ShapeHit> {
-	//let closestRayHits: Array<ShapeHit> = [];
-	let v = line.p2.minus( line.p1 );
-	let angle = v.angle();
-
-	let hit: ShapeHit;
-
-	for ( let i = 0; i < shapes.length; i++ ) {
-		if ( !shapes[i].material ) continue;
-		//if ( minSweep && maxSweep && !Angle.between( angle, minSweep[i], maxSweep[i] ) ) continue;
-		if ( shapes[i].material.alpha == 0.0 ) continue;
-
-		// let hits = shape.rayIntersect( line );
-
-		// for ( let i = 0; i < hits.length; i++ ) {
-		// 	if ( hits[i].material.alpha == 0.0 ) continue;
-
-		// 	//hits[i].vel = shape.getVel( hits[i].point ); // EDIT don't need if not doing approach flash
-		// 	hits[i].shape = shape;
-		// 	hits[i].incidentDot = -1;//line.p2.minus( line.p1 ).unit().dot( hits[i].normal ); // EDIT don't need if not doing corner highlight
-
-		// 	// inside shape
-		// 	if ( hits[i].incidentDot > 0 ) {
-		// 		hits[i].incidentDot *= -1;
-		// 		hits[i].normal.flip();
-		// 	}
-
-		// 	hits[i].normalDist = -hits[i].incidentDot * hits[i].dist;
-
-		// 	closestRayHits.push( hits[i] );
-
-		// 	if ( hits[i].material.alpha == 1.0 ) break;
-		// }
-
-		hit = sliceInfo.hits[0];
-		if ( shapes[i].rayIntersectSingle( line, hit ) ) {
-			//hit.vel = shape.getVel( hit.point ); // EDIT don't need if not doing approach flash
-			hit.shape = shapes[i];
-			hit.incidentDot = -1;//line.p2.minus( line.p1 ).unit().dot( hit.normal ); // EDIT don't need if not doing corner highlight
-
-			// inside shape
-			if ( hit.incidentDot > 0 ) {
-				hit.incidentDot *= -1;
-				hit.normal.flip();
-			}
-
-			hit.normalDist = -hit.incidentDot * hit.dist;
-
-			//closestRayHits.push( hit );
-		}
-	}
-
-	//closestRayHits.sort( ( a: ShapeHit, b: ShapeHit ) => a.dist - b.dist );
-
-	//return closestRayHits;	
+	channel = ws281x(143, { stripType: 'ws2812', gpio: 10 } );
 }
 
 class SliceInfo {
@@ -103,6 +46,72 @@ function getSlices( sliceCount: number ): Array<number> {
 	}
 
 	return slices;
+}
+
+export function shapecast( sliceInfo: SliceInfo, line: Line, shapes: Array<Shape>, minSweep: Array<number>=null, maxSweep: Array<number>=null ) {//: Array<ShapeHit> {
+	//let closestRayHits: Array<ShapeHit> = [];
+	let v = line.p2.minus( line.p1 );
+	let angle = v.angle();
+
+	let hit: ShapeHit;
+
+	//sliceInfo.hits = [];
+
+	for ( let i = 0; i < shapes.length; i++ ) {
+		let shape = shapes[i];
+
+		if ( !shape.material ) continue;
+		if ( minSweep && maxSweep && !Angle.between( angle, minSweep[i], maxSweep[i] ) ) continue;
+		if ( shape.material.alpha == 0.0 ) continue;
+
+		// let hits = shape.rayIntersect( line );
+
+		// for ( let i = 0; i < hits.length; i++ ) {
+		// 	if ( hits[i].material.alpha == 0.0 ) continue;
+
+		// 	//hits[i].vel = shape.getVel( hits[i].point ); // EDIT don't need if not doing approach flash
+		// 	hits[i].shape = shape;
+		// 	hits[i].incidentDot = -1;//line.p2.minus( line.p1 ).unit().dot( hits[i].normal ); // EDIT don't need if not doing corner highlight
+
+		// 	// inside shape
+		// 	if ( hits[i].incidentDot > 0 ) {
+		// 		hits[i].incidentDot *= -1;
+		// 		hits[i].normal.flip();
+		// 	}
+
+		// 	hits[i].normalDist = -hits[i].incidentDot * hits[i].dist;
+
+		// 	sliceInfo.hits.push( hits[i] );
+
+		// 	if ( hits[i].material.alpha == 1.0 ) break;
+		// }
+
+
+
+		hit = sliceInfo.hits[0];
+		if ( shape.rayIntersectSingle( line, hit ) ) {
+			//hit.vel = shape.getVel( hit.point ); // EDIT don't need if not doing approach flash
+			hit.shape = shape;
+			hit.incidentDot = line.p2.minus( line.p1 ).unit().dot( hit.normal ); // EDIT don't need if not doing corner highlight
+
+			// inside shape
+			if ( hit.incidentDot > 0 ) {
+				hit.incidentDot *= -1;
+				hit.normal.flip();
+			}
+
+			hit.normalDist = -hit.incidentDot * hit.dist;
+
+			//closestRayHits.push( hit );
+		}
+	}
+
+	// sliceInfo.hits.sort( ( a: ShapeHit, b: ShapeHit ) => a.dist - b.dist );
+
+	// if ( sliceInfo.hits.length == 0 ) {
+	// 	sliceInfo.hits.push( new ShapeHit( new Vec2(), new Vec2(), new Material( 0, 0, 0.5 ) ) );
+	// 	sliceInfo.hits[0].dist = -1;
+	// }
 }
 
 let getHitsOutput: Array<SliceInfo> = [];
@@ -141,19 +150,18 @@ function getHits( shapes: Array<Shape>,
 	}
 
 	let angle = 0;
-	let opaqueIndex = 0;
 
 	let minSweep: Array<number> = [];
 	let maxSweep: Array<number> = [];
 
 	let line = new Line( 0, 0, 0, 0 );
 
-	// for ( let shape of shapes ) {
-	// 	Angle.getSweep( shape.points, origin, minmax );
+	for ( let shape of shapes ) {
+		Angle.getSweep( shape.points, origin, minmax );
 
-	// 	minSweep.push( minmax[0] );
-	// 	maxSweep.push( minmax[1] );
-	// }
+		minSweep.push( minmax[0] );
+		maxSweep.push( minmax[1] );
+	}
 
 	pushMark( '_sw' );
 
@@ -215,13 +223,13 @@ export function renderRays( context: CanvasRenderingContext2D,
 	}
 }
 
-let sliceCount = 360;
+let sliceCount = 143;
 let theta = Math.PI * 2 / sliceCount;
 let cosSl = Math.cos( theta );
 let sinSl = Math.sin( theta );
 
 function highlightCorners( hit: ShapeHit, prevHit: ShapeHit, nextHit: ShapeHit, ) {
-	let score = 0.0;
+	let score = 0.0; // higher is more corner
 
 	// distance
 	if ( prevHit === null || nextHit === null ) {
@@ -255,7 +263,12 @@ function highlightCorners( hit: ShapeHit, prevHit: ShapeHit, nextHit: ShapeHit, 
 		}
 	}
 
-	hit.material.highlightCorners( score );
+	score *= 1 - Math.min( 1.0, hit.dist / vals.cornerCutoff.val );
+
+	hit.cornerScore = score;
+
+	// old way
+	//hit.material.highlightCorners( score );
 
 	// specular highlight
 	if ( hit.incidentDot < 0 ) {
@@ -301,70 +314,6 @@ function approachFlash( eyeVel: Vec2, hit: ShapeHit, angle: number, hitDist: num
 
 			hit.material.hue += Math.sin( warn ) * 16 - 8;
 			hit.material.lum += Math.sin( warn ) / 10;
-		}
-	}
-}
-
-type SliderVal = {
-	id: string,
-	val: number;
-	default: number;
-}
-
-export let vals: Dict<SliderVal> = {
-	satFactor: {
-		id: 'sat-factor',
-		val: 300,
-		default: 300,
-	},
-	satPower: {
-		id: 'sat-power',
-		val: 1.0,
-		default: 1.0,
-	},
-	satMin: {
-		id: 'sat-min',
-		val: 0.3,
-		default: 0.3,
-	},	
-	lumFactor: {			// distance over which luminance descends to the minimum
-		id: 'lum-factor',
-		val: 500,
-		default: 500,
-	},
-	lumPower: {
-		id: 'lum-power',
-		val: 1.0,
-		default: 1.0,
-	},
-	lumMin: {				// minimum luminance value for any occupied slice
-		id: 'lum-min',
-		val: 0.2,
-		default: 0.2,
-	},
-
-	shading: {
-		id: 'shading',
-		val: 0.3,
-		default: 0.3,
-	},
-	lens: {
-		id: 'lens',
-		val: 2,
-		default: 2,
-	},
-}
-
-if ( typeof document !== 'undefined' ) {
-	for ( let valName in vals ) {
-		let slider = document.getElementById( vals[valName].id ) as HTMLInputElement;
-		if ( !slider ) continue;
-
-		slider.value = vals[valName].val.toString();
-
-		slider.onchange = function( e: any ) {
-			let inputVal = parseFloat( e.currentTarget.value );
-			if ( !isNaN( inputVal ) ) vals[valName].val = inputVal;
 		}
 	}
 }
@@ -417,7 +366,10 @@ export function renderFromEye( context: CanvasRenderingContext2D,
 							   origin: Vec2,
 							   vel: Vec2,
 							   sliceCount: number,
-							   or: number, ir: number ) {
+							   or: number, ir: number,
+							   overlay?: Array<RGBA> ) {
+
+	/* get frame data */
 
 	marks = [];
 	pushMark( 'start' );
@@ -426,10 +378,23 @@ export function renderFromEye( context: CanvasRenderingContext2D,
 
 	pushMark( 'slices' );
 
-	let blendedSegments = getFrame( shapes, origin, vel, slices );
+	let blendedSegments = getFrame( shapes, origin, vel, slices ); // RGBA array, 0 to 1
 	if ( blendedSegments.length != sliceCount ) {
 		console.error( 'render.renderFromEye(): Slice count mismatch: ' + blendedSegments.length + ' != ' + sliceCount );
 		return;
+	}
+
+	/* blend in overlay */
+
+	if ( overlay ) {
+		for ( let i = 0; i < overlay.length && i < sliceCount; i++ ) {
+			if ( !( i in overlay ) ) continue;
+			if ( overlay[i].a == 0 ) continue;
+
+			blendedSegments[i].r = overlay[i].r * overlay[i].a + blendedSegments[i].r * ( 1 - overlay[i].a );
+			blendedSegments[i].g = overlay[i].g * overlay[i].a + blendedSegments[i].g * ( 1 - overlay[i].a );
+			blendedSegments[i].b = overlay[i].b * overlay[i].a + blendedSegments[i].b * ( 1 - overlay[i].a );
+		}
 	}
 
 	pushMark( 'frame' );
@@ -514,6 +479,8 @@ function getFrame( shapes: Array<Shape>,
 				   slices: Array<number> ): Array<RGBA> {
 	let sliceInfos = getHits( shapes, origin, slices );
 
+	pushMark( 'hits' );
+
 	if ( Debug.flags.AUTO_BRIGHT_ADJUST ) {
 		updateRollingAvgDist( sliceInfos );
 	}
@@ -588,16 +555,16 @@ function getFrame( shapes: Array<Shape>,
 
 		blended = { r: 0, g: 0, b: 0, a: 1.0 }; // background color
 
-		let distCutoff = vals.lumFactor.val;
+		let distCutoff = vals.lumCutoff.val;
 		if ( Debug.flags.AUTO_BRIGHT_ADJUST ) distCutoff = rollingAvgDist;
 
 		for ( let j = opaqueIndex; j >= 0; j-- ) {
 			
 			//satFactor = Math.min( vals.satFactor.val / ( hits[j].dist ** vals.satPower.val ), 1.0 );
-			satFactor = Math.min( ( vals.satFactor.val - hits[j].dist ) / ( vals.satFactor.val - 10 ), 1.0 );
+			satFactor = Math.min( ( vals.satCutoff.val - hits[j].dist ) / ( vals.satFactor.val - 10 ), 1.0 );
 			satFactor = Math.max( satFactor, vals.satMin.val );
 
-			//lumFactor = Math.min( vals.lumFactor.val / ( hits[j].dist ** vals.lumPower.val ), 1.0 );
+			//lumFactor = Math.min( vals.lumCutoff.val / ( hits[j].dist ** vals.lumPower.val ), 1.0 );
 			lumFactor = Math.min( ( distCutoff - hits[j].dist ) / ( distCutoff - 10 ), 1.0 );
 			lumFactor = Math.max( lumFactor, vals.lumMin.val );
 
@@ -625,15 +592,29 @@ function getFrame( shapes: Array<Shape>,
 
 			/* angle view */  
 			let distFac: number = 0;
+			let useRanging = false;
+			if ( hits[j].shape.parent ) {
+				let group = hits[j].shape.parent.collisionGroup;
+				if ( group == COL.USE_ROOT ) {
+					group = hits[j].shape.parent.getRoot().collisionGroup;
+				}
 
-			if ( Debug.flags.RANGING_VIEW ) {
-				distFac = hits[j].dist / distCutoff;
+				if ( group == COL.LEVEL ) {
+					useRanging = Debug.flags.RANGING_VIEW;
+				}
+			}
+
+			if ( useRanging ) {
+				distFac = hits[j].dist / ( distCutoff / 2 ); // hue descends faster than luminance
 				distFac = Math.min( distFac, 1.0 );
 
 				let angle = hits[j].normal.angle();
 				let angFac = Math.abs( Math.sin( angle ) );
 
 				hits[j].material.hue = 90 + angFac * 60; // horiz is cyan, vert is yellow
+
+				hits[j].material.lum *= 1 - hits[j].cornerScore * vals.cornerFactor.val;
+				hits[j].material.lum = Math.max( 0.5 * vals.lumMin.val, hits[j].material.lum ); // 0.5 being normal luminance (maybe save this above?)
 			}
 
 			// highlight hovered entities
@@ -647,8 +628,7 @@ function getFrame( shapes: Array<Shape>,
 				color.a *= hits[j].shape.parent.getAlpha();
 			}
 
-
-			if ( Debug.flags.RANGING_VIEW ) {
+			if ( useRanging ) {
 				color.g *= ( 1 - distFac );
 			}
 
@@ -667,57 +647,6 @@ function getFrame( shapes: Array<Shape>,
 	return buffer;
 }
 
-let canvasData: ImageData;
-let downsampled: ImageData;
-
-export function getDownsampled( canvas: HTMLCanvasElement, 
-								context: CanvasRenderingContext2D,
-								w: number,
-								upsampled: ImageData ) {
-	let wSq = w ** 2;
-	let subW = Math.floor( canvas.width / w );
-	let subH = Math.floor( canvas.height / w );
-
-	//let data: Array<number> = [];
-	//data[subW * subH * 4] = 0;
-	//data.fill( 0 );
-
-	// downsample
-	if ( !downsampled ) downsampled = context.createImageData( subW, subH );
-
-	canvasData = context.getImageData( 0, 0, canvas.width, canvas.height );
-	for ( let i = 0; i < downsampled.data.length; i += 4 ) {
-		let pix = Math.floor( i / 4 );
-
-		let x = ( pix % subW ) * w;
-		let y = Math.floor( pix / subW ) * w;
-
-		let bucket: Array<number> = [0, 0, 0, 0];
-
-		for ( let j = 0; j < 4; j++ ) {
-			for ( let ix = 0; ix < w; ix++ ) {
-				for ( let iy = 0; iy < w; iy++ ) {
-					bucket[j] += canvasData.data[((y + iy) * canvas.width + x + ix) * 4 + j] / wSq;	
-				}
-			}
-		
-			downsampled.data[i + j] = bucket[j];
-		}
-	}
-
-	// upsample
-	for ( let i = 0; i < upsampled.data.length; i += 4 ) {
-		let pix = Math.floor( i / 4 );
-
-		let sx = Math.floor( ( pix % canvas.width ) / w );
-		let sy = Math.floor( pix / canvas.width / w );
-
-		for ( let j = 0; j < 4; j++ ) {
-			upsampled.data[i + j] = downsampled.data[(sy * subW + sx) * 4 + j];
-		}
-	}
-}
-
 export function whiteText( context: CanvasRenderingContext2D, text: string, posX: number, posY: number, rightAlign: boolean=false ) {
 	context.font = "14px Monospace";
 
@@ -732,50 +661,3 @@ export function whiteText( context: CanvasRenderingContext2D, text: string, posX
 	context.fillStyle = 'white';
 	context.fillText( text, x + 1, posY + 20 - 5 );
 }
-
-/*
-	render imagedata to image
-
-	//function imagedata_to_image(imagedata) {
-	    var canvas = document.createElement('canvas');
-	    var ctx = canvas.getContext('2d');
-	    canvas.width = data.width;
-	    canvas.height = data.height;
-	    ctx.putImageData(data, 0, 0);
-
-	    var image = new Image();
-	    image.src = canvas.toDataURL();
-	    //return image;
-	//}
- */
-
-/*if ( !upsampled ) upsampled = context.createImageData( this.canvas.width, this.canvas.height );
-
-getDownsampled( this.canvas, context, 16, upsampled );
-context.putImageData( upsampled, 0, 0 );*/
-
-/*
-multi-slice glow
-
-let redness = 0;
-
-for ( let entity of this.em.entities ) {
-	if ( entity instanceof Coin ) {
-		let floaterPos = entity.pos.copy();
-		let floaterDir = floaterPos.minus( origin ).normalize();
-		let floaterDist = floaterPos.minus( origin ).length();
-
-		if ( hit !== null && floaterDist > hitDist ) {
-			continue;
-		}
-
-		let floatDot = dir.dot( floaterDir );
-		if ( floatDot > 0.995 ) {
-			let intensity = ( floatDot - 0.995 ) / 0.1;
-			intensity *= 1 / ( floaterPos.minus( origin ).length() / 200 );
-
-			redness += intensity; 
-		}
-	}
-}
-if ( redness > 1.0 ) redness = 1.0;*/

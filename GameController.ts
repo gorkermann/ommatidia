@@ -54,6 +54,10 @@ type MessageHandler = {
 	func: ( args: Array<string> ) => void
 }
 
+export type StartLevelOptions = {
+	retry?: boolean
+}
+
 export class GameController extends Controller {
 	messageHandlers: Array<MessageHandler> = [];
 
@@ -110,7 +114,7 @@ export class GameController extends Controller {
 		} );
 
 		this.addMessageHandler( 'death', () => {
-			this.startLevel();
+			this.startLevel( { retry: true } );
 		} );
 
 		if ( typeof document === 'undefined' ) {
@@ -184,13 +188,12 @@ export class GameController extends Controller {
 
 	resetInterface( options: ResetInterfaceOptions={} ) {}
 
-	startLevel() {
+	startLevel( options: StartLevelOptions={} ) {
 		try {
 			let level: OmmatidiaScene;
 
 			if ( this.levelDataList[this.levelIndex].controlMode == 0 ) {
-				level = new SideLevel( 'level' + this.levelIndex, this.levelDataList[this.levelIndex],
-									   ['Level ' + ( this.levelIndex + 1 )] );
+				level = new SideLevel( 'Level ' + ( this.levelIndex + 1 ), this.levelDataList[this.levelIndex], options.retry );
 			} else {
 				level = new Level( 'level' + this.levelIndex, this.playerStatus, this.levelDataList[this.levelIndex] );
 				if ( this.playerStatus.defeatedNames.length == 5 ) level.final = true;

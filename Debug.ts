@@ -26,7 +26,7 @@ export let flags: Dict<boolean> = {
 	DRAW_ROOMS: false,
 	SEND_SERVER_FRAME: false,
 	ALLOW_CRUSH: false,
-	RANGING_VIEW: false,
+	RANGING_VIEW: true,
 	THERMAL_CAMERA: false,
 }
 
@@ -60,6 +60,22 @@ export let fields: Dict<DebugField> = {
 	CARRIER_ATK: { value: '', default: 'default' },
 	SLICE_COUNT: { value: '', default: '360' },
 	SLICE_OFFSET: { value: '', default: '0' },
+}
+
+export function getFloat( fieldName: string ): number {
+	if ( !( fieldName in fields ) ) {
+		console.error( 'No debug field ' + fieldName );
+		return 0.0;
+	}
+
+	let float = parseFloat( fields[fieldName].value );
+
+	if ( isNaN( float ) ) {
+		console.error( 'Invalid value for debug field ' + fieldName + ': ' + fields[fieldName].value );
+		return 0.0;
+	}
+
+	return float;
 }
 
 validators['SLICE_COUNT'] = ( x: DebugField ) => !isNaN( parseInt( x.value ) );

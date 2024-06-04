@@ -90,3 +90,7 @@ anon arrow func inside map: 2133ms
 named function inside map: 2039ms
 
 code: arrow_test.js
+
+
+SSH TUNNEL FOR REMOTE DEBUGGER
+ssh -L 9221:localhost:9229 pi@10.42.0.138

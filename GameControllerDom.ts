@@ -24,7 +24,7 @@ import { CommandPanel } from './ctlr/CommandPanel.js'
 
 import * as Debug from './Debug.js'
 import { gameCommands } from './gameCommands.js'
-import { GameController } from './GameController.js'
+import { GameController, StartLevelOptions } from './GameController.js'
 import { Level } from './Level.js'
 import { store } from './store.js'
 import { TitleScene } from './TitleScene.js'
@@ -206,7 +206,7 @@ export class GameControllerDom extends GameController {
 		}
 	}
 
-	startLevel() {
+	startLevel( options: StartLevelOptions={} ) {
 		if ( this.currentScene ) {
 			let context = this.canvas.getContext( '2d' );
 
@@ -219,7 +219,7 @@ export class GameControllerDom extends GameController {
 			oldImages.push( new FadingImage( image ) );
 		}
 	
-		super.startLevel();
+		super.startLevel( options );
 	}
 
 	loadScene( scene: OmmatidiaScene, doLoad: boolean=true ) {

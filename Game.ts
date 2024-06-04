@@ -10,7 +10,8 @@ import { MILLIS_PER_FRAME } from './collisionGroup.js'
 import { GameController } from './GameController.js'
 import { GameControllerDom } from './GameControllerDom.js'
 import { empty } from './objDef.js'
-import { whiteText, vals } from './render.js'
+import { whiteText } from './render.js'
+import { vals } from './SliderVal.js'
 
 import * as Debug from './Debug.js'
 

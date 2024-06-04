@@ -8,7 +8,7 @@ import * as Debug from './Debug.js'
 import { titleData } from './titleData.js'
 import { FloaterScene } from './FloaterScene.js'
 
-import { renderFromEye, getDownsampled, whiteText } from './render.js'
+import { renderFromEye, whiteText } from './render.js'
 
 import { clearLcdQueue, sendLcdByte } from './lcd.js'
 

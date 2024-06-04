@@ -1,17 +1,19 @@
-import { Anim, AnimField, AnimFrame } from './lib/juego/Anim.js'
+import { Anim, AnimField, AnimFrame, AnimTarget } from './lib/juego/Anim.js'
 import { solveCollisionsFor } from './lib/juego/collisionSolver.js'
+import { Angle } from './lib/juego/Angle.js'
 import { Camera } from './lib/juego/Camera.js'
 import { Contact } from './lib/juego/Contact.js'
 import { Entity, TopLeftEntity, cullList } from './lib/juego/Entity.js'
 import { GridArea } from './lib/juego/GridArea.js'
 import { Keyboard, KeyCode } from './lib/juego/keyboard.js'
 import { Line } from './lib/juego/Line.js'
-import { Material } from './lib/juego/Material.js'
+import { Material, RGBA } from './lib/juego/Material.js'
 import { constructors, nameMap } from './lib/juego/constructors.js'
 import { RayHit } from './lib/juego/RayHit.js'
 import { ScrollBox } from './lib/juego/ScrollBox.js'
 import { Shape } from './lib/juego/Shape.js'
 import { TileArray } from './lib/juego/TileArray.js'
+import { FuncCall } from './lib/juego/serialization.js'
 import { Vec2 } from './lib/juego/Vec2.js'
 
 import * as tp from './lib/toastpoint.js'
@@ -25,11 +27,14 @@ import { Bullet, PlayerBullet } from './Bullet.js'
 import { CenteredEntity } from './CenteredEntity.js'
 import { COL, MILLIS_PER_FRAME, REWIND_SECS } from './collisionGroup.js'
 import { Player } from './Player.js'
-import { shapecast, renderFromEye, renderRays, whiteText, vals } from './render.js'
+import { Platform } from './Platform.js'
+import { shapecast, renderFromEye, renderRays, whiteText } from './render.js'
 
 import { clearLcdQueue, sendLcdByte, lcdPrint } from './lcd.js'
 
 import * as Debug from './Debug.js'
+
+import child_process from 'child_process'
 
 let MODE_GRAVITY = 0;
 let MODE_SQUARE = 1;
@@ -48,10 +53,6 @@ async function sleepAsync( ms: number ): Promise<void> {
 /*
 	Scene holding a player area 
 */
-
-/*let tempCanvas = document.createElement( 'canvas' ) as HTMLCanvasElement;
-tempCanvas.width = 400;
-tempCanvas.height = 400;*/
 
 type Mark = {
 	name: string;
@@ -76,7 +77,6 @@ type ReplayImage = {
 
 enum LevelState {
 	DEFAULT = 0,
-	DEATH_REPLAY,
 	DEATH_MENU,
 	SUCCESS_MENU,
 }
@@ -159,6 +159,18 @@ class Wave {
 	}
 }
 
+class Ping {
+	pos: Vec2;
+	alpha: number = 1.0;
+	spread: number = 1;
+	wait: boolean = true;
+	removeThis: boolean = false;
+
+	constructor( pos: Vec2 ) {
+		this.pos = pos;
+	}
+}
+
 export class SideLevel extends OmmatidiaScene {
 	grid: LevelGrid = new LevelGrid();
 
@@ -167,7 +179,7 @@ export class SideLevel extends OmmatidiaScene {
 	// level info
 	player: Player = null;
 	controlMode: number = MODE_GRAVITY;
-	grav: Vec2 = new Vec2( 0, 1 );
+	grav: Vec2 = new Vec2( 0, 2 );
 	maxFallSpeed: number = 10;
 	data: any;
 
@@ -187,8 +199,10 @@ export class SideLevel extends OmmatidiaScene {
 
 	ir: number = 300;
 	or: number = 320;
+	overlay: Array<RGBA> = [];
 
 	state: LevelState = LevelState.DEFAULT;
+	fadeMaterial: Material = new Material( 0, 0, 0.0 );
 
 	newChar: boolean = false;
 	messageQueue: Array<string> = []; // can have newlines
@@ -213,6 +227,8 @@ export class SideLevel extends OmmatidiaScene {
 		'or': new AnimField( this, 'or', 40 ),
 		'ir': new AnimField( this, 'ir', 40 ),
 		'state': new AnimField( this, 'state', 0 ),
+		'fadeAlpha': new AnimField( this.fadeMaterial, 'alpha', 0.1 ),
+		'fadeLum': new AnimField( this.fadeMaterial, 'lum', 0.1 ),
 	},
 	new AnimFrame( {
 		'healthBar': { value: 0 },
@@ -221,20 +237,45 @@ export class SideLevel extends OmmatidiaScene {
 		'ir': { value: 100},
 	} ) );
 
+	pingAnim = new Anim(); // dynamically populated
+	pings: Array<Ping> = [];
+
 	discardFields: Array<string> = ['em', 'textBox', 'textBoxHeight', 'text', 'textIndex', 'speaker',
 					 'updateQueue', 'boundKeyHandler', 'cursorPos', 'oldTime',
 					 'replayImages', 'replayCount', 'replayIndex', 'replayAlpha'];
 	//saveFields = ['grid', 'player', 'controlMode', 'grav', 'data', 'bossHealthMax'];
 
-	constructor( name: string, data: any, messages: Array<string> ) {
+	constructor( name: string, data: any, retry: boolean ) {
 		super( name );
 
 		this.data = data;
 		this.start = new Date().getTime();
 
 		clearLcdQueue();
-		this.messageQueue.push( ' ' );
-		//this.messageQueue.push( ...messages );
+		this.messageQueue.push( this.name );
+
+		this.or = 120;
+		this.ir = 100;
+		/* alternative transition:
+		this.or = 320
+		this.ir = 300
+
+		this.anim.pushFrame( new AnimFrame( {
+			'or': { value: 120, expireOnReach: true } } ) );
+		this.anim.pushFrame( new AnimFrame( { 
+			'ir': { value: 100, expireOnReach: true } } ) );*/
+
+		if ( retry ) {
+			this.fadeMaterial.lum = 0;
+			this.fadeMaterial.alpha = 1.0;
+			this.anim.pushFrame( new AnimFrame( { 
+				'fadeAlpha': { value: 0 } } ) );
+		} else {
+			this.fadeMaterial.lum = 1.0;
+			this.fadeMaterial.alpha = 1.0;
+			this.anim.pushFrame( new AnimFrame( { 
+				'fadeAlpha': { value: 0 } } ) );
+		}
 	}
 
 	load(): Promise<any> {
@@ -311,6 +352,39 @@ export class SideLevel extends OmmatidiaScene {
 
 					this.em.insert( coin );
 
+				} else if ( index >= 40 && index < 50 ) {
+					let platIndex = index - 40;
+
+					if ( this.data.platforms && platIndex >= 0 && platIndex < this.data.platforms.length ) {
+						let obj = this.data.platforms[platIndex];
+						let w = ( obj.width ? obj.width : 1 );
+						let h = ( obj.height ? obj.height : 1 );
+
+						let plat = new Platform( 
+									new Vec2( ( c + ( w - 1 ) / 2 ) * this.grid.tileWidth, ( r + ( h - 1 ) / 2 ) * this.grid.tileHeight ),
+									this.grid.tileWidth * w,
+									this.grid.tileHeight * h );
+
+						plat.velIntent.setValues( obj.velX ? obj.velX : 0, obj.velY ? obj.velY : 0 );
+						
+						if ( obj.limitX ) {
+							if ( obj.limitX < 0 ) plat.limitLow.x = plat.pos.x + obj.limitX * this.grid.tileWidth;
+							if ( obj.limitX > 0 ) plat.limitHigh.x = plat.pos.x + obj.limitX * this.grid.tileWidth;
+						}
+
+						if ( obj.limitY ) {
+							if ( obj.limitY < 0 ) plat.limitLow.y = plat.pos.y + obj.limitY * this.grid.tileHeight;
+							if ( obj.limitY > 0 ) plat.limitHigh.y = plat.pos.y + obj.limitY * this.grid.tileHeight;
+						}
+
+						plat.material = new Material( this.data.hue, 1.0, 0.5 );
+						if ( Debug.flags.LEVEL_ALT_MAT ) plat.altMaterial = new Material( this.data.hue + 30, 1.0, 0.5 );
+						this.em.insert( plat );
+
+					} else {
+						console.error( 'SideLevel.load(): Platform index ' + ( index - 40 ) + ' not found' );
+					}
+
 				} else if ( index >= 50 ) {
 					let msgIndex = index - 50;
 
@@ -346,14 +420,6 @@ export class SideLevel extends OmmatidiaScene {
 
 		this.coinCount = this.em.entities.filter( x => x instanceof Coin ).length;
 
-		this.or = 320;
-		this.ir = 300;
-
-		/*this.anim.pushFrame( new AnimFrame( {
-			'or': { value: 120, expireOnReach: true } } ) );
-		this.anim.pushFrame( new AnimFrame( { 
-			'ir': { value: 100, expireOnReach: true } } ) );*/
-
 		return new Promise( function(resolve, reject) {
 			resolve(0);
 		});
@@ -371,10 +437,13 @@ export class SideLevel extends OmmatidiaScene {
 
 		let frameStep = 1.0;//elapsed / 60;
 
+		// no pause in menus
 		if ( this.state != LevelState.DEFAULT ) this.paused = false;
 
+		// animate
 		if ( !this.paused ) {
 			this.anim.update( frameStep, elapsed );
+			this.pingAnim.update( frameStep, elapsed );
 			this.messageAnim.update( frameStep, elapsed );
 
 			this.updateMessages();
@@ -383,7 +452,7 @@ export class SideLevel extends OmmatidiaScene {
 		pushMark( 'm' );
 
 		if ( this.state == LevelState.SUCCESS_MENU ) {
-			if ( Keyboard.keyHit( KeyCode.W ) ) this.messages.push( 'complete' );
+			// pass
 
 		} else {
 			if ( Keyboard.keyHit( KeyCode.SPACE ) ) {
@@ -411,6 +480,67 @@ export class SideLevel extends OmmatidiaScene {
 					lcdPrint( 'RANGING MODE' );
 				} else {
 					lcdPrint( 'TRUE COLOR MODE' );
+				}
+			}
+
+			if ( Keyboard.keyHit( KeyCode.Q ) && this.player.transponderCharge >= 1 ) {
+				this.player.transponderCharge = 0;
+				this.player.anim.pushFrame( new AnimFrame( {}, [
+					new FuncCall<typeof this.pushMessage>( this, 'pushMessage', ['TRANSPONDER CHARGED'] )
+				] ) )
+
+				this.player.anim.pushFrame( new AnimFrame( {
+					'transponderCharge': { value: 1.0, reachOnCount: 10000 },
+				} ) );
+
+				this.pingAnim.clear();
+				this.pingAnim.fields = {};
+
+				this.pings = [];
+				for ( let entity of this.em.entities ) {
+					if ( entity instanceof Coin ) {
+						let ping = new Ping( entity.pos.copy() );
+						ping.alpha = 0;
+
+						this.pings.push( ping );
+					}
+				}
+
+				// use a different thread for each ping target
+				let thread = 0;
+
+				for ( let i = 0; i < this.pings.length; i++ ) {
+					let id = 'ping' + i;
+
+					this.pingAnim.fields[id + '-wait'] = new AnimField( this.pings[i], 'wait', 0.1 );
+					this.pingAnim.fields[id + '-alpha'] = new AnimField( this.pings[i], 'alpha', 0.1 );
+					this.pingAnim.fields[id + '-spread'] = new AnimField( this.pings[i], 'spread', 0.3 );
+					this.pingAnim.fields[id + '-removeThis'] = new AnimField( this.pings[i], 'removeThis' );
+
+					let dist = this.pings[i].pos.distTo( this.player.pos );
+
+					let frame = new AnimFrame();
+					frame.targets[id + '-removeThis'] = new AnimTarget( true );
+					this.pingAnim.pushFrame( frame, 
+						{ threadIndex: thread } );
+
+					frame = new AnimFrame();
+					frame.targets[id + '-alpha'] = new AnimTarget( 0 );
+					frame.targets[id + '-spread'] = new AnimTarget( 10 );
+					this.pingAnim.pushFrame( frame, 
+						{ threadIndex: thread } );
+
+					frame = new AnimFrame();
+					frame.targets[id + '-alpha'] = new AnimTarget( 1, { overrideRate: 0 } );
+					this.pingAnim.pushFrame( frame, 
+						{ threadIndex: thread } );
+
+					frame = new AnimFrame();
+					frame.targets[id + '-wait'] = new AnimTarget( true, { expireOnCount: dist * 2 } );
+					this.pingAnim.pushFrame( frame, 
+						{ threadIndex: thread } );
+
+					thread += 1;
 				}
 			}
 
@@ -479,7 +609,9 @@ export class SideLevel extends OmmatidiaScene {
 
 		this.updateSounds();
 
-		this.player.updateGrav( this.grav );
+		for ( let entity of this.em.entities ) {
+			entity.updateGrav( this.grav );
+		}
 
 		pushMark( 'k' );
 
@@ -528,11 +660,11 @@ export class SideLevel extends OmmatidiaScene {
 
 		for ( let entity of this.em.entities ) {
 			if ( entity.isPliant ) {
-				solveCollisionsFor( entity, this.em.entities, COL.ENEMY_BODY | COL.LEVEL | COL.PLAYER_BODY, COL.LEVEL, frameStep );
+				let result = solveCollisionsFor( entity, this.em.entities, COL.ENEMY_BODY | COL.LEVEL, COL.LEVEL, frameStep, true ); 
 			}
 		}
 
-		let result = solveCollisionsFor( this.player, this.em.entities, COL.ENEMY_BODY | COL.LEVEL, COL.LEVEL, frameStep );
+		let result = solveCollisionsFor( this.player, this.em.entities, COL.ENEMY_BODY | COL.LEVEL, COL.LEVEL, frameStep, true );
 
 		pushMark( 'c' );
 
@@ -566,7 +698,7 @@ export class SideLevel extends OmmatidiaScene {
 		this.em.animate( frameStep, elapsed );
 		this.em.update();
 
-		this.player.updateCollisionGrav( result.blockedDirs, this.grav );
+		this.player.updateCollisionGrav( result.blockedContacts, this.grav );
 
 		if ( this.player.health <= 0 || result.crushed ) {
 			if ( result.crushed ) {
@@ -595,6 +727,12 @@ export class SideLevel extends OmmatidiaScene {
 		if ( coinCount != this.coinCount ) {
 			this.coinCount = coinCount;
 			this.messageQueue.push( this.coinCount + ' unstable photon' + ( this.coinCount == 1 ? '' : 's' ) + ' remaining' );
+
+			if ( this.coinCount == 0 ) {
+				if ( typeof document === 'undefined' ) child_process.exec( 'aplay ./sfx/roll_laser_as.wav' );
+			} else {
+				if ( typeof document === 'undefined' ) child_process.exec( 'aplay ./sfx/roll_laser_f.wav' );
+			}
 		}
 		
 
@@ -619,7 +757,9 @@ export class SideLevel extends OmmatidiaScene {
 					if ( entity == this.player ) {
 						if ( this.state == LevelState.DEFAULT ) {
 							clearLcdQueue();
+							this.clearMessageQueue();
 							this.messageQueue.push( 'CONNECTION LOST' );
+							if ( typeof document === 'undefined' ) child_process.exec( 'aplay ./sfx/death.wav' );
 
 							setTimeout( () => {
 								this.messages.push( 'death' );
@@ -658,6 +798,19 @@ export class SideLevel extends OmmatidiaScene {
 		} ) );
 	}
 
+	clearMessageQueue() {
+		this.messageQueue = [];
+		this.stringIndex = 0;
+	}
+
+	pushMessage( msg: string ) {
+		this.messageQueue.push( msg );
+	}
+
+	pushControlMessage( msg: string ) {
+		this.messages.push( msg );
+	}
+
 	checkForSuccess() {
 		if ( this.state != LevelState.DEFAULT ) return;
 
@@ -671,7 +824,19 @@ export class SideLevel extends OmmatidiaScene {
 		}
 
 		if ( success ) {
-			this.messages.push( 'complete' );
+			this.state = LevelState.SUCCESS_MENU;
+			this.fadeMaterial.lum = 1.0;
+
+			this.anim.clear();
+
+			this.anim.pushFrame( new AnimFrame( {}, [
+				new FuncCall<typeof this.pushControlMessage>( this, 'pushControlMessage', ['complete'] )
+			] ) );
+
+			this.anim.pushFrame( new AnimFrame( {
+				'fadeAlpha': { value: 1.0 }
+			} ) );
+
 		}
 	}
 
@@ -686,11 +851,7 @@ export class SideLevel extends OmmatidiaScene {
 
 		this.camera.pos.set( this.player.pos );
 
-		if ( this.state == LevelState.DEATH_REPLAY ) {
-			this.deathDraw( context );
-			this.defaultDraw( context );
-
-		} else if ( this.state == LevelState.DEATH_MENU ) {
+		if ( this.state == LevelState.DEATH_MENU ) {
 			this.deathDraw( context );
 			this.defaultDraw( context );
 
@@ -733,6 +894,33 @@ export class SideLevel extends OmmatidiaScene {
 		console.log( str );
 	}
 
+	private updateOverlay( sliceCount: number, origin: Vec2 ) {
+		let rgba = this.fadeMaterial.getRGBA();
+
+		while ( this.overlay.length < sliceCount ) {
+			this.overlay.push( { r: 1, g: 1, b: 1, a: 0 } );
+		}
+
+		if ( this.overlay.length > sliceCount ) {
+			this.overlay = this.overlay.slice( 0, sliceCount );
+		}
+
+		for ( let i = 0; i < this.overlay.length; i++ ) {
+			this.overlay[i] = rgba;
+		}
+
+		cullList( this.pings );
+		for ( let ping of this.pings ) {
+			let angle = Angle.toPosTurn( ping.pos.minus( origin ).angle() );
+			let index = Math.round( angle / ( Math.PI * 2 ) * sliceCount );
+
+			for ( let i = 0; i < ping.spread; i++ ) {
+				this.overlay[index + i] = { r: 1, g: 1, b: 1, a: ping.alpha };
+				this.overlay[index - i] = { r: 1, g: 1, b: 1, a: ping.alpha };
+			}
+		}
+	}
+
 	defaultDraw( context: CanvasRenderingContext2D, camera: Camera=this.camera ) {
 
 		/* Prepare Scene */
@@ -742,23 +930,22 @@ export class SideLevel extends OmmatidiaScene {
 			considerations:
 			the player is chamfered at the upper corners in order to accommodate slight
 			misalignments when jumping beside (so as to go up the side, not hit the bottom)
-
 			--> origin should be no higher than the beginning of this chamfer
 
-
-			an origin on the edge of some object may see its inside	
-		
+			an origin on the edge of some object may see its inside
 			--> viewpoint should not be on an edge of the player 
 		*/
-
-
-		let origin = this.player.pos.minus( new Vec2( 0, this.player.height / 4 ) );
+		let origin = this.player.pos
+						.minus( new Vec2( 0, this.player.height / 4 ) );
 
 		let ir = this.ir * camera.viewportW / 400;
 		let or = this.or * camera.viewportW / 400;
 		let haloW = this.haloWidth * camera.viewportW / 400;
 
 		let shapesMinusPlayer = [];
+
+		let sliceCount = parseInt( Debug.fields['SLICE_COUNT'].value );
+		if ( isNaN( sliceCount ) ) sliceCount = 360;
 
 		for ( let entity of this.em.entities ) {
 			if ( entity == this.player ) continue;
@@ -770,13 +957,12 @@ export class SideLevel extends OmmatidiaScene {
 
 		pushMark( '_' );
 
-		let sliceCount = parseInt( Debug.fields['SLICE_COUNT'].value );
-		if ( isNaN( sliceCount ) ) sliceCount = 360;
+		this.updateOverlay( sliceCount, origin );
 
 		/* Draw Scene */
 
 		if ( typeof document === 'undefined' ) {
-			renderFromEye( context, shapesMinusPlayer, origin, this.player.vel, sliceCount, or, ir );
+			renderFromEye( context, shapesMinusPlayer, origin, this.player.vel, sliceCount, or, ir, this.overlay );
 
 			pushMark( 'r' );
 
@@ -818,7 +1004,7 @@ export class SideLevel extends OmmatidiaScene {
 				context.save();
 					context.translate( this.camera.viewportW / 2, this.camera.viewportH / 2 );
 
-					renderFromEye( context, shapesMinusPlayer, origin, this.player.vel, sliceCount, or, ir );
+					renderFromEye( context, shapesMinusPlayer, origin, this.player.vel, sliceCount, or, ir, this.overlay );
 
 					if ( this.player.wince > 0 ) {
 						context.lineWidth = or - ir;

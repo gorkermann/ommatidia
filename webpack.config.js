@@ -15,7 +15,8 @@ export default {
     'rpio': /^rpio$/,
     'rpi-ws281x-native': /^rpi-ws281x-native$/,
     'i2c-bus': /^i2c-bus$/,
-    'fs': '/^fs$/'
+    'fs': '/^fs$/',
+    'child_process': /^child_process$/
   },
   optimization: {
     minimize: false,

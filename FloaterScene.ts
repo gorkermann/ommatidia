@@ -4,8 +4,6 @@ import { Vec2 } from './lib/juego/Vec2.js'
 
 import { OmmatidiaScene } from './Scene.js'
 
-import { getDownsampled } from './render.js'
- 
 let downsampled: ImageData = null;
 let upsampled: ImageData = null;
 
