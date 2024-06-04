@@ -6,6 +6,8 @@ import { Vec2 } from './lib/juego/Vec2.js'
 import { Shape } from './lib/juego/Shape.js'
 import { Sound } from './lib/juego/Sound.js'
 
+import { PlayerStatus } from './Player.js'
+
 import * as tp from './lib/toastpoint.js'
 
 ///////////
@@ -30,6 +32,8 @@ export class OmmatidiaScene {
 
 	final: boolean = false;
 	messages: Array<string> = [];
+
+	playerStatus: PlayerStatus;
 
 	discardFields: Array<string> = [];
 	//saveFields = [];

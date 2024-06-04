@@ -560,8 +560,8 @@ function getFrame( shapes: Array<Shape>,
 
 		for ( let j = opaqueIndex; j >= 0; j-- ) {
 			
-			//satFactor = Math.min( vals.satFactor.val / ( hits[j].dist ** vals.satPower.val ), 1.0 );
-			satFactor = Math.min( ( vals.satCutoff.val - hits[j].dist ) / ( vals.satFactor.val - 10 ), 1.0 );
+			//satFactor = Math.min( vals.satCutoff.val / ( hits[j].dist ** vals.satPower.val ), 1.0 );
+			satFactor = Math.min( ( vals.satCutoff.val - hits[j].dist ) / ( vals.satCutoff.val - 10 ), 1.0 );
 			satFactor = Math.max( satFactor, vals.satMin.val );
 
 			//lumFactor = Math.min( vals.lumCutoff.val / ( hits[j].dist ** vals.lumPower.val ), 1.0 );

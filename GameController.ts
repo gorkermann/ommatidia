@@ -194,6 +194,8 @@ export class GameController extends Controller {
 
 			if ( this.levelDataList[this.levelIndex].controlMode == 0 ) {
 				level = new SideLevel( 'Level ' + ( this.levelIndex + 1 ), this.levelDataList[this.levelIndex], options.retry );
+				level.playerStatus = this.playerStatus;
+				if ( this.levelIndex == this.levelDataList.length - 1 ) level.final = true; 
 			} else {
 				level = new Level( 'level' + this.levelIndex, this.playerStatus, this.levelDataList[this.levelIndex] );
 				if ( this.playerStatus.defeatedNames.length == 5 ) level.final = true;

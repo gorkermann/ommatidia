@@ -3,7 +3,7 @@ import { solveCollisionsFor } from './lib/juego/collisionSolver.js'
 import { Angle } from './lib/juego/Angle.js'
 import { Camera } from './lib/juego/Camera.js'
 import { Contact } from './lib/juego/Contact.js'
-import { Entity, TopLeftEntity, cullList } from './lib/juego/Entity.js'
+import { Entity, TopLeftEntity, cullList, TransformOrder } from './lib/juego/Entity.js'
 import { GridArea } from './lib/juego/GridArea.js'
 import { Keyboard, KeyCode } from './lib/juego/keyboard.js'
 import { Line } from './lib/juego/Line.js'
@@ -15,6 +15,7 @@ import { Shape } from './lib/juego/Shape.js'
 import { TileArray } from './lib/juego/TileArray.js'
 import { FuncCall } from './lib/juego/serialization.js'
 import { Vec2 } from './lib/juego/Vec2.js'
+import { secsToTimeStr } from './lib/juego/util.js'
 
 import * as tp from './lib/toastpoint.js'
 
@@ -337,6 +338,19 @@ export class SideLevel extends OmmatidiaScene {
 					if ( Debug.flags.LEVEL_ALT_MAT ) block.altMaterial = new Material( this.data.hue + 30, 1.0, 0.5 );
 					gridEnt.addSub( block );
 
+				} else if ( index == 2 ) {
+					let block = new CenteredEntity(
+									new Vec2( c * this.grid.tileWidth, r * this.grid.tileHeight ),
+									this.grid.tileWidth,
+									this.grid.tileHeight  * 5);
+
+					block.angle = Math.PI / 4;
+					block.transformOrder = TransformOrder.ROTATE_THEN_TRANSLATE;
+					block.angleVel = 0.05;
+					block.material = new Material( this.data.hue, 1.0, 0.5 );
+					if ( Debug.flags.LEVEL_ALT_MAT ) block.altMaterial = new Material( this.data.hue + 30, 1.0, 0.5 );
+					gridEnt.addSub( block );
+
 				// player
 				} else if ( index == 10 ) {
 					this.player = new Player( pos.plus( new Vec2( 10, 0 ) ) );
@@ -452,7 +466,9 @@ export class SideLevel extends OmmatidiaScene {
 		pushMark( 'm' );
 
 		if ( this.state == LevelState.SUCCESS_MENU ) {
-			// pass
+			if ( Keyboard.keyHit( KeyCode.W ) ) {
+				this.pushControlMessage( 'complete' );
+			}
 
 		} else {
 			if ( Keyboard.keyHit( KeyCode.SPACE ) ) {
@@ -726,7 +742,9 @@ export class SideLevel extends OmmatidiaScene {
 		let coinCount = this.em.entities.filter( x => x instanceof Coin ).length;
 		if ( coinCount != this.coinCount ) {
 			this.coinCount = coinCount;
-			this.messageQueue.push( this.coinCount + ' unstable photon' + ( this.coinCount == 1 ? '' : 's' ) + ' remaining' );
+			if ( coinCount > 0 ) {
+				this.messageQueue.push( this.coinCount + ' unstable photon' + ( this.coinCount == 1 ? '' : 's' ) + ' remaining' );
+			}
 
 			if ( this.coinCount == 0 ) {
 				if ( typeof document === 'undefined' ) child_process.exec( 'aplay ./sfx/roll_laser_as.wav' );
@@ -762,7 +780,7 @@ export class SideLevel extends OmmatidiaScene {
 							if ( typeof document === 'undefined' ) child_process.exec( 'aplay ./sfx/death.wav' );
 
 							setTimeout( () => {
-								this.messages.push( 'death' );
+								this.pushControlMessage( 'death' );
 							}, 5000 )
 
 							this.state = LevelState.DEATH_MENU;
@@ -829,9 +847,29 @@ export class SideLevel extends OmmatidiaScene {
 
 			this.anim.clear();
 
-			this.anim.pushFrame( new AnimFrame( {}, [
-				new FuncCall<typeof this.pushControlMessage>( this, 'pushControlMessage', ['complete'] )
-			] ) );
+			if ( this.final ) {
+				let now = new Date().getTime();
+				let totalTime = ( now - this.playerStatus.startTime ) / 1000;
+
+				let timeStr = secsToTimeStr( totalTime );
+
+				this.anim.pushFrame( new AnimFrame( {}, [
+					new FuncCall<typeof this.pushMessage>( this, 'pushMessage', [
+						'Your time was ' + timeStr + '. Press A to return to the main menu'
+					] )
+				] ) );
+
+				this.anim.pushFrame( new AnimFrame( {}, [
+					new FuncCall<typeof this.pushMessage>( this, 'pushMessage', [
+						'Congratulations! You have stabilized all the photons and beaten Ommatidia'
+					] )
+				] ) );
+				
+			} else {
+				this.anim.pushFrame( new AnimFrame( {}, [
+					new FuncCall<typeof this.pushControlMessage>( this, 'pushControlMessage', ['complete'] )
+				] ) );	
+			}
 
 			this.anim.pushFrame( new AnimFrame( {
 				'fadeAlpha': { value: 1.0 }

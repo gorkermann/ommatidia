@@ -14,6 +14,7 @@ import { Shape } from './lib/juego/Shape.js'
 import { TileArray } from './lib/juego/TileArray.js'
 import { Vec2 } from './lib/juego/Vec2.js'
 import { Sound } from './lib/juego/Sound.js'
+import { secsToTimeStr } from './lib/juego/util.js'
 
 import { Boss } from './boss/Boss.js'
 import { RollBoss, Barrier } from './boss/RollBoss.js' 
@@ -123,7 +124,6 @@ export class Level extends OmmatidiaScene {
 	paused: boolean = false;
 
 	tryCount: number = 0;
-	playerStatus: PlayerStatus;
 	
 	cursorPos: Vec2 = new Vec2( 0, 0 );
 	
@@ -842,17 +842,8 @@ export class Level extends OmmatidiaScene {
 				if ( this.final ) {
 					let now = new Date().getTime();
 					let totalTime = ( now - this.playerStatus.startTime ) / 1000;
-					let minuteStr = Math.floor( totalTime / 60 ) + '';
-					while ( minuteStr.length < 2 ) {
-						minuteStr = '0' + minuteStr;
-					}
 
-					let secondStr = Math.floor( totalTime % 60 ) + '';
-					while ( secondStr.length < 2 ) {
-						secondStr = '0' + secondStr;
-					}
-
-					let timeStr = minuteStr + ':' + secondStr;
+					let timeStr = secsToTimeStr( totalTime );
 
 					this.messageQueue.push( 'All cores have been defeated! Congratulations!' );
 					this.messageQueue.push( 'Your total time was ' + timeStr );

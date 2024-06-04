@@ -94,3 +94,12 @@ code: arrow_test.js
 
 SSH TUNNEL FOR REMOTE DEBUGGER
 ssh -L 9221:localhost:9229 pi@10.42.0.138
+
+
+PROVISIONING A NEW PI FOR OMMATIDIA
+
+$ sudo systemctl set-default multi-user.target	[1]
+enable I2C (text) and SPI (sound) in raspi-config
+add the startup script to crontab
+
+1. removes a bunch of graphical display things. reverse with https://raspberrypi.stackexchange.com/questions/90380/turning-off-lxpanel-on-raspberry-pi-says-cant-connect-to-display

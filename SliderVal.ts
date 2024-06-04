@@ -7,7 +7,7 @@ type SliderVal = {
 }
 
 export let vals: Dict<SliderVal> = {
-	satFactor: {
+	satCutoff: {
 		id: 'sat-cutoff',
 		val: 300,
 		default: 300,

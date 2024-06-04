@@ -171,7 +171,7 @@ export class Player extends Entity {
 		}
 
 		if ( Keyboard.keyHeld( KeyCode.W ) && this.jumping && this.jumpFrames > 0 ) {
-			this.vel.y = -6;
+			this.vel.y = -7;
 			this.jumpFrames -= 1;
 
 		} else {
