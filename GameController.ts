@@ -24,6 +24,8 @@ import { TitleScene } from './TitleScene.js'
 import { PlayerStatus } from './Player.js'
 import { Watcher, DictWatcher } from './Watcher.js'
 
+import { clearLcdQueue, sendLcdByte } from './lcd.js'
+
 tp.config.WRITE_PTR_CLASSNAME = true;
 
 let levelDataList = sideLevels;
@@ -79,6 +81,9 @@ export class GameController extends Controller {
 		defeatedNames: [],
 		messages: ['Note: You can identify objects by clicking them with the mouse']
 	}
+
+	exitRequestTime: number = -1;
+	exitWaitInterval: number = 2000;
 
 	/* property overrides */
 
@@ -264,20 +269,57 @@ export class GameController extends Controller {
 						  this.currentScene.messages.join( ',' ) );
 		}
 
-		for ( let message of this.currentScene.messages ) {
+		let scene = this.currentScene;
+		for ( let message of scene.messages ) {
 			let words = message.split( ' ' );
 
 			if ( words[0] ) {
 				for ( let handler of this.messageHandlers ) {
 					if ( handler.name == words[0] ) {
-						handler.func( words.slice( 1 ) );		
+						handler.func( words.slice( 1 ) );	
 					}
 				}
 			} else {
 				console.error( 'GameController.update(): Unhandled message type ' + message );
 			}
 		}
-		this.currentScene.messages = [];
+		scene.messages = []; // use temp variable as this.currentScene may have changed
+
+		if ( Keyboard.keyHeld( KeyCode.LEFT ) &&
+			 Keyboard.keyHeld( KeyCode.RIGHT ) &&
+			 Keyboard.keyHeld( KeyCode.Q ) &&
+			 Keyboard.keyHeld( KeyCode.W ) ) {
+			
+			if ( this.exitRequestTime < 0 ) {
+				this.exitRequestTime = new Date().getTime();
+				clearLcdQueue();
+
+				sendLcdByte( false, 0x01 ); // clear
+				sendLcdByte( false, 0x02 ); // return
+
+				let str = 'Resetting in ' + ( this.exitWaitInterval / 1000 ) + 's';
+				for ( let i = 0; i < str.length; i++ ) {
+					sendLcdByte( true, str.charCodeAt( i ) );
+				}
+			}
+		} else {
+			if ( this.exitRequestTime >= 0 ) {
+				sendLcdByte( false, 0x01 ); // clear
+				sendLcdByte( false, 0x02 ); // return
+
+				let str = 'Reset canceled';
+				for ( let i = 0; i < str.length; i++ ) {
+					sendLcdByte( true, str.charCodeAt( i ) );
+				}
+			}
+
+			this.exitRequestTime = -1;
+		}
+
+		if ( this.exitRequestTime >= 0 && new Date().getTime() - this.exitRequestTime > this.exitWaitInterval ) {
+			this.loadScene( this.title );
+			this.exitRequestTime = -1;
+		}
 
 		if ( this.mode ) {
 			this.mode.update( this );

@@ -23,6 +23,13 @@ export class TitleScene extends OmmatidiaScene {
 	constructor() {
 		super( 'Title' );
 
+		this.floaterScene = new FloaterScene();
+		this.floaterScene.camera.setViewport( 400, 400 );
+
+		this.floaters = this.floaterScene.floaters;
+	}
+
+	load(): Promise<void> {
 		sendLcdByte( false, 0x01 ); // clear
 		sendLcdByte( false, 0x02 ); // return
 
@@ -31,10 +38,7 @@ export class TitleScene extends OmmatidiaScene {
 			sendLcdByte( true, str.charCodeAt( i ) );
 		}
 
-		this.floaterScene = new FloaterScene();
-		this.floaterScene.camera.setViewport( 400, 400 );
-
-		this.floaters = this.floaterScene.floaters;
+		return Promise.resolve();
 	}
 
 	update() {
