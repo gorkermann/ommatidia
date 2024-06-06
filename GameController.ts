@@ -26,6 +26,9 @@ import { Watcher, DictWatcher } from './Watcher.js'
 
 import { clearLcdQueue, sendLcdByte } from './lcd.js'
 
+import child_process from 'child_process'
+import fs from 'fs'
+
 tp.config.WRITE_PTR_CLASSNAME = true;
 
 let levelDataList = sideLevels;
@@ -85,6 +88,8 @@ export class GameController extends Controller {
 	exitRequestTime: number = -1;
 	exitWaitInterval: number = 2000;
 
+	musicProc: any = null;
+
 	/* property overrides */
 
 	defaultMode = 'Play';
@@ -101,6 +106,7 @@ export class GameController extends Controller {
 			this.playerStatus.startTime = new Date().getTime();
 
 			this.startLevel();
+			this.startMusic();
 		} );
 
 		this.addMessageHandler( 'restart', () => {
@@ -132,7 +138,7 @@ export class GameController extends Controller {
 				} else {
 					oldImages = [];
 
-					this.loadScene( this.title );
+					this.loadTitle();
 				}
 			} );
 		}
@@ -152,6 +158,26 @@ export class GameController extends Controller {
 			this.levelIndex = index;
 			this.startLevel();
 		} );
+	}
+
+	loadTitle() {
+		this.loadScene( this.title );
+		this.endMusic();
+	}
+
+	startMusic() {
+		if ( !this.musicProc ) {
+			if ( typeof document === 'undefined' ) {
+				this.musicProc = child_process.spawn( 'ogg123', ['./sfx/baby.ogg'] );
+			}
+		}
+	}
+
+	endMusic() {
+		if ( this.musicProc ) {
+			this.musicProc.kill( 'SIGINT' );
+			this.musicProc = null;
+		}
 	}
 
 	addMessageHandler( name: string, func: ( args: Array<string> ) => void ) {
@@ -261,7 +287,7 @@ export class GameController extends Controller {
 
 	update() {
 		if ( this.currentScene === null ) {
-			this.loadScene( this.title );
+			this.loadTitle();
 		}
 
 		if ( this.currentScene.messages.length > 1 ) {
@@ -285,39 +311,40 @@ export class GameController extends Controller {
 		}
 		scene.messages = []; // use temp variable as this.currentScene may have changed
 
-		if ( Keyboard.keyHeld( KeyCode.LEFT ) &&
-			 Keyboard.keyHeld( KeyCode.RIGHT ) &&
-			 Keyboard.keyHeld( KeyCode.Q ) &&
-			 Keyboard.keyHeld( KeyCode.W ) ) {
-			
-			if ( this.exitRequestTime < 0 ) {
-				this.exitRequestTime = new Date().getTime();
-				clearLcdQueue();
-
-				sendLcdByte( false, 0x01 ); // clear
-				sendLcdByte( false, 0x02 ); // return
-
-				let str = 'Resetting in ' + ( this.exitWaitInterval / 1000 ) + 's';
-				for ( let i = 0; i < str.length; i++ ) {
-					sendLcdByte( true, str.charCodeAt( i ) );
-				}
+		if ( typeof document === 'undefined' ) {
+			if ( this.musicProc && this.musicProc.exitCode !== null ) {
+				this.musicProc = null;
 			}
-		} else {
-			if ( this.exitRequestTime >= 0 ) {
-				sendLcdByte( false, 0x01 ); // clear
-				sendLcdByte( false, 0x02 ); // return
-
-				let str = 'Reset canceled';
-				for ( let i = 0; i < str.length; i++ ) {
-					sendLcdByte( true, str.charCodeAt( i ) );
-				}
+			if ( !this.musicProc && this.currentScene != this.title ) {
+				this.startMusic();
 			}
+		}
 
-			this.exitRequestTime = -1;
+		if ( this.currentScene != this.title ) {
+			if ( Keyboard.keyHeld( KeyCode.LEFT ) &&
+				 Keyboard.keyHeld( KeyCode.RIGHT ) &&
+				 Keyboard.keyHeld( KeyCode.Q ) &&
+				 Keyboard.keyHeld( KeyCode.W ) ) {
+				
+				if ( this.exitRequestTime < 0 ) {
+					this.exitRequestTime = new Date().getTime();
+					clearLcdQueue();
+
+					sendLcdByte( false, 0x01 ); // clear
+					sendLcdByte( false, 0x02 ); // return
+
+					let str = 'Resetting...';
+					for ( let i = 0; i < str.length; i++ ) {
+						sendLcdByte( true, str.charCodeAt( i ) );
+					}
+				}
+			} else {
+				this.exitRequestTime = -1;
+			}
 		}
 
 		if ( this.exitRequestTime >= 0 && new Date().getTime() - this.exitRequestTime > this.exitWaitInterval ) {
-			this.loadScene( this.title );
+			this.loadTitle();
 			this.exitRequestTime = -1;
 		}
 

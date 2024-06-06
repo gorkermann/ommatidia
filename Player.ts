@@ -197,6 +197,11 @@ export class Player extends Entity {
 		}
 
 		let playLandSound = false;
+		if ( typeof document === 'undefined' ) {
+			if ( this.slideSoundProc && this.slideSoundProc.exitCode !== null ) {
+				this.slideSoundProc = null;
+			}
+		}
 
 		this.velIntent.x = 0;
 
