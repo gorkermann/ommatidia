@@ -58,7 +58,18 @@ export let vals: Dict<SliderVal> = {
 		id: 'corner-factor',
 		val: 0.5,
 		default: 0.5
-	}
+	},
+
+	nearMix: {
+		id: 'near-mix',
+		val: 0.0,
+		default: 0.0
+	},
+	hueDescentRatio: {
+		id: 'hue-descent-ratio',
+		val: 2.0,
+		default: 2.0
+	} 
 }
 
 if ( typeof document !== 'undefined' ) {

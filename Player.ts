@@ -35,14 +35,14 @@ export class Player extends Entity {
 		--> Save the jump press for a number of frames after the button press
 
 		[Z]: press jump
-		(<): release left or right
+		(<-): release left or right
 
-		intended order: (<)[Z] (same frame)
-		allowed order: [Z],,,,(<) (jump intent window)
-		not allowed: [Z],,,,,(<) (gap too long)
+		intended order: (<-)[Z] (same frame)
+		allowed order: [Z],,,,(<-) (jump intent window)
+		not allowed: [Z],,,,,(<-) (gap too long)
 
-		allowed order: (<),,,,[Z] (retain collide LR window) 
-		not allowed: (<),,,,,[Z] (gap too long)		
+		allowed order: (<-),,,,[Z] (retain collide LR window) 
+		not allowed: (<-),,,,,[Z] (gap too long)		
 	 */
 	jumpIntentFrames: number = 0; 
 

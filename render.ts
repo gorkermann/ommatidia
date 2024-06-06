@@ -472,6 +472,7 @@ export function renderFromEye( context: CanvasRenderingContext2D,
 }
 
 let buffer: Array<RGBA> = [];
+let MIN_DIST = 10;
 
 function getFrame( shapes: Array<Shape>,
 				   origin: Vec2,
@@ -561,11 +562,11 @@ function getFrame( shapes: Array<Shape>,
 		for ( let j = opaqueIndex; j >= 0; j-- ) {
 			
 			//satFactor = Math.min( vals.satCutoff.val / ( hits[j].dist ** vals.satPower.val ), 1.0 );
-			satFactor = Math.min( ( vals.satCutoff.val - hits[j].dist ) / ( vals.satCutoff.val - 10 ), 1.0 );
+			satFactor = Math.min( ( vals.satCutoff.val - hits[j].dist ) / ( vals.satCutoff.val - MIN_DIST ), 1.0 );
 			satFactor = Math.max( satFactor, vals.satMin.val );
 
 			//lumFactor = Math.min( vals.lumCutoff.val / ( hits[j].dist ** vals.lumPower.val ), 1.0 );
-			lumFactor = Math.min( ( distCutoff - hits[j].dist ) / ( distCutoff - 10 ), 1.0 );
+			lumFactor = Math.min( ( distCutoff - hits[j].dist ) / ( distCutoff - MIN_DIST ), 1.0 );
 			lumFactor = Math.max( lumFactor, vals.lumMin.val );
 
 			// specular highlight
@@ -605,7 +606,10 @@ function getFrame( shapes: Array<Shape>,
 			}
 
 			if ( useRanging ) {
-				distFac = hits[j].dist / ( distCutoff / 2 ); // hue descends faster than luminance
+				let t = vals.nearMix.val;
+
+				distFac = Math.min( hits[j].dist / ( ( distCutoff / vals.hueDescentRatio.val ) - MIN_DIST ), 1 ) * ( 1 - t ) + 
+						  Math.min( hits[j].dist / ( 30 - MIN_DIST ), 1 ) * t;
 				distFac = Math.min( distFac, 1.0 );
 
 				let angle = hits[j].normal.angle();
