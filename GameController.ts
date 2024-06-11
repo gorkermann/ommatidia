@@ -106,7 +106,8 @@ export class GameController extends Controller {
 			this.playerStatus.startTime = new Date().getTime();
 
 			this.startLevel();
-			this.startMusic();
+			this.endMusic();
+			this.startMusic( './sfx/baby.ogg' );
 		} );
 
 		this.addMessageHandler( 'restart', () => {
@@ -163,12 +164,13 @@ export class GameController extends Controller {
 	loadTitle() {
 		this.loadScene( this.title );
 		this.endMusic();
+		//this.startMusic( './sfx/pyramid.ogg' );
 	}
 
-	startMusic() {
+	startMusic( filename: string ) {
 		if ( !this.musicProc ) {
 			if ( typeof document === 'undefined' ) {
-				this.musicProc = child_process.spawn( 'ogg123', ['./sfx/baby.ogg'] );
+				this.musicProc = child_process.spawn( 'ogg123', [filename] );
 			}
 		}
 	}
@@ -316,7 +318,7 @@ export class GameController extends Controller {
 				this.musicProc = null;
 			}
 			if ( !this.musicProc && this.currentScene != this.title ) {
-				this.startMusic();
+				this.startMusic( './sfx/baby.ogg' );
 			}
 		}
 
