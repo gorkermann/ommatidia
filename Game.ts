@@ -1,6 +1,8 @@
 import ws281x from 'rpi-ws281x-native'
 import rpio from 'rpio'
 
+import { Dict } from './lib/juego/util.js'
+
 import { Keyboard, KeyCode } from './lib/juego/keyboard.js'
 import { Vec2 } from './lib/juego/Vec2.js'
 
@@ -226,6 +228,26 @@ function init_rpi() {
 		} catch ( e: any ) {
 			console.error( 'Could not read config file ' + filepath + ': ' + e );
 		}
+	} );
+
+	filepath = './debugVals.json'; 
+	fs.readFile( filepath, 'utf-8', ( err, data ) => {
+		try {
+			let json = JSON.parse( data );
+
+			for ( let key in json ) {
+				let newFlags: Dict<Debug.DebugField> = {};
+				newFlags[key] = { value: json[key] };
+
+				Debug.setFlags( newFlags );
+			}
+
+		} catch ( e: any ) {
+			console.error( 'Could not read config file ' + filepath + ': ' + e );
+		}
+
+		console.log( Debug.flags );
+		console.log( Debug.fields );
 	} );
 
 	setInterval( update, MILLIS_PER_FRAME );
