@@ -676,11 +676,11 @@ export class SideLevel extends OmmatidiaScene {
 
 		for ( let entity of this.em.entities ) {
 			if ( entity.isPliant ) {
-				let result = solveCollisionsFor( entity, this.em.entities, COL.ENEMY_BODY | COL.LEVEL, COL.LEVEL, frameStep, true ); 
+				let result = solveCollisionsFor( entity, this.em.entities, COL.ENEMY_BODY | COL.LEVEL, COL.LEVEL, frameStep, false ); 
 			}
 		}
 
-		let result = solveCollisionsFor( this.player, this.em.entities, COL.ENEMY_BODY | COL.LEVEL, COL.LEVEL, frameStep, true );
+		let result = solveCollisionsFor( this.player, this.em.entities, COL.ENEMY_BODY | COL.LEVEL, COL.LEVEL, frameStep, false );
 
 		pushMark( 'c' );
 
