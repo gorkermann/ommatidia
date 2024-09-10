@@ -433,7 +433,8 @@ export function renderFromEye( context: CanvasRenderingContext2D,
 		//let factor = max * 255 - 0;
 		//if ( factor < 0 ) factor = 0;
 		//factor = Math.min( 2 ^ ( factor / 16 ), 255 );
-		let factor = 10;
+
+		let factor = 15; // HARDWARE: if this is ~50 or more, the LED power draw browns out the display and can crash the game
 
 		segs.push( ( segment.r * factor << 16 ) + ( segment.g * factor << 8 ) + ( segment.b * factor ) );
 	}
