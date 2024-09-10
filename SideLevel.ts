@@ -20,6 +20,7 @@ import { secsToTimeStr } from './lib/juego/util.js'
 import * as tp from './lib/toastpoint.js'
 
 import { Coin } from './Coin.js'
+import { GravityInverter } from './entity/GravityInverter.js'
 
 import { RoomManager } from './RoomManager.js'
 import { OmmatidiaScene } from './Scene.js'
@@ -293,6 +294,7 @@ export class SideLevel extends OmmatidiaScene {
 
 		let gridEnt = new Entity( new Vec2( 0, 0 ), 0, 0 );
 		gridEnt.isGhost = true;
+		gridEnt.isSkiddable = true;
 		gridEnt.collisionGroup = COL.LEVEL;
 		gridEnt.collisionMask = COL.PLAYER_BULLET | COL.ENEMY_BULLET;
 
@@ -335,19 +337,21 @@ export class SideLevel extends OmmatidiaScene {
 									this.grid.tileHeight );
 
 					block.material = new Material( this.data.hue, 1.0, 0.5 );
+
 					if ( Debug.flags.LEVEL_ALT_MAT ) block.altMaterial = new Material( this.data.hue + 30, 1.0, 0.5 );
 					gridEnt.addSub( block );
 
+				// no-skid wall
 				} else if ( index == 2 ) {
 					let block = new CenteredEntity(
 									new Vec2( c * this.grid.tileWidth, r * this.grid.tileHeight ),
 									this.grid.tileWidth,
-									this.grid.tileHeight  * 5);
+									this.grid.tileHeight );
 
-					block.angle = Math.PI / 4;
-					block.transformOrder = TransformOrder.ROTATE_THEN_TRANSLATE;
-					block.angleVel = 0.05;
 					block.material = new Material( this.data.hue, 1.0, 0.5 );
+					block.collisionGroup = COL.LEVEL;
+					block.isSkiddable = false;
+
 					if ( Debug.flags.LEVEL_ALT_MAT ) block.altMaterial = new Material( this.data.hue + 30, 1.0, 0.5 );
 					gridEnt.addSub( block );
 
@@ -355,7 +359,7 @@ export class SideLevel extends OmmatidiaScene {
 				} else if ( index == 10 ) {
 					this.player = new Player( pos.plus( new Vec2( 10, 0 ) ) );
 					this.player.collisionGroup = COL.PLAYER_BODY;
-					this.player.collisionMask = COL.ENEMY_BODY | COL.ENEMY_BULLET | COL.LEVEL | COL.ITEM;
+					this.player.collisionMask = COL.ENEMY_BODY | COL.ENEMY_BULLET | COL.LEVEL | COL.ITEM | COL.LEVEL_NOSKID;
 					this.player.material = playerMaterial.copy();
 					this.em.insert( this.player );	
 
@@ -365,6 +369,12 @@ export class SideLevel extends OmmatidiaScene {
 					coin.collisionGroup = COL.ITEM;
 
 					this.em.insert( coin );
+
+				} else if ( index == 12 ) {
+					let inverter = new GravityInverter( pos.copy() );
+					inverter.collisionGroup = COL.ITEM;
+
+					this.em.insert( inverter );
 
 				} else if ( index >= 40 && index < 50 ) {
 					let platIndex = index - 40;
@@ -714,7 +724,7 @@ export class SideLevel extends OmmatidiaScene {
 		this.em.animate( frameStep, elapsed );
 		this.em.update();
 
-		this.player.updateCollisionGrav( result.blockedContacts, this.grav );
+		this.player.updateCollisionFlags( result.blockedContacts, this.grav );
 
 		if ( this.player.health <= 0 || result.crushed ) {
 			if ( result.crushed ) {

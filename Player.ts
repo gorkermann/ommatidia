@@ -12,6 +12,8 @@ import { Coin } from './Coin.js'
 import { Bullet, Gutter } from './Bullet.js'
 import { Particle } from './Particle.js'
 
+import { GravityInverter } from './entity/GravityInverter.js'
+
 import * as Debug from './Debug.js'
 
 import child_process from 'child_process'
@@ -69,6 +71,10 @@ export class Player extends Entity {
 
 	slideSoundProc: any = null;
 
+	inGravityInverter: boolean = false;
+	allowGravFlip: boolean = false;
+	gravSign: number = 1.0;
+
 	/* property overrides */
 	anim = new Anim( {
 		'wince': new AnimField( this, 'wince', 0.02 ),
@@ -105,6 +111,11 @@ export class Player extends Entity {
 			otherEntity.removeThis = true;
 
 			//this.jumps += 1;
+		} else if ( otherEntity instanceof GravityInverter ) {
+			this.inGravityInverter = true;
+
+			// TODO: I think this can trip based on the player's apparent velocity, not the 
+			// blocked position 
 		}
 
 		if ( damage > 0 && this.wince == 0.0 ) {
@@ -171,21 +182,40 @@ export class Player extends Entity {
 		}
 
 		if ( Keyboard.keyHeld( KeyCode.W ) && this.jumping && this.jumpFrames > 0 ) {
-			this.vel.y = -7;
+			this.vel.y = -7 * this.gravSign;
 			this.jumpFrames -= 1;
 
 		} else {
 			this.jumping = false;
 		}
 
-		this.vel.y += grav.y;
+		// apply gravity
+		if ( !this.inGravityInverter ) {
+			//if ( this.vel.y * this.gravSign < 14 ) {
+				this.vel.y += grav.y * this.gravSign;
+			//}
+		}
+
+		this.inGravityInverter = false;
 	}
 
-	updateCollisionGrav( blockedContacts: Array<Contact>, grav: Vec2 ) {
+	update() {
+		if ( !this.inGravityInverter ) {
+			this.allowGravFlip = true;
+		} else {
+			if ( this.allowGravFlip ) {
+				this.gravSign *= -1;
+
+				this.allowGravFlip = false;
+			}
+		}
+	}
+
+	updateCollisionFlags( blockedContacts: Array<Contact>, grav: Vec2 ) {
 		let prevCollideDown = this.collideDown;
 
 		this.collideDown = false;
-		if ( this.vel.y > grav.y * RETAIN_COLLIDE_LR_WINDOW_FRAMES ) { // save collideLeft/Right for 10 frames after key is released
+		if ( this.vel.y * this.gravSign > grav.y * RETAIN_COLLIDE_LR_WINDOW_FRAMES ) { // save collideLeft/Right for 10 frames after key is released
 			this.collideRight = false;
 			this.collideLeft = false;
 		}
@@ -214,7 +244,7 @@ export class Player extends Entity {
 		for ( let contact of blockedContacts ) {
 			let dir = contact.normal;
 
-			if ( dir.dot( grav.unit() ) < -0.5 ) {
+			if ( dir.dot( grav.times( this.gravSign ).unit() ) < -0.5 ) { // down
 				
 				if ( !prevCollideDown ) {
 					playLandSound = true;
@@ -249,12 +279,12 @@ export class Player extends Entity {
 			// this is ok since collideLeft/Right don't inhibit horizontal movement
 
 			// NOTE: vel.y doesn't stay at 0, gravity is added before advance() is called
-			if ( dir.dot( new Vec2( -1, 0 ) ) > 0.1 ) { // right
+			if ( dir.dot( new Vec2( -1, 0 ) ) > 0.1 && contact.otherSub.isSkiddable ) { // right
 				this.collideRight = true;
 				this.jumps = 1;
 				this.vel.y = 0;
 
-				if ( prevVelY > 0.0001 && Keyboard.keyHeld( KeyCode.RIGHT ) ) {
+				if ( prevVelY * this.gravSign > 0.0001 && Keyboard.keyHeld( KeyCode.RIGHT ) ) {
 					let y = Math.max( this.pos.y, contact.otherShape.minmax[0].y );
 					y = Math.min( y, contact.otherShape.minmax[1].y );
 
@@ -268,12 +298,12 @@ export class Player extends Entity {
 				let x = 0;
 			}
 
-			if ( dir.dot( new Vec2( 1, 0 ) ) > 0.1 ) { // left
+			if ( dir.dot( new Vec2( 1, 0 ) ) > 0.1 && contact.otherSub.isSkiddable ) { // left
 				this.collideLeft = true;
 				this.jumps = 1;
 				this.vel.y = 0;
 
-				if ( prevVelY > 0.0001 && Keyboard.keyHeld( KeyCode.LEFT ) ) {
+				if ( prevVelY * this.gravSign > 0.0001 && Keyboard.keyHeld( KeyCode.LEFT ) ) {
 					let y = Math.max( this.pos.y, contact.otherShape.minmax[0].y );
 					y = Math.min( y, contact.otherShape.minmax[1].y );
 
@@ -383,6 +413,11 @@ export class Player extends Entity {
 			if ( this.collideRight ) { 
 				context.fillRect(this.width / 4, -this.height / 4,
 								 this.width / 4, this.height / 2);
+			}
+
+			if ( this.inGravityInverter ) {
+				context.fillRect( -this.width / 4, -this.height / 4,
+								   this.width / 2, this.width / 2 );
 			}
 		context.restore();
 	}	
