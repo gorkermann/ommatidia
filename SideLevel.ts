@@ -359,7 +359,7 @@ export class SideLevel extends OmmatidiaScene {
 				} else if ( index == 10 ) {
 					this.player = new Player( pos.plus( new Vec2( 10, 0 ) ) );
 					this.player.collisionGroup = COL.PLAYER_BODY;
-					this.player.collisionMask = COL.ENEMY_BODY | COL.ENEMY_BULLET | COL.LEVEL | COL.ITEM | COL.LEVEL_NOSKID;
+					this.player.collisionMask = COL.ENEMY_BODY | COL.ENEMY_BULLET | COL.LEVEL | COL.ITEM;
 					this.player.material = playerMaterial.copy();
 					this.em.insert( this.player );	
 
@@ -519,6 +519,13 @@ export class SideLevel extends OmmatidiaScene {
 					'transponderCharge': { value: 1.0, reachOnCount: 10000 },
 				} ) );
 
+				// if the last displayed message was transponder status, clear it
+				if ( this.displayText[this.displayText.length - 1] == 'TRANSPONDER CHARGED' ) {
+					this.player.anim.pushFrame( new AnimFrame( {}, [
+						new FuncCall<typeof this.pushMessage>( this, 'pushMessage', [''] )
+					] ) )
+				}
+
 				this.pingAnim.clear();
 				this.pingAnim.fields = {};
 
@@ -589,10 +596,13 @@ export class SideLevel extends OmmatidiaScene {
 	updateMessages() {
 		if ( this.messageAnim.isDone() ) {
 			if ( this.messageQueue.length > 0 ) {
+
+				// beginning of message
 				if ( this.stringIndex == 0 ) {
 					this.displayText.push( '' );
 				}
 
+				// end of message
 				if ( this.stringIndex >= this.messageQueue[0].length ) {
 					this.stringIndex = 0;
 					this.messageQueue.shift();
@@ -602,6 +612,7 @@ export class SideLevel extends OmmatidiaScene {
 						this.start = new Date().getTime();
 					}
 
+				// interior of message
 				} else {
 					let char = this.messageQueue[0][this.stringIndex];
 
@@ -650,6 +661,14 @@ export class SideLevel extends OmmatidiaScene {
 
 		Debug.strokeAll( this.em.entities );
 
+		for ( let entity of this.em.entities ) {
+			if ( entity.isPliant ) {
+				let result = solveCollisionsFor( entity, this.em.entities, COL.ENEMY_BODY | COL.LEVEL, COL.LEVEL, frameStep, false ); 
+			}
+		}
+
+		let result = solveCollisionsFor( this.player, this.em.entities, COL.ENEMY_BODY | COL.LEVEL, COL.LEVEL, frameStep, false );
+
 		let treeGroup: Array<number> = [];
 		let treeMask: Array<number> = [];
 		for ( let entity of this.em.entities ) {
@@ -667,7 +686,7 @@ export class SideLevel extends OmmatidiaScene {
 				if ( ( treeMask[i] & treeGroup[j] ) == 0 ) continue;
 
 				otherEntity = this.em.entities[j];
-				let contacts = entity.overlaps( otherEntity, frameStep, true );
+				let contacts = entity.overlaps( otherEntity, frameStep, false ); // SPEEDPANEL
 
 				if ( contacts.length > 0 ) {
 					Debug.strokeAll( this.em.entities );
@@ -683,14 +702,6 @@ export class SideLevel extends OmmatidiaScene {
 				}
 			}
 		}
-
-		for ( let entity of this.em.entities ) {
-			if ( entity.isPliant ) {
-				let result = solveCollisionsFor( entity, this.em.entities, COL.ENEMY_BODY | COL.LEVEL, COL.LEVEL, frameStep, false ); 
-			}
-		}
-
-		let result = solveCollisionsFor( this.player, this.em.entities, COL.ENEMY_BODY | COL.LEVEL, COL.LEVEL, frameStep, false );
 
 		pushMark( 'c' );
 
