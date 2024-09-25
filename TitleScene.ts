@@ -10,7 +10,7 @@ import { FloaterScene } from './FloaterScene.js'
 
 import { renderFromEye, whiteText } from './render.js'
 
-import { clearLcdQueue, sendLcdByte } from './lcd.js'
+import { lcdReset, lcdPrint, sendLcdByte } from './lcd.js'
 
 export class TitleScene extends OmmatidiaScene {
 	name: string = '';
@@ -30,6 +30,8 @@ export class TitleScene extends OmmatidiaScene {
 	}
 
 	load(): Promise<void> {
+		lcdReset();
+
 		sendLcdByte( false, 0x01 ); // clear
 		sendLcdByte( false, 0x02 ); // return
 

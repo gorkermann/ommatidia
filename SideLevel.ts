@@ -32,7 +32,7 @@ import { Player } from './Player.js'
 import { Platform } from './Platform.js'
 import { shapecast, renderFromEye, renderRays, whiteText } from './render.js'
 
-import { clearLcdQueue, sendLcdByte, lcdPrint } from './lcd.js'
+import { clearLcdQueue, sendLcdByte, lcdPrint, lcdReset } from './lcd.js'
 
 import * as Debug from './Debug.js'
 
@@ -253,6 +253,7 @@ export class SideLevel extends OmmatidiaScene {
 		this.data = data;
 		this.start = new Date().getTime();
 
+		lcdReset();
 		clearLcdQueue();
 		this.messageQueue.push( this.name );
 
@@ -371,10 +372,16 @@ export class SideLevel extends OmmatidiaScene {
 					this.em.insert( coin );
 
 				} else if ( index == 12 ) {
-					let inverter = new GravityInverter( pos.copy() );
+					let inverter = new GravityInverter( pos.plus( new Vec2( 15, 0 ) ), 60, 4 );
 					inverter.collisionGroup = COL.ITEM;
 
 					this.em.insert( inverter );
+
+				} else if ( index == 13 ) {
+					let inverter = new GravityInverter( pos.plus( new Vec2( 0, 15 ) ), 4, 60 );
+					inverter.collisionGroup = COL.ITEM;
+
+					this.em.insert( inverter );					
 
 				} else if ( index >= 40 && index < 50 ) {
 					let platIndex = index - 40;
@@ -600,6 +607,11 @@ export class SideLevel extends OmmatidiaScene {
 				// beginning of message
 				if ( this.stringIndex == 0 ) {
 					this.displayText.push( '' );
+
+					if ( typeof document === 'undefined' ) {
+						sendLcdByte( false, 0x01 ); // clear
+						sendLcdByte( false, 0x02 ); // return
+					}
 				}
 
 				// end of message
@@ -623,11 +635,6 @@ export class SideLevel extends OmmatidiaScene {
 					}
 
 					if ( typeof document === 'undefined' ) {
-						if ( this.stringIndex == 0 ) {
-							sendLcdByte( false, 0x01 ); // clear
-							sendLcdByte( false, 0x02 ); // return
-						}
-
 						sendLcdByte( true, char.charCodeAt( 0 ) );
 					}
 
@@ -661,6 +668,8 @@ export class SideLevel extends OmmatidiaScene {
 
 		Debug.strokeAll( this.em.entities );
 
+		let playerPos = this.player.pos.copy();
+
 		for ( let entity of this.em.entities ) {
 			if ( entity.isPliant ) {
 				let result = solveCollisionsFor( entity, this.em.entities, COL.ENEMY_BODY | COL.LEVEL, COL.LEVEL, frameStep, false ); 
@@ -686,12 +695,22 @@ export class SideLevel extends OmmatidiaScene {
 				if ( ( treeMask[i] & treeGroup[j] ) == 0 ) continue;
 
 				otherEntity = this.em.entities[j];
+
 				let contacts = entity.overlaps( otherEntity, frameStep, false ); // SPEEDPANEL
 
 				if ( contacts.length > 0 ) {
 					Debug.strokeAll( this.em.entities );
 
 					entity.hitWithMultiple( otherEntity, contacts );
+				}
+
+				if ( entity instanceof Player && otherEntity instanceof GravityInverter ) {
+					let playerLine = Line.fromPoints( playerPos.copy(), // pliant collisions change position, use old one
+													  entity.pos.plus( entity.vel.times( 1.0 ) ) );
+
+					if ( playerLine.intersects( otherEntity.line ) ) {
+						entity.gravSign *= -1;
+					}
 				}
 			}
 
@@ -782,34 +801,39 @@ export class SideLevel extends OmmatidiaScene {
 			}
 		}
 
-		let boundary = 200;
+		let boundary = 400;
 
 		pushMark( 'ins' );
 
 		for ( let entity of this.em.entities ) {
 			if ( entity == this.player ) {
-				//if ( entity.pos.x < -boundary ||
-				//	 entity.pos.x > this.grid.hTiles * this.grid.tileWidth + boundary ||
-				//	 entity.pos.y < -boundary ||
-				if ( entity.pos.y > this.grid.vTiles * this.grid.tileWidth + boundary ) {
+				if ( entity.pos.x < -boundary ||
+			 		 entity.pos.x > this.grid.hTiles * this.grid.tileWidth + boundary ||
+			 		 ( this.player.gravSign < 0 && entity.pos.y < -boundary ) ||
+			 		 ( this.player.gravSign > 0 && entity.pos.y > this.grid.vTiles * this.grid.tileWidth + boundary ) ) {
 
-					if ( entity == this.player ) {
-						if ( this.state == LevelState.DEFAULT ) {
-							clearLcdQueue();
-							this.clearMessageQueue();
-							this.messageQueue.push( 'CONNECTION LOST' );
-							if ( typeof document === 'undefined' ) child_process.exec( 'aplay ./sfx/death.wav' );
+					if ( this.state == LevelState.DEFAULT ) {
+						lcdReset();
+						clearLcdQueue();
+						this.clearMessageQueue();
+						this.messageQueue.push( 'CONNECTION LOST' );
+						if ( typeof document === 'undefined' ) child_process.exec( 'aplay ./sfx/death.wav' );
 
-							setTimeout( () => {
-								this.pushControlMessage( 'death' );
-							}, 5000 )
+						setTimeout( () => {
+							this.pushControlMessage( 'death' );
+						}, 5000 )
 
-							this.state = LevelState.DEATH_MENU;
-						}
-						
-					} else if ( entity instanceof Bullet ) {
-						entity.removeThis = true;
+						this.state = LevelState.DEATH_MENU;
 					}
+				}
+				
+			} else if ( entity instanceof Bullet ) {
+				if ( entity.pos.x < -boundary ||
+			 		 entity.pos.x > this.grid.hTiles * this.grid.tileWidth + boundary ||
+			 		 entity.pos.y < -boundary ||
+			 		 entity.pos.y > this.grid.vTiles * this.grid.tileWidth + boundary ) {
+
+					entity.removeThis = true;
 				}
 			}
 		}

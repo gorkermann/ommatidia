@@ -19,6 +19,16 @@ export function clearLcdQueue() {
 	lcdQueue = [];
 }
 
+export function lcdReset() {
+	// set four-bit mode, 2-line mode
+	// 0, 0, 1, data length=0, lines=1, font=0, X, X  
+	sendLcdByte( false, 0x28 );
+
+	// turn display on, turn cursor on, set cursor to blink
+	// 0, 0, 0, 0, 1, display=1, cursor=1, blink=1
+	sendLcdByte( false, 0x0f ); // set four-bit mode, 2 line mode (upper), [0, 0, 1, data length=0]
+}
+
 export function sendLcdByte( isDataByte: boolean, byte: number ) {
 	lcdQueue.push( { isDataByte: isDataByte, byte: byte } );
 }
@@ -44,5 +54,8 @@ setInterval( () => {
 	let lowerNib = ( packet.byte & 0x0f ) << 4;
 
 	bus.i2cWriteSync( 0x27, 3, Buffer.from( [config, upperNib | config | latch, upperNib | config] ) );
+	for ( let i = 0; i < 1000; i++ ) {
+		let x;
+	}
 	bus.i2cWriteSync( 0x27, 3, Buffer.from( [config, lowerNib | config | latch, lowerNib | config] ) );
 }, 10 );

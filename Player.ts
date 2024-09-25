@@ -71,9 +71,8 @@ export class Player extends Entity {
 
 	slideSoundProc: any = null;
 
-	inGravityInverter: boolean = false;
-	allowGravFlip: boolean = false;
 	gravSign: number = 1.0;
+	jumpSign: number = 1.0; // tracks gravSign, but not updated until the jump starts
 
 	/* property overrides */
 	anim = new Anim( {
@@ -111,11 +110,6 @@ export class Player extends Entity {
 			otherEntity.removeThis = true;
 
 			//this.jumps += 1;
-		} else if ( otherEntity instanceof GravityInverter ) {
-			this.inGravityInverter = true;
-
-			// TODO: I think this can trip based on the player's apparent velocity, not the 
-			// blocked position 
 		}
 
 		if ( damage > 0 && this.wince == 0.0 ) {
@@ -150,7 +144,7 @@ export class Player extends Entity {
 			this.vel.x += 5;
 		}
 
-		// up/down
+		// jump
 		if ( this.jumpIntentFrames > 0 ) {
 			this.jumpIntentFrames -= 1;
 		}
@@ -174,6 +168,7 @@ export class Player extends Entity {
 				this.jumping = true;
 				this.jumpFrames = this.maxJumpFrames;
 				this.jumps = 0;//-= 1;
+				this.jumpSign = this.gravSign;
 
 				//this.endSlideSound(); already covered below (collideLeft/Right)?
 
@@ -182,7 +177,7 @@ export class Player extends Entity {
 		}
 
 		if ( Keyboard.keyHeld( KeyCode.W ) && this.jumping && this.jumpFrames > 0 ) {
-			this.vel.y = -7 * this.gravSign;
+			this.vel.y = -7 * this.jumpSign;
 			this.jumpFrames -= 1;
 
 		} else {
@@ -190,25 +185,7 @@ export class Player extends Entity {
 		}
 
 		// apply gravity
-		if ( !this.inGravityInverter ) {
-			//if ( this.vel.y * this.gravSign < 14 ) {
-				this.vel.y += grav.y * this.gravSign;
-			//}
-		}
-
-		this.inGravityInverter = false;
-	}
-
-	update() {
-		if ( !this.inGravityInverter ) {
-			this.allowGravFlip = true;
-		} else {
-			if ( this.allowGravFlip ) {
-				this.gravSign *= -1;
-
-				this.allowGravFlip = false;
-			}
-		}
+		this.vel.y += grav.y * this.gravSign;
 	}
 
 	updateCollisionFlags( blockedContacts: Array<Contact>, grav: Vec2 ) {
@@ -413,11 +390,6 @@ export class Player extends Entity {
 			if ( this.collideRight ) { 
 				context.fillRect(this.width / 4, -this.height / 4,
 								 this.width / 4, this.height / 2);
-			}
-
-			if ( this.inGravityInverter ) {
-				context.fillRect( -this.width / 4, -this.height / 4,
-								   this.width / 2, this.width / 2 );
 			}
 		context.restore();
 	}	

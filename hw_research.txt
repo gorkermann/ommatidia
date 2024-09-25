@@ -66,13 +66,13 @@ pi@raspberrypi:~ $ i2cset -y 1 0x27 0x08 0xf8 0xf8 0xfC 0xf8 0x08 i ; ^
 pi@raspberrypi:~ $ i2cset -y 1 0x27 0x09 0x59 0x59 0x5d 0x59 0x09 i ; W (0x57)
 pi@raspberrypi:~ $ i2cset -y 1 0x27 0x09 0x79 0x79 0x7d 0x79 0x09 i ; ^
 
-pi@raspberrypi:~ $ i2cset -y 1 0x27 0x08 0x2C 0x28 i
-pi@raspberrypi:~ $ i2cset -y 1 0x27 0x08 0x2C 0x28 i
-pi@raspberrypi:~ $ i2cset -y 1 0x27 0x08 0x8C 0x88 i
-pi@raspberrypi:~ $ i2cset -y 1 0x27 0x08 0x0C 0x08 i
-pi@raspberrypi:~ $ i2cset -y 1 0x27 0x08 0xfC 0xf8 i
-pi@raspberrypi:~ $ i2cset -y 1 0x27 0x09 0x5d 0x59 i
-pi@raspberrypi:~ $ i2cset -y 1 0x27 0x09 0x7d 0x79 i
+pi@raspberrypi:~ $ i2cset -y 1 0x27 0x08 0x2C 0x28 i ; set four-bit mode
+pi@raspberrypi:~ $ i2cset -y 1 0x27 0x08 0x2C 0x28 i ; set four-bit mode, 2 line mode (upper), [0, 0, 1, data length=0] 
+pi@raspberrypi:~ $ i2cset -y 1 0x27 0x08 0x8C 0x88 i ; (lower) [lines=1, font=0, X, X] 
+pi@raspberrypi:~ $ i2cset -y 1 0x27 0x08 0x0C 0x08 i ; turn on display (upper)
+pi@raspberrypi:~ $ i2cset -y 1 0x27 0x08 0xfC 0xf8 i ; (lower) [1, display=1, cursor=1, blink=1]
+pi@raspberrypi:~ $ i2cset -y 1 0x27 0x09 0x5d 0x59 i ; W (upper)
+pi@raspberrypi:~ $ i2cset -y 1 0x27 0x09 0x7d 0x79 i ; W (lower)
 
 this one didn't work (I think the time the data is exposed is too short):
 pi@raspberrypi:~ $ i2cset -y 1 0x27 0x08 0x28 0x2C 0x28 0x08 i
@@ -103,3 +103,6 @@ enable I2C (text) and SPI (sound) in raspi-config
 add the startup script to crontab
 
 1. removes a bunch of graphical display things. reverse with https://raspberrypi.stackexchange.com/questions/90380/turning-off-lxpanel-on-raspberry-pi-says-cant-connect-to-display
+
+OLD TESTAMENT STYLE
+how do I kill a process and all its children?
