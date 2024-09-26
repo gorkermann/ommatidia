@@ -1,3 +1,4 @@
+import { Anim, AnimField, AnimFrame } from './lib/juego/Anim.js'
 import { Camera } from './lib/juego/Camera.js'
 import { CommandRef, MOD } from './lib/juego/CommandRef.js'
 import { Controller } from './lib/juego/Controller.js'
@@ -6,6 +7,7 @@ import { Entity } from './lib/juego/Entity.js'
 import { Keyboard, KeyCode } from './lib/juego/keyboard.js'
 import { constructors, nameMap } from './lib/juego/constructors.js'
 import { Selector } from './lib/juego/Selector.js'
+import { FuncCall } from './lib/juego/serialization.js'
 import { Dict } from './lib/juego/util.js'
 import { Vec2 } from './lib/juego/Vec2.js'
 
@@ -24,7 +26,7 @@ import { TitleScene } from './TitleScene.js'
 import { PlayerStatus } from './Player.js'
 import { Watcher, DictWatcher } from './Watcher.js'
 
-import { clearLcdQueue, sendLcdByte } from './lcd.js'
+import { sendLcdString } from './lcd.js'
 
 import child_process from 'child_process'
 import fs from 'fs'
@@ -85,10 +87,18 @@ export class GameController extends Controller {
 		messages: ['Note: You can identify objects by clicking them with the mouse']
 	}
 
-	exitRequestTime: number = -1;
-	exitWaitInterval: number = 2000;
-
 	musicProc: any = null;
+
+	oldTime: number = 0;
+	wait: number = 0;
+
+	manualResetAnim = new Anim( {
+		'wait': new AnimField( this, 'wait' )
+	} )
+
+	waitResetAnim = new Anim( {
+		'wait': new AnimField( this, 'wait' )
+	} ) 
 
 	/* property overrides */
 
@@ -184,6 +194,11 @@ export class GameController extends Controller {
 
 	addMessageHandler( name: string, func: ( args: Array<string> ) => void ) {
 		this.messageHandlers.push( { name: name, func: func } );
+	}
+
+	// hook so anim can call it
+	sendLcdString( str: string ) {
+		sendLcdString( str );
 	}
 
 	/* save */
@@ -322,32 +337,63 @@ export class GameController extends Controller {
 			}
 		}
 
+		// reset
+		let now = new Date().getTime();
+		if ( this.oldTime == 0 ) this.oldTime = now;
+		let elapsed = now - this.oldTime;
+		this.oldTime = now;
+
+		this.manualResetAnim.update( 1.0, elapsed );
+		this.waitResetAnim.update( 1.0, elapsed );
+
 		if ( this.currentScene != this.title ) {
+
+			// manual reset
 			if ( Keyboard.keyHeld( KeyCode.LEFT ) &&
 				 Keyboard.keyHeld( KeyCode.RIGHT ) &&
 				 Keyboard.keyHeld( KeyCode.Q ) &&
 				 Keyboard.keyHeld( KeyCode.W ) ) {
 				
-				if ( this.exitRequestTime < 0 ) {
-					this.exitRequestTime = new Date().getTime();
-					clearLcdQueue();
+				if ( this.manualResetAnim.isDone() ) {
+					this.manualResetAnim.pushFrame( new AnimFrame( {}, [
+						new FuncCall<typeof this.loadTitle>( this, 'loadTitle', [] )
+					] ) );
 
-					sendLcdByte( false, 0x01 ); // clear
-					sendLcdByte( false, 0x02 ); // return
-
-					let str = 'Resetting...';
-					for ( let i = 0; i < str.length; i++ ) {
-						sendLcdByte( true, str.charCodeAt( i ) );
-					}
+					this.manualResetAnim.pushFrame( new AnimFrame( {
+						'wait': { value: 0, expireOnCount: 2000 }
+					}, [
+						new FuncCall<typeof this.sendLcdString>( this, 'sendLcdString', ['Resetting...'] )
+					] ) );
 				}
 			} else {
-				this.exitRequestTime = -1;
+				this.manualResetAnim.clear()
 			}
-		}
 
-		if ( this.exitRequestTime >= 0 && new Date().getTime() - this.exitRequestTime > this.exitWaitInterval ) {
-			this.loadTitle();
-			this.exitRequestTime = -1;
+			// inactivity timeout
+			if ( !Keyboard.keyHeld( KeyCode.LEFT ) &&
+				 !Keyboard.keyHeld( KeyCode.RIGHT ) &&
+				 !Keyboard.keyHeld( KeyCode.Q ) &&
+				 !Keyboard.keyHeld( KeyCode.W ) ) {
+
+				if ( this.waitResetAnim.isDone() ) {
+					this.waitResetAnim.pushFrame( new AnimFrame( {}, [
+						new FuncCall<typeof this.loadTitle>( this, 'loadTitle', [] )
+					] ) );
+
+					this.waitResetAnim.pushFrame( new AnimFrame( {
+						'wait': { value: 0, expireOnCount: 20000 }
+					}, [
+						new FuncCall<typeof this.sendLcdString>( this, 'sendLcdString', ['Vital signs are low, hard reset in 20 seconds...'] )
+					] ) );
+
+					this.waitResetAnim.pushFrame( new AnimFrame( {
+						'wait': { value: 0, expireOnCount: 40000 }
+					} ) );
+				}
+
+			} else {	
+				this.waitResetAnim.clear();
+			}
 		}
 
 		if ( this.mode ) {

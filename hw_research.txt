@@ -93,8 +93,8 @@ code: arrow_test.js
 
 
 SSH TUNNEL FOR REMOTE DEBUGGER
-ssh -L 9221:localhost:9229 pi@10.42.0.138
-
+ssh -L 9229:localhost:9229 pi@10.42.0.138
+I'm not totally sure which endpoint the port numbers are for, or which is the localhost
 
 PROVISIONING A NEW PI FOR OMMATIDIA
 

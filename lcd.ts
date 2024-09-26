@@ -21,19 +21,19 @@ export function clearLcdQueue() {
 
 export function lcdReset() {
 	// set four-bit mode, 2-line mode
-	// 0, 0, 1, data length=0, lines=1, font=0, X, X  
+	// [0, 0, 1, data length=0, lines=1, font=0, X, X]
 	sendLcdByte( false, 0x28 );
 
 	// turn display on, turn cursor on, set cursor to blink
-	// 0, 0, 0, 0, 1, display=1, cursor=1, blink=1
-	sendLcdByte( false, 0x0f ); // set four-bit mode, 2 line mode (upper), [0, 0, 1, data length=0]
+	// [0, 0, 0, 0, 1, display=1, cursor=1, blink=1]
+	sendLcdByte( false, 0x0f );
 }
 
 export function sendLcdByte( isDataByte: boolean, byte: number ) {
 	lcdQueue.push( { isDataByte: isDataByte, byte: byte } );
 }
 
-export function lcdPrint( str: string ) {
+export function sendLcdString( str: string ) {
 	sendLcdByte( false, 0x01 ); // clear
 	sendLcdByte( false, 0x02 ); // return
 
@@ -42,20 +42,29 @@ export function lcdPrint( str: string ) {
 	}
 }
 
+let upper: boolean = true;
+
 setInterval( () => {
 	if ( lcdQueue.length == 0 ) return;
 
-	let packet = lcdQueue.shift();
+	let packet = lcdQueue[0];//shift();
 
 	let config = 0x08 | ( packet.isDataByte ? 0x01 : 0x00 ); 
 	let latch = 0x04;
 
-	let upperNib = ( packet.byte & 0xf0 );
-	let lowerNib = ( packet.byte & 0x0f ) << 4;
+	let byte = 0x0;
 
-	bus.i2cWriteSync( 0x27, 3, Buffer.from( [config, upperNib | config | latch, upperNib | config] ) );
-	for ( let i = 0; i < 1000; i++ ) {
-		let x;
+	if ( upper ) {
+		byte = ( packet.byte & 0xf0 );
+	} else {
+		byte = ( packet.byte & 0x0f ) << 4;
 	}
-	bus.i2cWriteSync( 0x27, 3, Buffer.from( [config, lowerNib | config | latch, lowerNib | config] ) );
-}, 10 );
+
+	bus.i2cWriteSync( 0x27, 3, Buffer.from( [config, byte | config | latch, byte | config] ) );
+	//bus.i2cWriteSync( 0x27, 3, Buffer.from( [config, upperNib | config | latch, upperNib | config] ) );
+	//bus.i2cWriteSync( 0x27, 3, Buffer.from( [config, lowerNib | config | latch, lowerNib | config] ) );
+
+	if ( !upper ) lcdQueue.shift();
+
+	upper = !upper;
+}, 5 );

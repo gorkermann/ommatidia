@@ -10,7 +10,7 @@ import { FloaterScene } from './FloaterScene.js'
 
 import { renderFromEye, whiteText } from './render.js'
 
-import { lcdReset, lcdPrint, sendLcdByte } from './lcd.js'
+import { lcdReset, sendLcdString } from './lcd.js'
 
 export class TitleScene extends OmmatidiaScene {
 	name: string = '';
@@ -31,14 +31,8 @@ export class TitleScene extends OmmatidiaScene {
 
 	load(): Promise<void> {
 		lcdReset();
-
-		sendLcdByte( false, 0x01 ); // clear
-		sendLcdByte( false, 0x02 ); // return
-
-		let str = 'Press A to start';
-		for ( let i = 0; i < str.length; i++ ) {
-			sendLcdByte( true, str.charCodeAt( i ) );
-		}
+		
+		sendLcdString( 'Press A to start' );
 
 		return Promise.resolve();
 	}

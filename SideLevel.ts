@@ -32,7 +32,7 @@ import { Player } from './Player.js'
 import { Platform } from './Platform.js'
 import { shapecast, renderFromEye, renderRays, whiteText } from './render.js'
 
-import { clearLcdQueue, sendLcdByte, lcdPrint, lcdReset } from './lcd.js'
+import { clearLcdQueue, sendLcdByte, sendLcdString } from './lcd.js'
 
 import * as Debug from './Debug.js'
 
@@ -253,7 +253,6 @@ export class SideLevel extends OmmatidiaScene {
 		this.data = data;
 		this.start = new Date().getTime();
 
-		lcdReset();
 		clearLcdQueue();
 		this.messageQueue.push( this.name );
 
@@ -510,9 +509,9 @@ export class SideLevel extends OmmatidiaScene {
 				Debug.toggleFlag( 'RANGING_VIEW' );
 
 				if ( Debug.flags.RANGING_VIEW ) {
-					lcdPrint( 'RANGING MODE' );
+					sendLcdString( 'RANGING MODE' );
 				} else {
-					lcdPrint( 'TRUE COLOR MODE' );
+					sendLcdString( 'TRUE COLOR MODE' );
 				}
 			}
 
@@ -813,7 +812,6 @@ export class SideLevel extends OmmatidiaScene {
 			 		 ( this.player.gravSign > 0 && entity.pos.y > this.grid.vTiles * this.grid.tileWidth + boundary ) ) {
 
 					if ( this.state == LevelState.DEFAULT ) {
-						lcdReset();
 						clearLcdQueue();
 						this.clearMessageQueue();
 						this.messageQueue.push( 'CONNECTION LOST' );
