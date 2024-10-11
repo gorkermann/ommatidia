@@ -167,8 +167,8 @@ function init_rpi() {
 
     let cabinetKeyCodes: Array<KeyCode> = [];
 
-    cabinetKeyCodes[15] = KeyCode.W;
-    cabinetKeyCodes[16] = KeyCode.Q;
+    cabinetKeyCodes[15] = KeyCode.Z;
+    cabinetKeyCodes[16] = KeyCode.X;
     cabinetKeyCodes[26] = KeyCode.RIGHT;
     cabinetKeyCodes[24] = KeyCode.LEFT;
 

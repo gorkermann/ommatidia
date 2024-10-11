@@ -26,7 +26,7 @@ import { TitleScene } from './TitleScene.js'
 import { PlayerStatus } from './Player.js'
 import { Watcher, DictWatcher } from './Watcher.js'
 
-import { sendLcdString } from './lcd.js'
+import { lcdReset, sendLcdString, sendLcdHalfByteForce, LCD_PACKET_INTERVAL_MS } from './lcd.js'
 
 import child_process from 'child_process'
 import fs from 'fs'
@@ -91,6 +91,10 @@ export class GameController extends Controller {
 
 	oldTime: number = 0;
 	wait: number = 0;
+
+	halfByteAnim = new Anim( {
+		'wait': new AnimField( this, 'wait' )
+	} )
 
 	manualResetAnim = new Anim( {
 		'wait': new AnimField( this, 'wait' )
@@ -196,9 +200,17 @@ export class GameController extends Controller {
 		this.messageHandlers.push( { name: name, func: func } );
 	}
 
-	// hook so anim can call it
+	// hooks so anim can call it
+	lcdReset() {
+		lcdReset();
+	}
+
 	sendLcdString( str: string ) {
 		sendLcdString( str );
+	}
+
+	sendLcdHalfByteForce() {
+		sendLcdHalfByteForce();
 	}
 
 	/* save */
@@ -343,18 +355,49 @@ export class GameController extends Controller {
 		let elapsed = now - this.oldTime;
 		this.oldTime = now;
 
+		this.halfByteAnim.update( 1.0, elapsed );
 		this.manualResetAnim.update( 1.0, elapsed );
 		this.waitResetAnim.update( 1.0, elapsed );
+
+		if ( Keyboard.keyHeld( KeyCode.LEFT ) &&
+			 Keyboard.keyHeld( KeyCode.RIGHT ) &&
+			 Keyboard.keyHeld( KeyCode.X ) &&
+			 !Keyboard.keyHeld( KeyCode.Z ) ) {
+			
+			if ( this.halfByteAnim.isDone() ) {
+				this.halfByteAnim.pushFrame( new AnimFrame( {},[
+					new FuncCall<typeof this.lcdReset>( this, 'lcdReset', [] ),
+					new FuncCall<typeof this.sendLcdString>( this, 'sendLcdString', ['Half Half Half'] )
+				] ) );
+
+				this.halfByteAnim.pushFrame( new AnimFrame( {
+					'wait': { value: 0, expireOnCount: LCD_PACKET_INTERVAL_MS }
+				}, [
+					new FuncCall<typeof this.sendLcdHalfByteForce>( this, 'sendLcdHalfByteForce', [] )
+				] ) );
+
+				this.halfByteAnim.pushFrame( new AnimFrame( {
+					'wait': { value: 0, expireOnCount: 5000 }
+				}, [
+					new FuncCall<typeof this.sendLcdString>( this, 'sendLcdString', ['Half Half Half'] )
+				] ) );
+			}
+
+		} else {
+			this.halfByteAnim.clear();
+		}
 
 		if ( this.currentScene != this.title ) {
 
 			// manual reset
 			if ( Keyboard.keyHeld( KeyCode.LEFT ) &&
 				 Keyboard.keyHeld( KeyCode.RIGHT ) &&
-				 Keyboard.keyHeld( KeyCode.Q ) &&
-				 Keyboard.keyHeld( KeyCode.W ) ) {
+				 Keyboard.keyHeld( KeyCode.X ) &&
+				 Keyboard.keyHeld( KeyCode.Z ) ) {
 				
 				if ( this.manualResetAnim.isDone() ) {
+
+
 					this.manualResetAnim.pushFrame( new AnimFrame( {}, [
 						new FuncCall<typeof this.loadTitle>( this, 'loadTitle', [] )
 					] ) );
@@ -365,15 +408,16 @@ export class GameController extends Controller {
 						new FuncCall<typeof this.sendLcdString>( this, 'sendLcdString', ['Resetting...'] )
 					] ) );
 				}
+
 			} else {
-				this.manualResetAnim.clear()
+				this.manualResetAnim.clear();
 			}
 
 			// inactivity timeout
 			if ( !Keyboard.keyHeld( KeyCode.LEFT ) &&
 				 !Keyboard.keyHeld( KeyCode.RIGHT ) &&
-				 !Keyboard.keyHeld( KeyCode.Q ) &&
-				 !Keyboard.keyHeld( KeyCode.W ) ) {
+				 !Keyboard.keyHeld( KeyCode.X ) &&
+				 !Keyboard.keyHeld( KeyCode.Z ) ) {
 
 				if ( this.waitResetAnim.isDone() ) {
 					this.waitResetAnim.pushFrame( new AnimFrame( {}, [
@@ -383,7 +427,7 @@ export class GameController extends Controller {
 					this.waitResetAnim.pushFrame( new AnimFrame( {
 						'wait': { value: 0, expireOnCount: 20000 }
 					}, [
-						new FuncCall<typeof this.sendLcdString>( this, 'sendLcdString', ['Vital signs are low, hard reset in 20 seconds...'] )
+						new FuncCall<typeof this.sendLcdString>( this, 'sendLcdString', ['Vital signs are low, soft reset in 20 seconds...'] )
 					] ) );
 
 					this.waitResetAnim.pushFrame( new AnimFrame( {

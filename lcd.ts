@@ -1,5 +1,7 @@
 import i2c from 'i2c-bus'
 
+export let LCD_PACKET_INTERVAL_MS = 5;
+
 let bus: i2c.I2CBus;
 
 if ( typeof document === 'undefined' ) {
@@ -31,6 +33,18 @@ export function lcdReset() {
 
 export function sendLcdByte( isDataByte: boolean, byte: number ) {
 	lcdQueue.push( { isDataByte: isDataByte, byte: byte } );
+}
+
+/**
+ * Since the LCD takes four(?) packets to send a byte, it can get out of sync
+ * with regard to which packets represent the the first or second half of a byte
+ * Use this function to attempt to resync by sending only half a byte
+ */
+export function sendLcdHalfByteForce() {
+	let config = 0x08 | 0x01;
+	let latch = 0x04;
+
+	bus.i2cWriteSync( 0x27, 3, Buffer.from( [config, 0x00 | config | latch, 0x00 | config] ) );
 }
 
 export function sendLcdString( str: string ) {
@@ -67,4 +81,4 @@ setInterval( () => {
 	if ( !upper ) lcdQueue.shift();
 
 	upper = !upper;
-}, 5 );
+}, LCD_PACKET_INTERVAL_MS );

@@ -58,7 +58,7 @@ export let fields: Dict<DebugField> = {
 	SWITCH_ATK: { value: '', default: 'default' },
 	SNAKE_ATK: { value: '', default: 'default' },
 	CARRIER_ATK: { value: '', default: 'default' },
-	SLICE_COUNT: { value: '', default: '360' },
+	SLICE_COUNT: { value: '', default: '180' },
 	SLICE_OFFSET: { value: '', default: '0' },
 	LEVEL_INDEX_OFFSET: { value: '', default: '0' },
 }
