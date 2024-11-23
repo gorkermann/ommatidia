@@ -148,7 +148,7 @@ export class Player extends Entity {
 		if ( this.jumpIntentFrames > 0 ) {
 			this.jumpIntentFrames -= 1;
 		}
-		if ( Keyboard.keyHit( KeyCode.W ) && this.jumps > 0 ) {
+		if ( Keyboard.keyHit( KeyCode.Z ) && this.jumps > 0 ) {
 			this.jumpIntentFrames = JUMP_INTENT_WINDOW_FRAMES;
 		}
 
@@ -176,7 +176,7 @@ export class Player extends Entity {
 			}
 		}
 
-		if ( Keyboard.keyHeld( KeyCode.W ) && this.jumping && this.jumpFrames > 0 ) {
+		if ( Keyboard.keyHeld( KeyCode.Z ) && this.jumping && this.jumpFrames > 0 ) {
 			this.vel.y = -7 * this.jumpSign;
 			this.jumpFrames -= 1;
 

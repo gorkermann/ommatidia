@@ -58,27 +58,32 @@ export function sendLcdString( str: string ) {
 
 let upper: boolean = true;
 
-setInterval( () => {
-	if ( lcdQueue.length == 0 ) return;
+if ( typeof document === 'undefined' ) {
+	setInterval( () => {
+		if ( lcdQueue.length == 0 ) return;
 
-	let packet = lcdQueue[0];//shift();
+		let packet = lcdQueue[0];//shift();
 
-	let config = 0x08 | ( packet.isDataByte ? 0x01 : 0x00 ); 
-	let latch = 0x04;
+		let config = 0x08 | ( packet.isDataByte ? 0x01 : 0x00 ); 
+		let latch = 0x04;
 
-	let byte = 0x0;
+		let byte = 0x0;
 
-	if ( upper ) {
-		byte = ( packet.byte & 0xf0 );
-	} else {
-		byte = ( packet.byte & 0x0f ) << 4;
-	}
+		if ( upper ) {
+			byte = ( packet.byte & 0xf0 );
+		} else {
+			byte = ( packet.byte & 0x0f ) << 4;
+		}
 
-	bus.i2cWriteSync( 0x27, 3, Buffer.from( [config, byte | config | latch, byte | config] ) );
-	//bus.i2cWriteSync( 0x27, 3, Buffer.from( [config, upperNib | config | latch, upperNib | config] ) );
-	//bus.i2cWriteSync( 0x27, 3, Buffer.from( [config, lowerNib | config | latch, lowerNib | config] ) );
+		// half-byte queue
+		bus.i2cWriteSync( 0x27, 3, Buffer.from( [config, byte | config | latch, byte | config] ) );
 
-	if ( !upper ) lcdQueue.shift();
+		// byte queue
+		//bus.i2cWriteSync( 0x27, 3, Buffer.from( [config, upperNib | config | latch, upperNib | config] ) );
+		//bus.i2cWriteSync( 0x27, 3, Buffer.from( [config, lowerNib | config | latch, lowerNib | config] ) );
 
-	upper = !upper;
-}, LCD_PACKET_INTERVAL_MS );
+		if ( !upper ) lcdQueue.shift();
+
+		upper = !upper;
+	}, LCD_PACKET_INTERVAL_MS );
+}

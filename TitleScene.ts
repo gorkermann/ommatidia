@@ -38,7 +38,7 @@ export class TitleScene extends OmmatidiaScene {
 	update() {
 		this.em.updateShapeCache();
 
-		if ( Keyboard.keyHit( KeyCode.W ) ) this.messages.push( 'start' );
+		if ( Keyboard.keyHit( KeyCode.Z ) ) this.messages.push( 'start' );
 
 		if ( Keyboard.keyHeld( KeyCode.LEFT ) ) {
 			this.origin.add( new Vec2( -5, 0 ) );

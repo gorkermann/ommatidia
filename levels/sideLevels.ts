@@ -68,9 +68,9 @@ export let levelDataList = [
 			},
 		],
 		messages: [
-			'Press A to jump',
-			'Hold A to jump higher',
-			'Hold A longer to jump even higher',
+			'Press $JUMP_KEY to jump',
+			'Hold $JUMP_KEY to jump higher',
+			'Hold $JUMP_KEY longer to jump even higher',
 			'You can move while in the air',
 		],
 	},
@@ -100,7 +100,7 @@ export let levelDataList = [
 			},
 		],
 		messages: [
-			'Press B to use the transponder. The transponder indicates photon locations',
+			'Press $TRANSPONDER_KEY to use the transponder. The transponder indicates photon locations',
 			'The transponder will recharge after 10 seconds'
 		],
 		changelog: [
@@ -409,13 +409,15 @@ export let levelDataList = [
 				data:  
 					[ 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 					  1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0,
-					  1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
-					  1, 0,10, 0, 0, 0, 0, 1, 0, 0, 0, 0,11, 0, 1, 0, 0, 0, 0, 0,
+					  1, 0,10, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
+					  1, 0,50,50, 0, 0, 0, 1, 0, 0, 0, 0,11, 0, 1, 0, 0, 0, 0, 0,
 					  1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0,
 					  0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,]
 			},
 		],
-		messages: []
+		messages: [
+			"Not to alarm you, but this stopped being a simulation about four minutes ago"
+		]
 	},
 	{
 		width: 10,
@@ -424,7 +426,7 @@ export let levelDataList = [
 		tileheight: 30,
 		hue: 240,
 		controlMode: 0,
-		comment: "2-10",
+		comment: "2-6",
 
 		layers: [
 			{
@@ -452,7 +454,9 @@ export let levelDataList = [
 					  1, 1, 1, 0, 0, 0, 0, 0, 0, 0]
 			},
 		],
-		messages: []
+		messages: [
+			"We saw that the ship was on an irremediable course for a black hole"
+		]
 	},
 	{
 		width: 5,
@@ -501,7 +505,9 @@ export let levelDataList = [
 					 1, 1, 1, 1, 1]
 			},
 		],
-		messages: []
+		messages: [
+			"Speaking of dark pits, you'll have to trust the transponder on this one"
+		]
 	},
 	{
 		width: 20,
@@ -516,15 +522,17 @@ export let levelDataList = [
 			{
 				name: "spawn",
 				data:  
-					[ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-					  0, 0,10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+					[ 0, 0,10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+					  0, 0,50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 					  0, 0, 1, 0, 0, 0, 1, 0,11, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0,
 					  0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0,11, 0, 1, 0, 0, 0, 0, 0,
 					  0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0,11, 0, 0, 0,
 					  0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0,]
 			},
 		],
-		messages: []
+		messages: [
+			"The other wardens and I theorized what the physics would be on the other side"
+		]
 	},
 	{
 		width: 11,
@@ -539,9 +547,9 @@ export let levelDataList = [
 			{
 				name: "spawn",
 				data:  
-					[ 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0,
-					  0, 0,10, 0, 0, 0, 0, 0, 0, 0, 0,
-				      0, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1,
+					[ 0, 0, 1,10, 0, 0, 0, 0, 1, 0, 0,
+					  0, 0, 0,50,50, 0, 0, 0, 0, 0, 0,
+				      0, 0, 1, 1, 1, 0, 1,51, 1, 0, 1,
 					  0, 0, 0,11, 1, 0, 1,11, 1, 0, 0,
 					  1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 0,
 					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -551,6 +559,10 @@ export let levelDataList = [
 					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 					  0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0]
 			},
+		],
+		messages: [
+			"Then we booted a few of you out of cryosleep to see who could best handle them",
+			"That was the simulated part"
 		]
 	},
 
@@ -561,7 +573,7 @@ export let levelDataList = [
 		tileheight: 30,
 		hue: 270,
 		controlMode: 0,
-		comment: "2-6",
+		comment: "2-10",
 
 		layers: [
 			{
@@ -585,7 +597,9 @@ export let levelDataList = [
 					 1, 1, 1, 1,]
 			},
 		],
-		messages: []
+		messages: [
+			"You weren't the best, but you might be the luckiest"
+		]
 	},
 	{
 		width: 10,
@@ -600,8 +614,8 @@ export let levelDataList = [
 			{
 				name: "spawn",
 				data:  
-					[ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-					  0,10, 0, 0, 0, 0, 0, 0, 0, 0,
+					[51,51,51,51, 0, 0, 0, 0, 0, 0,
+					 51,10, 0,51, 0, 0, 0, 0, 0, 0,
 					 51,50,50,51, 0, 0, 0,52,11, 0,
 					  1, 1, 1, 2,12, 0, 2, 1, 1, 1,
 					  0, 0, 0, 0, 0, 0, 0, 0,11, 0,
@@ -609,6 +623,7 @@ export let levelDataList = [
 			},
 		],
 		messages: [
+			"We loaded the survival pods and shot them in all directions",
 			"GRAVITATIONAL ANOMALY DETECTED"
 		]
 	},
@@ -636,7 +651,9 @@ export let levelDataList = [
 					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2,12, 0, 2, 1]
 			},
 		],
-		messages: [],
+		messages: [
+			"Whatever that thing was, it wasn't in our simulation",
+		],
 		changelog: []
 	},
 	{
@@ -660,13 +677,15 @@ export let levelDataList = [
 					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 					  0, 0, 0, 0, 0, 0, 0, 0, 1, 1,
 					  0,10, 0, 0, 0, 0, 0, 0, 0, 0,
-					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+					  0,50,50, 0, 0, 0, 0, 0, 0, 0,
 					  1, 1, 1, 1, 0, 0, 1, 1, 1, 0,
 					  0,11, 0, 0, 0, 0, 0,11, 0, 0,
 					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0,]
 			},
 		],
-		messages: []
+		messages: [
+			"We must be getting close to the center of the black hole",
+		],
 	},
 	{
 		width: 10,
@@ -689,7 +708,7 @@ export let levelDataList = [
 					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 					  0,10, 0, 0, 0, 0, 0, 0, 0, 0,
-					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+					  0,50,50, 0, 0, 0, 0, 0, 0, 0,
 					  1, 1, 1, 2,12, 0, 2, 1, 1, 1,
 					  0, 0, 0, 0, 0, 0, 1, 0, 0, 0,
 					  0, 0, 0, 0, 0, 0, 1, 0, 0, 0,
@@ -699,7 +718,9 @@ export let levelDataList = [
 					  0, 0, 0, 0, 0, 0, 1, 0, 0, 0]
 			},
 		],
-		messages: []
+		messages: [
+			"Oh, right, remember how I said you were lucky? I didn't shoot your pod out",
+		],
 	},
 	{
 		width: 20,
@@ -718,7 +739,7 @@ export let levelDataList = [
 					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 					  0,10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,11, 0,
-					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+					  0,50,50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 					  1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1,
 					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -731,7 +752,9 @@ export let levelDataList = [
 					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,]
 			},
 		],
-		messages: []
+		messages: [
+			"I thought human consciousness might be a hyperdimensional phenomenon",
+		],
 	},
 	{
 		width: 10,
@@ -746,23 +769,27 @@ export let levelDataList = [
 			{
 				name: "spawn",
 				data:  
-					[ 0, 0, 0, 0, 0, 0,11, 0, 0, 0,
+					[ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+					  0, 0, 0, 0,51,51,51,11, 0, 0,
 					  0, 0, 0, 0, 1, 1, 1, 1, 0, 0,
-					  0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
 					  0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
 					  0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
 					  0, 0, 0, 0,13, 0, 0, 0, 0, 0,
 					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-					  0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
 					  0, 0,10, 0, 1, 0, 0, 0, 0, 0,
-					  0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
+					  0, 0,50,50, 1, 0, 0, 0, 0, 0,
 					  0, 1, 1, 1, 1, 0, 0, 0, 0, 0,
+					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0,]
 			},
 		],
-		messages: [],
+		messages: [
+			"And a few of you might stay sentient when the black hole ripped our bodies apart",
+			"Which it did, of course"
+		],
 		changelog: [
-			"9/24/2024: removed 3 photons since it felt repetitive"
+			"9/24/2024: removed 3 photons since it felt repetitive",
+			"9/26/2024: shortened vertically"
 		]
 	},
 	{
@@ -780,18 +807,22 @@ export let levelDataList = [
 				data:  
 					[ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-					  0, 0, 0, 0, 0, 0, 0,11, 0, 0,
+					  0, 0, 0, 0, 0, 0, 0,11,51, 0,
 					  0, 0, 0, 1, 1, 1, 1, 1, 0, 1,
 					  0, 0, 0, 0, 0, 0, 0, 1, 0, 0,
 					  0, 0, 0, 0, 0, 0, 0, 1, 0, 0,
 					  0, 0, 1, 2,12, 0, 2, 1, 0, 0,
 					  0, 0, 1, 0,10, 0, 0, 0, 0, 0,
-					  0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
+					  0, 0, 1, 0,50,50, 0, 0, 0, 0,
 					  1, 1, 1, 1, 1, 1, 1, 0, 0, 0,
-					  0, 0,11, 0, 0, 0, 0, 0, 0, 0,]
+					  0,52,11,52,52,52, 0, 0, 0, 0,]
 			},
 		],
-		messages: []
+		messages: [
+			"The survival pod did us well",
+			"We both still have our wits",
+			"All that's left of the others are a few unstable photons",
+		],
 	},
 	{
 		width: 10,
@@ -814,8 +845,8 @@ export let levelDataList = [
 					  0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
 					  0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
 					  0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
-					  0, 0, 0, 0,13, 0, 0, 0, 0, 0,
-					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+					  0, 0, 0,51,13,51, 0, 0, 0, 0,
+					  0, 0, 0,51, 0,51, 0, 0, 0, 0,
 					  0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
 					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -824,8 +855,8 @@ export let levelDataList = [
 					  0, 0,11,11,11,11,11, 0, 0, 0,
 					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 					  0, 0, 0, 0,10, 0, 0, 0, 0, 0,
+					  0, 0, 0, 0,50, 0, 0, 0, 0, 0,
 					  0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
 					  0, 0, 0, 0,13, 0, 0, 0, 0, 0,
 					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -839,7 +870,11 @@ export let levelDataList = [
 					  0, 0, 0, 0, 1, 0, 0, 0, 0, 0,]
 			},
 		],
-		messages: []
+		messages: [
+			"The photons--your old crewmates--are oscillating between dimensions",
+			"Lighting the way back.                      ...or the way to somewhere, at least"
+		],
+		changelog: []
 	},
 	{
 		width: 10,
@@ -858,7 +893,7 @@ export let levelDataList = [
 					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 					  0, 0, 0, 0, 0,10, 0, 0, 0, 0,
 
-					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+					  0, 0, 0, 0,50,50, 0, 0, 0, 0,
 					  0, 0,11, 0, 1, 1, 0,11, 0, 0,
 					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -881,7 +916,7 @@ export let levelDataList = [
 					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 
 					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0,					  
+					  0, 0, 0, 0,51,51, 0, 0, 0, 0,					  
 					  0, 0, 1, 2,12, 0, 2, 1, 0, 0,
 					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -909,7 +944,10 @@ export let levelDataList = [
 					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 			},
 		],
-		messages: []
+		messages: [
+			"But thoughts don't think themselves, so we're not dead yet",
+			"Wow! I could never do that!"
+		]
 	},
 	{
 		width: 10,
@@ -928,6 +966,7 @@ export let levelDataList = [
 					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+					 52,52,52,52,52,52,52,52,52,52,
 					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -935,12 +974,16 @@ export let levelDataList = [
 					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-					  0, 0, 0, 0, 2,12, 0, 2, 1, 0,
-					 10, 0, 0, 0, 2, 0, 0, 0, 0, 0,
+					 10, 0, 0, 0, 2,12, 0, 2, 1, 0,
+					 50,50,51,51, 2, 0, 0, 0, 0, 0,
 					  1, 2,12, 0, 2, 0, 0, 0, 0, 0,
 					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 			},
+		],
+		messages: [
+			"I noticed a similar structure earlier. This could be our ticket out!",
+			"I think it can be exploited to generate tremendous velocity",
+			"Yes! Almost!",
 		]
 	},
 ]

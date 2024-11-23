@@ -33,6 +33,7 @@ import { Platform } from './Platform.js'
 import { shapecast, renderFromEye, renderRays, whiteText } from './render.js'
 
 import { clearLcdQueue, sendLcdByte, sendLcdString } from './lcd.js'
+import env from './env.js'
 
 import * as Debug from './Debug.js'
 
@@ -80,6 +81,7 @@ type ReplayImage = {
 enum LevelState {
 	DEFAULT = 0,
 	DEATH_MENU,
+	SUCCESS_MESSAGE,
 	SUCCESS_MENU,
 }
 
@@ -223,6 +225,8 @@ export class SideLevel extends OmmatidiaScene {
 	},
 	new AnimFrame( {} ) ); 
 
+	wait: number = 0;
+
 	anim = new Anim( {
 		'healthBar': new AnimField( this, 'healthBar', 3 ),
 		'haloWidth': new AnimField( this, 'haloWidth', 5 ),
@@ -231,6 +235,7 @@ export class SideLevel extends OmmatidiaScene {
 		'state': new AnimField( this, 'state', 0 ),
 		'fadeAlpha': new AnimField( this.fadeMaterial, 'alpha', 0.1 ),
 		'fadeLum': new AnimField( this.fadeMaterial, 'lum', 0.1 ),
+		'wait': new AnimField( this, 'wait' )
 	},
 	new AnimFrame( {
 		'healthBar': { value: 0 },
@@ -254,7 +259,7 @@ export class SideLevel extends OmmatidiaScene {
 		this.start = new Date().getTime();
 
 		clearLcdQueue();
-		this.messageQueue.push( this.name );
+		this.pushMessage( this.name );
 
 		this.or = 120;
 		this.ir = 100;
@@ -267,11 +272,14 @@ export class SideLevel extends OmmatidiaScene {
 		this.anim.pushFrame( new AnimFrame( { 
 			'ir': { value: 100, expireOnReach: true } } ) );*/
 
+		// fade in from black on retry
 		if ( retry ) {
 			this.fadeMaterial.lum = 0;
 			this.fadeMaterial.alpha = 1.0;
 			this.anim.pushFrame( new AnimFrame( { 
 				'fadeAlpha': { value: 0 } } ) );
+
+		// fade in from white on first go
 		} else {
 			this.fadeMaterial.lum = 1.0;
 			this.fadeMaterial.alpha = 1.0;
@@ -482,9 +490,12 @@ export class SideLevel extends OmmatidiaScene {
 		pushMark( 'm' );
 
 		if ( this.state == LevelState.SUCCESS_MENU ) {
-			if ( Keyboard.keyHit( KeyCode.W ) ) {
-				this.pushControlMessage( 'complete' );
+			if ( Keyboard.keyHit( KeyCode.Z ) ) {
+					this.pushControlMessage( 'complete' );
 			}
+
+		} else if ( this.state == LevelState.SUCCESS_MESSAGE ) {
+			// pass
 
 		} else {
 			if ( Keyboard.keyHit( KeyCode.SPACE ) ) {
@@ -505,17 +516,7 @@ export class SideLevel extends OmmatidiaScene {
 				}
 			}
 
-			if ( Keyboard.keyHit( KeyCode.X ) ) {
-				Debug.toggleFlag( 'RANGING_VIEW' );
-
-				if ( Debug.flags.RANGING_VIEW ) {
-					sendLcdString( 'RANGING MODE' );
-				} else {
-					sendLcdString( 'TRUE COLOR MODE' );
-				}
-			}
-
-			if ( Keyboard.keyHit( KeyCode.Q ) && this.player.transponderCharge >= 1 ) {
+			if ( Keyboard.keyHit( KeyCode.X ) && this.player.transponderCharge >= 1 ) {
 				this.player.transponderCharge = 0;
 				this.player.anim.pushFrame( new AnimFrame( {}, [
 					new FuncCall<typeof this.pushMessage>( this, 'pushMessage', ['TRANSPONDER CHARGED'] )
@@ -619,7 +620,7 @@ export class SideLevel extends OmmatidiaScene {
 					this.messageQueue.shift();
 
 					if ( this.messageQueue.length == 0 ) {
-						//this.messageQueue.push( new Date().getTime() - this.start + 'ms' );
+						//this.pushMessage( new Date().getTime() - this.start + 'ms' );
 						this.start = new Date().getTime();
 					}
 
@@ -630,6 +631,10 @@ export class SideLevel extends OmmatidiaScene {
 					if ( char == '\n' ) {
 						this.displayText.push( '' );
 					} else {
+						if ( this.displayText[this.displayText.length - 1].length > 30 ) {
+							this.displayText.push( '' );
+						}
+
 						this.displayText[this.displayText.length - 1] += char;
 					}
 
@@ -667,7 +672,7 @@ export class SideLevel extends OmmatidiaScene {
 
 		Debug.strokeAll( this.em.entities );
 
-		let playerPos = this.player.pos.copy();
+		let oldPos = this.player.pos.copy().plus( this.player.vel.times( 0.01 ) );
 
 		for ( let entity of this.em.entities ) {
 			if ( entity.isPliant ) {
@@ -704,7 +709,7 @@ export class SideLevel extends OmmatidiaScene {
 				}
 
 				if ( entity instanceof Player && otherEntity instanceof GravityInverter ) {
-					let playerLine = Line.fromPoints( playerPos.copy(), // pliant collisions change position, use old one
+					let playerLine = Line.fromPoints( oldPos.copy(), // pliant collisions change position, use old one
 													  entity.pos.plus( entity.vel.times( 1.0 ) ) );
 
 					if ( playerLine.intersects( otherEntity.line ) ) {
@@ -740,7 +745,7 @@ export class SideLevel extends OmmatidiaScene {
 		for ( let entity of this.em.entities ) {
 			if ( entity instanceof Message ) {
 				if ( this.player.overlaps( entity, 0.0, true ).length > 0 ) {
-					this.messageQueue.push( ( entity as Message ).text );
+					this.pushMessage( ( entity as Message ).text );
 					entity.destructor();
 				}
 			}
@@ -754,14 +759,6 @@ export class SideLevel extends OmmatidiaScene {
 		this.em.update();
 
 		this.player.updateCollisionFlags( result.blockedContacts, this.grav );
-
-		if ( this.player.health <= 0 || result.crushed ) {
-			if ( result.crushed ) {
-				this.player.causeOfDeath = 'You have been crushed by the ' + result.crusher.flavorName;
-			}
-		
-			this.killPlayer();
-		}
 
 		if ( !this.currentWave && this.waves.length > 0 ) {
 			this.currentWave = this.waves.shift();
@@ -782,7 +779,7 @@ export class SideLevel extends OmmatidiaScene {
 		if ( coinCount != this.coinCount ) {
 			this.coinCount = coinCount;
 			if ( coinCount > 0 ) {
-				this.messageQueue.push( this.coinCount + ' unstable photon' + ( this.coinCount == 1 ? '' : 's' ) + ' remaining' );
+				this.pushMessage( this.coinCount + ' unstable photon' + ( this.coinCount == 1 ? '' : 's' ) + ' remaining' );
 			}
 
 			if ( this.coinCount == 0 ) {
@@ -814,7 +811,7 @@ export class SideLevel extends OmmatidiaScene {
 					if ( this.state == LevelState.DEFAULT ) {
 						clearLcdQueue();
 						this.clearMessageQueue();
-						this.messageQueue.push( 'CONNECTION LOST' );
+						this.pushMessage( 'CONNECTION LOST' );
 						if ( typeof document === 'undefined' ) child_process.exec( 'aplay ./sfx/death.wav' );
 
 						setTimeout( () => {
@@ -846,30 +843,28 @@ export class SideLevel extends OmmatidiaScene {
 		}
 	}
 
-	killPlayer() {
-		this.anim.clear();
-
-		this.messageQueue.push( this.player.causeOfDeath )
-		//this.messageQueue.push( 'Press Z to go back ' + REWIND_SECS + ' seconds or R to restart level' );
-		this.messageQueue.push( 'Press R to restart level' );
-
-		// change state
-		this.anim.pushFrame( new AnimFrame( {
-			'state': { value: LevelState.DEATH_MENU, expireOnReach: true }
-		} ) );
-	}
-
 	clearMessageQueue() {
 		this.messageQueue = [];
 		this.stringIndex = 0;
 	}
 
 	pushMessage( msg: string ) {
+		// replace $KEYS with values
+		if ( msg.indexOf( '$' ) >= 0 ) {
+			for ( let key in env ) {
+				msg = msg.replace( new RegExp( '\\$' + key, 'g' ), env[key] );
+			}
+		}
+
 		this.messageQueue.push( msg );
 	}
 
 	pushControlMessage( msg: string ) {
 		this.messages.push( msg );
+	}
+
+	setAllowInput( value: boolean ) {
+		this.allowInput = value
 	}
 
 	checkForSuccess() {
@@ -885,30 +880,42 @@ export class SideLevel extends OmmatidiaScene {
 		}
 
 		if ( success ) {
-			this.state = LevelState.SUCCESS_MENU;
 			this.fadeMaterial.lum = 1.0;
+			this.fadeMaterial.alpha = 0.0;
 
 			this.anim.clear();
 
 			if ( this.final ) {
+				this.state = LevelState.SUCCESS_MESSAGE;
+
 				let now = new Date().getTime();
 				let totalTime = ( now - this.playerStatus.startTime ) / 1000;
 
 				let timeStr = secsToTimeStr( totalTime );
 
-				this.anim.pushFrame( new AnimFrame( {}, [
+				this.anim.pushFrame( new AnimFrame( {
+					'state': { value: LevelState.SUCCESS_MENU }
+				} ) );
+
+				this.anim.pushFrame( new AnimFrame( {
+					'wait': { value: 0, expireOnCount: 5000 }
+				}, [
 					new FuncCall<typeof this.pushMessage>( this, 'pushMessage', [
-						'Your time was ' + timeStr + '. Press A to return to the main menu'
+						'Your time was ' + timeStr + '. Press $JUMP_KEY to return to the main menu'
 					] )
 				] ) );
 
-				this.anim.pushFrame( new AnimFrame( {}, [
+				this.anim.pushFrame( new AnimFrame( {
+					'wait': { value: 0, expireOnCount: 3000 }
+				}, [
 					new FuncCall<typeof this.pushMessage>( this, 'pushMessage', [
-						'Congratulations! You have stabilized all the photons and beaten Ommatidia'
+						'We made it!'
 					] )
 				] ) );
 				
 			} else {
+				this.state = LevelState.SUCCESS_MENU;
+
 				this.anim.pushFrame( new AnimFrame( {}, [
 					new FuncCall<typeof this.pushControlMessage>( this, 'pushControlMessage', ['complete'] )
 				] ) );	
@@ -917,7 +924,6 @@ export class SideLevel extends OmmatidiaScene {
 			this.anim.pushFrame( new AnimFrame( {
 				'fadeAlpha': { value: 1.0 }
 			} ) );
-
 		}
 	}
 
