@@ -714,6 +714,14 @@ export class SideLevel extends OmmatidiaScene {
 
 					if ( playerLine.intersects( otherEntity.line ) ) {
 						entity.gravSign *= -1;
+							
+						// player is 16px tall, blocks are 30px
+						// so player is minimum 16/2 + 30/2 = 23px over the inverter when falling
+						// at this.grav.y = 2, player will cross after falling for 5 frames
+						// 5*2 = 10
+						if ( Math.abs( entity.vel.y ) < 10 ) {
+							entity.vel.y = 10 * ( entity.vel.y < 0 ? -1 : 1 )
+						}
 					}
 				}
 			}
@@ -861,10 +869,6 @@ export class SideLevel extends OmmatidiaScene {
 
 	pushControlMessage( msg: string ) {
 		this.messages.push( msg );
-	}
-
-	setAllowInput( value: boolean ) {
-		this.allowInput = value
 	}
 
 	checkForSuccess() {

@@ -15,7 +15,6 @@ import * as tp from './lib/toastpoint.js'
  
 import { BareMode } from './mode/BareMode.js'
 import * as Debug from './Debug.js'
-import { gameCommands } from './gameCommands.js'
 import { Level } from './Level.js'
 import { SideLevel } from './SideLevel.js'
 import { levelDataList as levels } from './levels/level1.js'
