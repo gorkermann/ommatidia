@@ -24,7 +24,7 @@ import { CommandPanel } from './ctlr/CommandPanel.js'
 
 import * as Debug from './Debug.js'
 import { gameCommands } from './gameCommands.js'
-import { GameController, StartLevelOptions } from './GameController.js'
+import { GameController, LoadLevelOptions } from './GameController.js'
 import { Level } from './Level.js'
 import { store } from './store.js'
 import { TitleScene } from './TitleScene.js'
@@ -42,10 +42,6 @@ class FadingImage {
 }
 
 let oldImages: Array<FadingImage> = [];
-
-type LoadLevelOptions = {
-	forceEraseHistory?: boolean
-}
 
 let domHoverlist: Array<Entity> = [];
 
@@ -88,20 +84,6 @@ export class GameControllerDom extends GameController {
 
 		this.inspector = new InspectorPanel();
 		this.addPanel( this.inspector, container );
-
-		this.addMessageHandler( 'complete', () => { 
-			this.levelIndex += 1;
-			//this.levelIndex = 0;
-
-			if ( this.levelIndex < this.levelDataList.length && this.playerStatus.defeatedNames.length < 6 ) {
-				this.startLevel();
-
-			} else {
-				oldImages = [];
-
-				this.loadScene( this.title );
-			}
-		} );
 
 		document.addEventListener( 'ui-show-shields', ( e: any ) => { 
 			for ( let panel of this.panels ) {
@@ -206,7 +188,7 @@ export class GameControllerDom extends GameController {
 		}
 	}
 
-	startLevel( options: StartLevelOptions={} ) {
+	loadLevelFromList( options: LoadLevelOptions={} ) {
 		if ( this.currentScene ) {
 			let context = this.canvas.getContext( '2d' );
 
@@ -219,7 +201,7 @@ export class GameControllerDom extends GameController {
 			oldImages.push( new FadingImage( image ) );
 		}
 	
-		super.startLevel( options );
+		super.loadLevelFromList( options );
 	}
 
 	loadScene( scene: OmmatidiaScene, doLoad: boolean=true ) {

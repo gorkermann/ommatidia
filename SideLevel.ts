@@ -491,7 +491,7 @@ export class SideLevel extends OmmatidiaScene {
 
 		if ( this.state == LevelState.SUCCESS_MENU ) {
 			if ( Keyboard.keyHit( KeyCode.Z ) ) {
-					this.pushControlMessage( 'complete' );
+				this.pushControlMessage( 'complete_level' );
 			}
 
 		} else if ( this.state == LevelState.SUCCESS_MESSAGE ) {
@@ -921,7 +921,7 @@ export class SideLevel extends OmmatidiaScene {
 				this.state = LevelState.SUCCESS_MENU;
 
 				this.anim.pushFrame( new AnimFrame( {}, [
-					new FuncCall<typeof this.pushControlMessage>( this, 'pushControlMessage', ['complete'] )
+					new FuncCall<typeof this.pushControlMessage>( this, 'pushControlMessage', ['complete_level'] )
 				] ) );	
 			}
 

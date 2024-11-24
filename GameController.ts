@@ -45,10 +45,6 @@ class FadingImage {
 
 let oldImages: Array<FadingImage> = [];
 
-type LoadLevelOptions = {
-	forceEraseHistory?: boolean
-}
-
 let domHoverlist: Array<Entity> = [];
 
 type ResetInterfaceOptions = {
@@ -60,8 +56,9 @@ type MessageHandler = {
 	func: ( args: Array<string> ) => void
 }
 
-export type StartLevelOptions = {
+export type LoadLevelOptions = {
 	retry?: boolean
+	forceEraseHistory?: boolean
 }
 
 export class GameController extends Controller {
@@ -114,22 +111,22 @@ export class GameController extends Controller {
 
 		this.changeMode( new BareMode() ); // change to PlayMode to get back drag actions
 
-		this.addMessageHandler( 'start', () => { 
+		this.addMessageHandler( 'start_game', () => { 
 			this.levelIndex = 0 + this.offsetIndex;
 			this.playerStatus.startTime = new Date().getTime();
 
-			this.startLevel();
+			this.loadLevelFromList();
 			this.endMusic();
 			this.startMusic( './sfx/baby.ogg' );
 		} );
 
-		this.addMessageHandler( 'restart', () => {
-			this.startLevel();
+		this.addMessageHandler( 'restart_level', () => {
+			this.loadLevelFromList();
 		} );
 
 		this.addMessageHandler( 'rewind', () => {
 			if ( this.recentStates.length == 0 ) {
-				this.startLevel();
+				this.loadLevelFromList();
 
 			} else {
 				let json = this.recentStates[0];
@@ -139,45 +136,21 @@ export class GameController extends Controller {
 		} );
 
 		this.addMessageHandler( 'death', () => {
-			this.startLevel( { retry: true } );
+			this.loadLevelFromList( { retry: true } );
 		} );
 
-		if ( typeof document === 'undefined' ) {
-			this.addMessageHandler( 'complete', () => {
-				this.levelIndex += 1;
+		this.addMessageHandler( 'complete_level', () => {
+			this.levelIndex += 1;
 
-				if ( this.levelIndex < this.levelDataList.length ) {
-					this.startLevel();
+			if ( this.levelIndex < this.levelDataList.length ) {
+				this.loadLevelFromList();
 
-				} else {
-					oldImages = [];
+			} else {
+				oldImages = [];
 
-					this.loadTitle();
-				}
-			} );
-		}
-
-		this.addMessageHandler( 'begin', ( args: Array<string> ) => {
-			if ( args.length != 1 ) {
-				console.error( 'message.begin: Invalid arguments ' + args );
-				return;
+				this.loadTitle();
 			}
-
-			let index = parseInt( args[0] );
-
-			if ( isNaN( index ) ) {
-				console.error( 'message.begin: Invalid index ' + args[0] );
-			}
-
-			this.levelIndex = index;
-			this.startLevel();
 		} );
-	}
-
-	loadTitle() {
-		this.loadScene( this.title );
-		this.endMusic();
-		//this.startMusic( './sfx/pyramid.ogg' );
 	}
 
 	startMusic( filename: string ) {
@@ -199,7 +172,7 @@ export class GameController extends Controller {
 		this.messageHandlers.push( { name: name, func: func } );
 	}
 
-	// hooks so anim can call it
+	// hooks so anim can call these functions
 	lcdReset() {
 		lcdReset();
 	}
@@ -247,7 +220,7 @@ export class GameController extends Controller {
 
 	resetInterface( options: ResetInterfaceOptions={} ) {}
 
-	startLevel( options: StartLevelOptions={} ) {
+	loadLevelFromList( options: LoadLevelOptions={} ) {
 		try {
 			let level: OmmatidiaScene;
 
@@ -297,6 +270,11 @@ export class GameController extends Controller {
 
 		this.loadScene( level, false );
 		this.resetInterface( { soft: sameLevel && !options.forceEraseHistory } );
+	}
+
+	loadTitle() {
+		this.loadScene( this.title );
+		this.endMusic();
 	}
 
 	loadScene( scene: OmmatidiaScene, doLoad: boolean=true ) {
@@ -414,7 +392,7 @@ export class GameController extends Controller {
 					this.manualResetAnim.pushFrame( new AnimFrame( {
 						'wait': { value: 0, expireOnCount: 2000 }
 					}, [
-						new FuncCall<typeof this.startLevel>( this, 'startLevel', [] )
+						new FuncCall<typeof this.loadLevelFromList>( this, 'loadLevelFromList', [] )
 					] ) );
 
 					this.manualResetAnim.pushFrame( new AnimFrame( {

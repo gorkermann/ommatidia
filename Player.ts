@@ -56,7 +56,7 @@ export class Player extends Entity {
 	collideDown: boolean = false;
 	collideRight: boolean = false;
 	collideLeft: boolean = false;
-	velIntent: Vec2 = new Vec2();
+	velIntent: Vec2 = new Vec2(); // used for moving platforms
 
 	lastFireTime: number = 0;
 	fireInterval: number = 100;
@@ -186,6 +186,11 @@ export class Player extends Entity {
 
 		// apply gravity
 		this.vel.y += grav.y * this.gravSign;
+
+		// limit velocity
+		// if ( this.vel.y > 45 ) {
+		// 	this.vel.y = 45 * ( this.vel.y < 0 ? -1 : 1 );
+		// } 
 	}
 
 	updateCollisionFlags( blockedContacts: Array<Contact>, grav: Vec2 ) {
@@ -225,15 +230,6 @@ export class Player extends Entity {
 				
 				if ( !prevCollideDown ) {
 					playLandSound = true;
-
-					// need to get rid of anomalous down collisions before implementing this
-					// let alpha = 0.9;
-					// let rate = 0.15;
-
-					// let part = new Particle( new Vec2( this.pos.x, this.pos.y + this.height / 2 ), 2, 1, alpha, rate );
-					// part.material = new Material( 0, 0, 1.0 );
-
-					// this.spawned.push( part );
 				}
 
 				this.collideDown = true;

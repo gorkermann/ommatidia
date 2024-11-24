@@ -55,7 +55,7 @@ let update = function() {
 		if ( Debug.flags.DEBUG_MODE ) {
 			if ( Keyboard.keyHit( KeyCode.F ) ) Debug.toggleFlag( 'DRAW_NORMAL' );
 			if ( Keyboard.keyHit( KeyCode.Y ) ) Debug.toggleFlag( 'DRAW_RAYS' );
-			if ( Keyboard.keyHit( KeyCode.E ) && ctlr.currentScene ) ctlr.currentScene.messages.push( 'complete' );
+			if ( Keyboard.keyHit( KeyCode.E ) && ctlr.currentScene ) ctlr.currentScene.messages.push( 'complete_level' );
 
 			if ( Keyboard.keyHit( KeyCode.BSLASH ) ) {
 				let put_a_breakpoint_here = 0;

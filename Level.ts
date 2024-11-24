@@ -515,9 +515,9 @@ export class Level extends OmmatidiaScene {
 			// do nothing, anim only
 
 		} else if ( this.state == LevelState.DEATH_MENU ) {
-			if ( Keyboard.keyHit( KeyCode.W ) ) this.messages.push( 'restart' );
+			if ( Keyboard.keyHit( KeyCode.W ) ) this.messages.push( 'restart_level' );
 			//if ( Keyboard.keyHit( KeyCode.Z ) ) this.messages.push( 'rewind' );
-			if ( Keyboard.keyHit( KeyCode.S ) ) this.messages.push( 'complete' ); // no defeated name added
+			if ( Keyboard.keyHit( KeyCode.S ) ) this.messages.push( 'complete_level' ); // no defeated name added
 
 			//if ( Keyboard.keyHit( KeyCode.LEFT ) ) this.replayIndex -= 1;
 			//if ( Keyboard.keyHit( KeyCode.RIGHT ) ) this.replayIndex += 1;
@@ -526,7 +526,7 @@ export class Level extends OmmatidiaScene {
 			if ( this.replayIndex > this.replayImages.length - 1 ) this.replayIndex = this.replayImages.length - 1;
 
 		} else if ( this.state == LevelState.SUCCESS_MENU ) {
-			if ( Keyboard.keyHit( KeyCode.W ) ) this.messages.push( 'complete' );
+			if ( Keyboard.keyHit( KeyCode.W ) ) this.messages.push( 'complete_level' );
 
 		} else if ( this.state == LevelState.PROMPT ) {
 			if ( Keyboard.keyHit( KeyCode.W ) ) this.messages.push( this.promptAccept );
@@ -858,7 +858,7 @@ export class Level extends OmmatidiaScene {
 				} ) );
 
 			} else {
-				this.messages.push( 'complete' );
+				this.messages.push( 'complete_level' );
 			}
 		}
 	}
