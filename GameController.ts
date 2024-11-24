@@ -25,7 +25,7 @@ import { TitleScene } from './TitleScene.js'
 import { PlayerStatus } from './Player.js'
 import { Watcher, DictWatcher } from './Watcher.js'
 
-import { lcdReset, sendLcdString, sendLcdHalfByteForce, LCD_PACKET_INTERVAL_MS } from './lcd.js'
+import { lcdReset, sendLcdString, sendLcdHalfByteForce, clearLcdQueue, LCD_PACKET_INTERVAL_MS } from './lcd.js'
 
 import child_process from 'child_process'
 import fs from 'fs'
@@ -364,6 +364,8 @@ export class GameController extends Controller {
 			 !Keyboard.keyHeld( KeyCode.Z ) ) {
 			
 			if ( this.halfByteAnim.isDone() ) {
+				clearLcdQueue()
+
 				this.halfByteAnim.pushFrame( new AnimFrame( {},[
 					new FuncCall<typeof this.lcdReset>( this, 'lcdReset', [] ),
 					new FuncCall<typeof this.sendLcdString>( this, 'sendLcdString', ['Half Half Half'] )
@@ -395,8 +397,9 @@ export class GameController extends Controller {
 				 Keyboard.keyHeld( KeyCode.Z ) ) {
 				
 				if ( this.manualResetAnim.isDone() ) {
+					clearLcdQueue();
 
-
+					// if held for 4 more seconds, reset game
 					this.manualResetAnim.pushFrame( new AnimFrame( {}, [
 						new FuncCall<typeof this.loadTitle>( this, 'loadTitle', [] )
 					] ) );
@@ -404,7 +407,20 @@ export class GameController extends Controller {
 					this.manualResetAnim.pushFrame( new AnimFrame( {
 						'wait': { value: 0, expireOnCount: 2000 }
 					}, [
-						new FuncCall<typeof this.sendLcdString>( this, 'sendLcdString', ['Resetting...'] )
+						new FuncCall<typeof this.sendLcdString>( this, 'sendLcdString', ['Resetting game...'] )
+					] ) );
+
+					// if held for 2 seconds, reset level
+					this.manualResetAnim.pushFrame( new AnimFrame( {
+						'wait': { value: 0, expireOnCount: 2000 }
+					}, [
+						new FuncCall<typeof this.startLevel>( this, 'startLevel', [] )
+					] ) );
+
+					this.manualResetAnim.pushFrame( new AnimFrame( {
+						'wait': { value: 0, expireOnCount: 2000 }
+					}, [
+						new FuncCall<typeof this.sendLcdString>( this, 'sendLcdString', ['Resetting level...'] )
 					] ) );
 				}
 
