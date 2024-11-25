@@ -211,7 +211,7 @@ export class SideLevel extends OmmatidiaScene {
 	newChar: boolean = false;
 	messageQueue: Array<string> = []; // can have newlines
 	stringIndex: number = 0; // character index of messageQueue[0] as it is transferred to displayText[-1]
-	displayText: Array<string> = [] // one line each
+	displayText: Array<string> = [] // one line each, applies to web version only
 
 	waves: Array<Wave> = [];
 	currentWave: Wave = null;
@@ -631,7 +631,32 @@ export class SideLevel extends OmmatidiaScene {
 					if ( char == '\n' ) {
 						this.displayText.push( '' );
 					} else {
-						if ( this.displayText[this.displayText.length - 1].length > 30 ) {
+						// try not to split words
+						// doesn't handle tabs or newlines
+						let spaceIndex = this.messageQueue[0].indexOf( ' ', this.stringIndex )
+						let remainingWordChars = 0;
+						if ( spaceIndex >= 0 ) {
+							remainingWordChars = spaceIndex - this.stringIndex;
+						} else {
+							remainingWordChars = this.messageQueue[0].length - this.stringIndex;
+						}
+
+						let atStartOfWord = ( this.stringIndex == 0 ||
+											  this.messageQueue[0][this.stringIndex-1] == ' ' );
+
+						let currentDisplayLineLength = this.displayText[this.displayText.length - 1].length
+
+						// try not to split words
+						if ( atStartOfWord &&
+							 remainingWordChars <= 30 &&
+							 currentDisplayLineLength + remainingWordChars > 30 ) {
+							this.displayText.push( '' );
+
+						// 30 characters max
+						// very long words will be split
+						} else if ( currentDisplayLineLength >= 29 &&
+									remainingWordChars > 1 ) {
+							this.displayText[this.displayText.length - 1] += '-';
 							this.displayText.push( '' );
 						}
 
@@ -797,7 +822,6 @@ export class SideLevel extends OmmatidiaScene {
 			}
 		}
 		
-
 		if ( this.currentWave ) {
 			cullList( this.currentWave.entities );
 			if ( this.currentWave.entities.length == 0 ) {
