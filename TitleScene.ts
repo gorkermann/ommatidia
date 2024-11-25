@@ -103,12 +103,13 @@ export class TitleScene extends OmmatidiaScene {
 
 			let y = this.camera.viewportH;
 
-			whiteText( context, 'CONTROLS', 5, y - 160 );
-			whiteText( context, '[left]: move left', 5, y - 140 );
-			whiteText( context, '[right]: move right', 5, y - 120 );
-			whiteText( context, '[Z]: jump', 5, y - 100 );
-			whiteText( context, '[X]: transponder', 5, y - 80 );
-			whiteText( context, '[space]: pause', 5, y - 60 );
+			whiteText( context, 'CONTROLS', 5, y - 180 );
+			whiteText( context, '[left]: move left', 5, y - 160 );
+			whiteText( context, '[right]: move right', 5, y - 140 );
+			whiteText( context, '[Z]: jump', 5, y - 120 );
+			whiteText( context, '[X]: use transponder', 5, y - 100 );
+			whiteText( context, '[space]: pause', 5, y - 80 );
+			whiteText( context, '[R] (hold): restart level', 5, y - 60 );
 
 			whiteText( context, 'Press [Z] to start', 5, y - 20 );
 

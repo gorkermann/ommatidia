@@ -469,7 +469,7 @@ export function renderFromEye( context: CanvasRenderingContext2D,
 	for ( let i = 1; i < marks.length; i++ ) {
 		str += marks[i].name + ':' + ( marks[i].timestamp - marks[i-1].timestamp ) + ', ';
 	}
-	console.log( str );
+	//console.log( str );
 }
 
 let buffer: Array<RGBA> = [];

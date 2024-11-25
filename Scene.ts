@@ -90,6 +90,8 @@ export class OmmatidiaScene {
 		return shapes;
 	}
 
+	pushMessage( msg: string ) {}
+
 	update() {}
 
 	updateSounds() {

@@ -299,6 +299,12 @@ export class GameController extends Controller {
 
 	/* play */
 
+	pushSceneMessage( msg: string ) {
+		if ( !this.currentScene ) return;
+
+		this.currentScene.pushMessage( msg );
+	}
+
 	inspect( targets: Array<Editable> ) {}
 
 	updateHovered() {}
@@ -401,7 +407,7 @@ export class GameController extends Controller {
 							new FuncCall<typeof this.sendLcdString>( this, 'sendLcdString', ['Resetting game...'] )
 						] ) );
 
-						// if held for 2 seconds, reset level
+						// if held for 2 seconds, restart level
 						this.manualResetAnim.pushFrame( new AnimFrame( {
 							'wait': { value: 0, expireOnCount: 2000 }
 						}, [
@@ -411,7 +417,7 @@ export class GameController extends Controller {
 						this.manualResetAnim.pushFrame( new AnimFrame( {
 							'wait': { value: 0, expireOnCount: 2000 }
 						}, [
-							new FuncCall<typeof this.sendLcdString>( this, 'sendLcdString', ['Resetting level...'] )
+							new FuncCall<typeof this.sendLcdString>( this, 'sendLcdString', ['Restarting level...'] )
 						] ) );
 					}
 
@@ -443,6 +449,45 @@ export class GameController extends Controller {
 
 				} else {	
 					this.waitResetAnim.clear();
+				}
+			}
+		} else {
+			if ( this.currentScene != this.title ) {
+				
+				// manual restart
+				if ( Keyboard.keyHit( KeyCode.R ) ) {
+					if ( this.manualResetAnim.isDone() ) {
+
+						// if held for 6 seconds, restart level
+						this.manualResetAnim.pushFrame( new AnimFrame( {}, [
+							new FuncCall<typeof this.loadLevelFromList>( this, 'loadLevelFromList', [] )
+						] ) );
+
+						this.manualResetAnim.pushFrame( new AnimFrame( {
+							'wait': { value: 0, expireOnCount: 2000 }
+						}, [
+							new FuncCall<typeof this.pushSceneMessage>( this, 'pushSceneMessage', ['...'] )
+						] ) );
+
+						this.manualResetAnim.pushFrame( new AnimFrame( {
+							'wait': { value: 0, expireOnCount: 2000 }
+						}, [
+							new FuncCall<typeof this.pushSceneMessage>( this, 'pushSceneMessage', ['...'] )
+						] ) );
+
+						this.manualResetAnim.pushFrame( new AnimFrame( {
+							'wait': { value: 0, expireOnCount: 2000 }
+						}, [
+							new FuncCall<typeof this.pushSceneMessage>( this, 'pushSceneMessage', ['Restarting level...'] )
+						] ) );
+					}
+				}
+
+				if ( !Keyboard.keyHeld( KeyCode.R ) ) {
+					if ( !this.manualResetAnim.isDone() ) {
+						this.pushSceneMessage( 'Restart canceled' );
+					}
+					this.manualResetAnim.clear();
 				}
 			}
 		}
