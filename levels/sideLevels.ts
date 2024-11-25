@@ -563,6 +563,9 @@ export let levelDataList = [
 		messages: [
 			"Then we booted a few of you out of cryosleep to see who could best handle them",
 			"That was the simulated part"
+		],
+		changelog: [
+			"11/24/2024: simplified inner passages"
 		]
 	},
 
@@ -642,8 +645,8 @@ export let levelDataList = [
 				data:  
 					[10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 					 50,50, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-					  1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-					 11, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+					  1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+					  0,11, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 					  0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 					  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 					  0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0,
@@ -654,7 +657,9 @@ export let levelDataList = [
 		messages: [
 			"Whatever that thing was, it wasn't in our simulation",
 		],
-		changelog: []
+		changelog: [
+			"11/24/2024: lengthened first platform so photon is inaccesible from above"
+		]
 	},
 	{
 		width: 10,
@@ -770,7 +775,7 @@ export let levelDataList = [
 				name: "spawn",
 				data:  
 					[ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-					  0, 0, 0, 0,51,51,51,11, 0, 0,
+					  0, 0, 0, 0,51,51,11, 0, 0, 0,
 					  0, 0, 0, 0, 1, 1, 1, 1, 0, 0,
 					  0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
 					  0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
@@ -789,7 +794,8 @@ export let levelDataList = [
 		],
 		changelog: [
 			"9/24/2024: removed 3 photons since it felt repetitive",
-			"9/26/2024: shortened vertically"
+			"9/26/2024: shortened vertically",
+			"11/24/2024: moved photon so that it is inaccesible with inverted gravity"
 		]
 	},
 	{

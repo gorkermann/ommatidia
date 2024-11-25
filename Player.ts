@@ -185,12 +185,7 @@ export class Player extends Entity {
 		}
 
 		// apply gravity
-		this.vel.y += grav.y * this.gravSign;
-
-		// limit velocity
-		// if ( this.vel.y > 45 ) {
-		// 	this.vel.y = 45 * ( this.vel.y < 0 ? -1 : 1 );
-		// } 
+		this.vel.y += grav.y * this.gravSign; 
 	}
 
 	updateCollisionFlags( blockedContacts: Array<Contact>, grav: Vec2 ) {
@@ -335,16 +330,26 @@ export class Player extends Entity {
 	}
 
 	getOwnShapes(): Array<Shape> {
-		// bottom half is a rectangle, top half is a blunted triangle
+		/*
+			Chamfer corners in jump direction (away from gravity) make player
+			slide outward if jumping close to the corner of the underside of
+			a platform (most of player body is not under platform, player
+			intent is likely to jump above platform)
+		*/
+		let topWidth = this.gravSign > 0 ? this.width / 2 : this.width;
+		let bottomWidth = this.gravSign < 0 ? this.width / 2 : this.width;
+
+		// square with two corners blunted
 		let shape = Shape.fromPoints( [
-			new Vec2( this.width / 2, -this.height / 4 ),
-			new Vec2( this.width / 2, this.height / 2 ), // bottom
-			new Vec2( -this.width / 2, this.height / 2 ), // bottom
+			new Vec2(  this.width / 2, -this.height / 4 ),
+			new Vec2(  this.width / 2,  this.height / 4 ),
+			new Vec2(  bottomWidth / 2, this.height / 2 ), // bottom right
+			new Vec2( -bottomWidth / 2, this.height / 2 ), // bottom left
+			new Vec2( -this.width / 2,  this.height / 4 ),
 			new Vec2( -this.width / 2, -this.height / 4 ),
-			new Vec2( -this.width / 4, -this.height / 2 ), // top
-			new Vec2( this.width / 4, -this.height / 2 ), // top
-		] ); 
-		//let shape = Shape.makeRectangle( new Vec2( -this.width / 2, -this.height / 2 ), this.width, this.height );
+			new Vec2( -topWidth / 2,   -this.height / 2 ), // top left
+			new Vec2(  topWidth / 2,   -this.height / 2 ), // top right
+		] );
 
 		shape.material = this.material;
 		shape.parent = this;
