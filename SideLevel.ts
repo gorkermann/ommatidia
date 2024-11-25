@@ -738,7 +738,7 @@ export class SideLevel extends OmmatidiaScene {
 													  entity.pos.plus( entity.vel.times( 1.0 ) ) );
 
 					if ( playerLine.intersects( otherEntity.line ) ) {
-						entity.gravSign *= -1;
+						entity.flipGravSign();
 							
 						// player is 16px tall, blocks are 30px
 						// so player is minimum 16/2 + 30/2 = 23px over the inverter when falling
@@ -1040,8 +1040,9 @@ export class SideLevel extends OmmatidiaScene {
 
 		/* Prepare Scene */
 
-		// put origin near the top of the player to give a better view (than origin at center)
 		/*
+			put origin near the top of the player to give a better view (than origin at center)
+
 			considerations:
 			the player is chamfered at the upper corners in order to accommodate slight
 			misalignments when jumping beside (so as to go up the side, not hit the bottom)
@@ -1050,8 +1051,7 @@ export class SideLevel extends OmmatidiaScene {
 			an origin on the edge of some object may see its inside
 			--> viewpoint should not be on an edge of the player 
 		*/
-		let origin = this.player.pos
-						.minus( new Vec2( 0, this.player.height / 4 ) );
+		let origin = this.player.getOrigin();
 
 		let ir = this.ir * camera.viewportW / 400;
 		let or = this.or * camera.viewportW / 400;

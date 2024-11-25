@@ -58,6 +58,8 @@ export class Player extends Entity {
 	collideLeft: boolean = false;
 	velIntent: Vec2 = new Vec2(); // used for moving platforms
 
+	originOffset: Vec2 = new Vec2( 0, 0 );
+
 	lastFireTime: number = 0;
 	fireInterval: number = 100;
 
@@ -77,7 +79,8 @@ export class Player extends Entity {
 	/* property overrides */
 	anim = new Anim( {
 		'wince': new AnimField( this, 'wince', 0.02 ),
-		'transponderCharge': new AnimField( this, 'transponderCharge', 0.01 )
+		'transponderCharge': new AnimField( this, 'transponderCharge', 0.01 ),
+		'originOffset': new AnimField( this, 'originOffset', 0 ),
 	}, new AnimFrame( {
 		'wince': { value: 0.0 },
 		'transponderCharge': { value: 1.0 }, // in case player anim gets cleared for some reason
@@ -85,6 +88,8 @@ export class Player extends Entity {
 
 	constructor( pos: Vec2 ) {
 		super( pos, 16, 16 );
+
+		this.originOffset.setValues( 0, -this.width / 4 );
 	}
 
 	hitWith( otherEntity: Entity, contact: Contact ): void {
@@ -186,6 +191,26 @@ export class Player extends Entity {
 
 		// apply gravity
 		this.vel.y += grav.y * this.gravSign; 
+	}
+
+	flipGravSign() {
+		this.gravSign *= -1;
+
+		// this happens at rate 0 (instantaneous), leaving it as an animated value for posterity
+		if ( this.gravSign > 0 ) {
+			this.anim.pushFrame( new AnimFrame( {
+				'originOffset': { value: new Vec2( 0, -this.width / 4 ) }
+			} ), {
+				threadIndex: 1
+			} );
+
+		} else if ( this.gravSign < 0 ) {
+			this.anim.pushFrame( new AnimFrame( {
+				'originOffset': { value: new Vec2( 0, this.width / 4 ) }
+			} ), {
+				threadIndex: 1
+			} );
+		}
 	}
 
 	updateCollisionFlags( blockedContacts: Array<Contact>, grav: Vec2 ) {
@@ -329,6 +354,10 @@ export class Player extends Entity {
 		}
 	}
 
+	getOrigin(): Vec2 {
+		return this.pos.plus( this.originOffset );
+	}
+
 	getOwnShapes(): Array<Shape> {
 		/*
 			Chamfer corners in jump direction (away from gravity) make player
@@ -380,10 +409,6 @@ export class Player extends Entity {
 				context.fillRect( -this.width / 4, this.height / 4,
 								 this.width / 2, this.height / 4);
 			}
-			// if ( this.collideUp ) { 
-			// 	context.fillRect(this.pos.x + this.width / 4, this.pos.y, 
-			// 					 this.width / 2, this.height / 4);
-			// }
 			if ( this.collideLeft ) { 
 				context.fillRect(-this.width / 2, -this.height / 4,
 								 this.width / 4, this.height / 2);
