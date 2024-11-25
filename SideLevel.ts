@@ -12,6 +12,7 @@ import { constructors, nameMap } from './lib/juego/constructors.js'
 import { RayHit } from './lib/juego/RayHit.js'
 import { ScrollBox } from './lib/juego/ScrollBox.js'
 import { Shape } from './lib/juego/Shape.js'
+import { Sound } from './lib/juego/Sound.js'
 import { TileArray } from './lib/juego/TileArray.js'
 import { FuncCall } from './lib/juego/serialization.js'
 import { Vec2 } from './lib/juego/Vec2.js'
@@ -816,9 +817,17 @@ export class SideLevel extends OmmatidiaScene {
 			}
 
 			if ( this.coinCount == 0 ) {
-				if ( typeof document === 'undefined' ) child_process.exec( 'aplay ./sfx/roll_laser_as.wav' );
+				if ( typeof document === 'undefined' ) {
+					child_process.exec( 'aplay ./sfx/roll_laser_as.wav' );
+				} else {
+					this.sounds.push( new Sound( './sfx/roll_laser_as.wav' ) );
+				}
 			} else {
-				if ( typeof document === 'undefined' ) child_process.exec( 'aplay ./sfx/roll_laser_f.wav' );
+				if ( typeof document === 'undefined' ) {
+					child_process.exec( 'aplay ./sfx/roll_laser_f.wav' );
+				} else {
+					this.sounds.push( new Sound( './sfx/roll_laser_f.wav' ) );
+				}
 			}
 		}
 		
@@ -844,7 +853,11 @@ export class SideLevel extends OmmatidiaScene {
 						clearLcdQueue();
 						this.clearMessageQueue();
 						this.pushMessage( 'CONNECTION LOST' );
-						if ( typeof document === 'undefined' ) child_process.exec( 'aplay ./sfx/death.wav' );
+						if ( typeof document === 'undefined' ) {
+							child_process.exec( 'aplay ./sfx/death.wav' );
+						} else {
+							this.sounds.push( new Sound( './sfx/death.wav' ) );
+						}
 
 						setTimeout( () => {
 							this.pushControlMessage( 'death' );
@@ -926,7 +939,7 @@ export class SideLevel extends OmmatidiaScene {
 				} ) );
 
 				this.anim.pushFrame( new AnimFrame( {
-					'wait': { value: 0, expireOnCount: 5000 }
+					'wait': { value: 0, expireOnCount: 3000 }
 				}, [
 					new FuncCall<typeof this.pushMessage>( this, 'pushMessage', [
 						'Your time was ' + timeStr + '. Press $JUMP_KEY to return to the main menu'

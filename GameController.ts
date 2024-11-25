@@ -8,6 +8,7 @@ import { Keyboard, KeyCode } from './lib/juego/keyboard.js'
 import { constructors, nameMap } from './lib/juego/constructors.js'
 import { Selector } from './lib/juego/Selector.js'
 import { FuncCall } from './lib/juego/serialization.js'
+import { Sound } from './lib/juego/Sound.js'
 import { Dict } from './lib/juego/util.js'
 import { Vec2 } from './lib/juego/Vec2.js'
 
@@ -84,6 +85,7 @@ export class GameController extends Controller {
 	}
 
 	musicProc: any = null;
+	musicObj: Sound = null;
 
 	oldTime: number = 0;
 	wait: number = 0;
@@ -151,20 +153,30 @@ export class GameController extends Controller {
 				this.loadTitle();
 			}
 		} );
+
+		if ( typeof document !== 'undefined' ) {
+			this.musicObj = new Sound( './sfx/baby.ogg', new Vec2( 0, 0 ), { loop: true } );
+		}
 	}
 
 	startMusic( filename: string ) {
-		if ( !this.musicProc ) {
-			if ( typeof document === 'undefined' ) {
+		if ( typeof document === 'undefined' ) {
+			if ( !this.musicProc ) {
 				this.musicProc = child_process.spawn( 'ogg123', [filename] );
 			}
+		} else {
+			this.musicObj.play();
 		}
 	}
 
 	endMusic() {
-		if ( this.musicProc ) {
-			this.musicProc.kill( 'SIGINT' );
-			this.musicProc = null;
+		if ( typeof document === 'undefined' ) {
+			if ( this.musicProc ) {
+				this.musicProc.kill( 'SIGINT' );
+				this.musicProc = null;
+			}
+		} else {
+			this.musicObj.pause();
 		}
 	}
 
@@ -336,100 +348,102 @@ export class GameController extends Controller {
 		this.manualResetAnim.update( 1.0, elapsed );
 		this.waitResetAnim.update( 1.0, elapsed );
 
-		if ( Keyboard.keyHeld( KeyCode.LEFT ) &&
-			 Keyboard.keyHeld( KeyCode.RIGHT ) &&
-			 Keyboard.keyHeld( KeyCode.X ) &&
-			 !Keyboard.keyHeld( KeyCode.Z ) ) {
-			
-			if ( this.halfByteAnim.isDone() ) {
-				clearLcdQueue()
-
-				this.halfByteAnim.pushFrame( new AnimFrame( {},[
-					new FuncCall<typeof this.lcdReset>( this, 'lcdReset', [] ),
-					new FuncCall<typeof this.sendLcdString>( this, 'sendLcdString', ['Half Half Half'] )
-				] ) );
-
-				this.halfByteAnim.pushFrame( new AnimFrame( {
-					'wait': { value: 0, expireOnCount: LCD_PACKET_INTERVAL_MS }
-				}, [
-					new FuncCall<typeof this.sendLcdHalfByteForce>( this, 'sendLcdHalfByteForce', [] )
-				] ) );
-
-				this.halfByteAnim.pushFrame( new AnimFrame( {
-					'wait': { value: 0, expireOnCount: 5000 }
-				}, [
-					new FuncCall<typeof this.sendLcdString>( this, 'sendLcdString', ['Half Half Half'] )
-				] ) );
-			}
-
-		} else {
-			this.halfByteAnim.clear();
-		}
-
-		if ( this.currentScene != this.title ) {
-
-			// manual reset
+		if ( typeof document === 'undefined' ) {
 			if ( Keyboard.keyHeld( KeyCode.LEFT ) &&
 				 Keyboard.keyHeld( KeyCode.RIGHT ) &&
 				 Keyboard.keyHeld( KeyCode.X ) &&
-				 Keyboard.keyHeld( KeyCode.Z ) ) {
+				 !Keyboard.keyHeld( KeyCode.Z ) ) {
 				
-				if ( this.manualResetAnim.isDone() ) {
-					clearLcdQueue();
+				if ( this.halfByteAnim.isDone() ) {
+					clearLcdQueue()
 
-					// if held for 4 more seconds, reset game
-					this.manualResetAnim.pushFrame( new AnimFrame( {}, [
-						new FuncCall<typeof this.loadTitle>( this, 'loadTitle', [] )
+					this.halfByteAnim.pushFrame( new AnimFrame( {},[
+						new FuncCall<typeof this.lcdReset>( this, 'lcdReset', [] ),
+						new FuncCall<typeof this.sendLcdString>( this, 'sendLcdString', ['Half Half Half'] )
 					] ) );
 
-					this.manualResetAnim.pushFrame( new AnimFrame( {
-						'wait': { value: 0, expireOnCount: 2000 }
+					this.halfByteAnim.pushFrame( new AnimFrame( {
+						'wait': { value: 0, expireOnCount: LCD_PACKET_INTERVAL_MS }
 					}, [
-						new FuncCall<typeof this.sendLcdString>( this, 'sendLcdString', ['Resetting game...'] )
+						new FuncCall<typeof this.sendLcdHalfByteForce>( this, 'sendLcdHalfByteForce', [] )
 					] ) );
 
-					// if held for 2 seconds, reset level
-					this.manualResetAnim.pushFrame( new AnimFrame( {
-						'wait': { value: 0, expireOnCount: 2000 }
+					this.halfByteAnim.pushFrame( new AnimFrame( {
+						'wait': { value: 0, expireOnCount: 5000 }
 					}, [
-						new FuncCall<typeof this.loadLevelFromList>( this, 'loadLevelFromList', [] )
-					] ) );
-
-					this.manualResetAnim.pushFrame( new AnimFrame( {
-						'wait': { value: 0, expireOnCount: 2000 }
-					}, [
-						new FuncCall<typeof this.sendLcdString>( this, 'sendLcdString', ['Resetting level...'] )
+						new FuncCall<typeof this.sendLcdString>( this, 'sendLcdString', ['Half Half Half'] )
 					] ) );
 				}
 
 			} else {
-				this.manualResetAnim.clear();
+				this.halfByteAnim.clear();
 			}
 
-			// inactivity timeout
-			if ( !Keyboard.keyHeld( KeyCode.LEFT ) &&
-				 !Keyboard.keyHeld( KeyCode.RIGHT ) &&
-				 !Keyboard.keyHeld( KeyCode.X ) &&
-				 !Keyboard.keyHeld( KeyCode.Z ) ) {
+			if ( this.currentScene != this.title ) {
 
-				if ( this.waitResetAnim.isDone() ) {
-					this.waitResetAnim.pushFrame( new AnimFrame( {}, [
-						new FuncCall<typeof this.loadTitle>( this, 'loadTitle', [] )
-					] ) );
+				// manual reset
+				if ( Keyboard.keyHeld( KeyCode.LEFT ) &&
+					 Keyboard.keyHeld( KeyCode.RIGHT ) &&
+					 Keyboard.keyHeld( KeyCode.X ) &&
+					 Keyboard.keyHeld( KeyCode.Z ) ) {
+					
+					if ( this.manualResetAnim.isDone() ) {
+						clearLcdQueue();
 
-					this.waitResetAnim.pushFrame( new AnimFrame( {
-						'wait': { value: 0, expireOnCount: 20000 }
-					}, [
-						new FuncCall<typeof this.sendLcdString>( this, 'sendLcdString', ['Vital signs are low, soft reset in 20 seconds...'] )
-					] ) );
+						// if held for 4 more seconds, reset game
+						this.manualResetAnim.pushFrame( new AnimFrame( {}, [
+							new FuncCall<typeof this.loadTitle>( this, 'loadTitle', [] )
+						] ) );
 
-					this.waitResetAnim.pushFrame( new AnimFrame( {
-						'wait': { value: 0, expireOnCount: 40000 }
-					} ) );
+						this.manualResetAnim.pushFrame( new AnimFrame( {
+							'wait': { value: 0, expireOnCount: 2000 }
+						}, [
+							new FuncCall<typeof this.sendLcdString>( this, 'sendLcdString', ['Resetting game...'] )
+						] ) );
+
+						// if held for 2 seconds, reset level
+						this.manualResetAnim.pushFrame( new AnimFrame( {
+							'wait': { value: 0, expireOnCount: 2000 }
+						}, [
+							new FuncCall<typeof this.loadLevelFromList>( this, 'loadLevelFromList', [] )
+						] ) );
+
+						this.manualResetAnim.pushFrame( new AnimFrame( {
+							'wait': { value: 0, expireOnCount: 2000 }
+						}, [
+							new FuncCall<typeof this.sendLcdString>( this, 'sendLcdString', ['Resetting level...'] )
+						] ) );
+					}
+
+				} else {
+					this.manualResetAnim.clear();
 				}
 
-			} else {	
-				this.waitResetAnim.clear();
+				// inactivity timeout
+				if ( !Keyboard.keyHeld( KeyCode.LEFT ) &&
+					 !Keyboard.keyHeld( KeyCode.RIGHT ) &&
+					 !Keyboard.keyHeld( KeyCode.X ) &&
+					 !Keyboard.keyHeld( KeyCode.Z ) ) {
+
+					if ( this.waitResetAnim.isDone() ) {
+						this.waitResetAnim.pushFrame( new AnimFrame( {}, [
+							new FuncCall<typeof this.loadTitle>( this, 'loadTitle', [] )
+						] ) );
+
+						this.waitResetAnim.pushFrame( new AnimFrame( {
+							'wait': { value: 0, expireOnCount: 20000 }
+						}, [
+							new FuncCall<typeof this.sendLcdString>( this, 'sendLcdString', ['Vital signs are low, soft reset in 20 seconds...'] )
+						] ) );
+
+						this.waitResetAnim.pushFrame( new AnimFrame( {
+							'wait': { value: 0, expireOnCount: 40000 }
+						} ) );
+					}
+
+				} else {	
+					this.waitResetAnim.clear();
+				}
 			}
 		}
 

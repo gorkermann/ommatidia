@@ -3,6 +3,7 @@ import { Entity } from './lib/juego/Entity.js'
 import { Contact } from './lib/juego/Contact.js'
 import { Material } from './lib/juego/Material.js'
 import { Shape } from './lib/juego/Shape.js'
+import { Sound } from './lib/juego/Sound.js'
 import { Vec2 } from './lib/juego/Vec2.js'
 import { Keyboard, KeyCode } from './lib/juego/keyboard.js'
 
@@ -72,6 +73,7 @@ export class Player extends Entity {
 	messages: Array<string> = [];
 
 	slideSoundProc: any = null;
+	slideSoundObj: Sound = null;
 
 	gravSign: number = 1.0;
 	jumpSign: number = 1.0; // tracks gravSign, but not updated until the jump starts
@@ -90,6 +92,10 @@ export class Player extends Entity {
 		super( pos, 16, 16 );
 
 		this.originOffset.setValues( 0, -this.width / 4 );
+
+		if ( typeof document !== 'undefined' ) {
+			this.slideSoundObj = new Sound( './sfx/slide.mp3', new Vec2( 0, 0 ), { loop: true } );
+		}
 	}
 
 	hitWith( otherEntity: Entity, contact: Contact ): void {
@@ -113,8 +119,6 @@ export class Player extends Entity {
 
 		} else if ( otherEntity instanceof Coin ) {
 			otherEntity.removeThis = true;
-
-			//this.jumps += 1;
 		}
 
 		if ( damage > 0 && this.wince == 0.0 ) {
@@ -130,6 +134,10 @@ export class Player extends Entity {
 		if ( this.slideSoundProc ) {
 			this.slideSoundProc.kill( 'SIGINT' );
 			this.slideSoundProc = null;
+		}
+
+		if ( this.slideSoundObj ) {
+			this.slideSoundObj.audio.pause();
 		}
 	}
 
@@ -175,9 +183,14 @@ export class Player extends Entity {
 				this.jumps = 0;//-= 1;
 				this.jumpSign = this.gravSign;
 
-				//this.endSlideSound(); already covered below (collideLeft/Right)?
+				this.endSlideSound();
 
-				if ( typeof document === 'undefined' ) child_process.exec( 'aplay ./sfx/jump.wav' );
+				if ( typeof document === 'undefined' ) {
+					child_process.exec( 'aplay ./sfx/jump.wav' );
+				} else {
+					let s = new Sound( './sfx/jump.wav' );
+					s.play();
+				}
 			}
 		}
 
@@ -311,6 +324,8 @@ export class Player extends Entity {
 					if ( !this.slideSoundProc ) {
 						if ( typeof document === 'undefined' ) {
 							this.slideSoundProc = child_process.spawn( 'aplay', ['./sfx/slide.wav'] );
+						} else {
+							this.slideSoundObj.play();
 						}
 					}
 				}
@@ -318,7 +333,12 @@ export class Player extends Entity {
 		}
 
 		if ( playLandSound ) {
-			if ( typeof document === 'undefined' ) child_process.exec( 'aplay ./sfx/land.wav' );
+			if ( typeof document === 'undefined' ) {
+				child_process.exec( 'aplay ./sfx/land.wav' );
+			} else {
+				let s = new Sound( './sfx/land.wav' );
+				s.play();
+			}
 		}
 
 		if ( !Keyboard.keyHeld( KeyCode.LEFT ) && 
